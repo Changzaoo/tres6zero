@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { login } from '@/services/authService';
 import { parseFirebaseError } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
@@ -20,12 +21,14 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
+  const setUser = useAuthStore((state) => state.setUser);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   async function onSubmit(data: FormData) {
     try {
-      await login(data.email, data.password);
-      navigate('/app/dashboard');
+      const session = await login(data.email, data.password);
+      setUser(session.user);
+      navigate(session.user.subscriptionStatus === 'active' ? '/app/dashboard' : '/app/billing');
     } catch (e: any) {
       toast.error(parseFirebaseError(e.code));
     }

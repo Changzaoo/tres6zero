@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/authStore';
 import { updateUserProfile } from '@/services/authService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -16,6 +17,7 @@ interface FormData {
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const setUser = useAuthStore((state) => state.setUser);
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormData>();
 
   useEffect(() => {
@@ -25,7 +27,8 @@ export default function SettingsPage() {
   async function onSubmit(data: FormData) {
     if (!user) return;
     try {
-      await updateUserProfile(user.uid, data);
+      const updatedUser = await updateUserProfile(user.uid, data);
+      setUser(updatedUser);
       toast.success('Perfil atualizado!');
     } catch { toast.error('Erro ao salvar.'); }
   }

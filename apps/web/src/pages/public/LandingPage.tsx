@@ -26,7 +26,7 @@ export default function LandingPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Entrar</Button>
-          <Button size="sm" onClick={() => navigate('/register')}>Começar grátis</Button>
+          <Button size="sm" onClick={() => navigate('/plans')}>Começar a jornada</Button>
         </div>
       </nav>
 
@@ -43,8 +43,8 @@ export default function LandingPage() {
             Gerencie eventos, publique vídeos 360, gere QR Codes, capture leads e acompanhe métricas — tudo em um só lugar.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button size="xl" onClick={() => navigate('/register')} icon={<ArrowRight className="w-5 h-5" />}>
-              Criar conta grátis
+            <Button size="xl" onClick={() => navigate('/plans')} icon={<ArrowRight className="w-5 h-5" />}>
+              Começar a jornada
             </Button>
             <Button variant="secondary" size="xl" onClick={() => navigate('/login')}>
               Já tenho conta

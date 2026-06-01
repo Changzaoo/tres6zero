@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { getUserProfile } from '@/services/authService';
+import { clearAuthSession, getCurrentUser } from '@/services/authService';
 import type { UserProfile } from '@/types';
 
 interface AuthState {
@@ -11,6 +9,7 @@ interface AuthState {
   setUser: (user: UserProfile | null) => void;
   setLoading: (v: boolean) => void;
   setInitialized: (v: boolean) => void;
+  reset: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,24 +19,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
   setInitialized: (initialized) => set({ initialized }),
+  reset: () => {
+    clearAuthSession();
+    set({ user: null, loading: false, initialized: true });
+  },
 }));
 
-// Initialize auth listener
-onAuthStateChanged(auth, async (firebaseUser) => {
-  const { setUser, setLoading, setInitialized } = useAuthStore.getState();
-  if (firebaseUser) {
-    const profile = await getUserProfile(firebaseUser.uid);
-    setUser(profile || {
-      uid: firebaseUser.uid,
-      name: firebaseUser.displayName || 'Usuário',
-      email: firebaseUser.email || '',
-      role: 'operator',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-  } else {
-    setUser(null);
+async function initializeAuth() {
+  const { setUser, setLoading, setInitialized, reset } = useAuthStore.getState();
+
+  try {
+    const user = await getCurrentUser();
+    setUser(user);
+  } catch {
+    reset();
+  } finally {
+    setLoading(false);
+    setInitialized(true);
   }
-  setLoading(false);
-  setInitialized(true);
-});
+}
+
+initializeAuth();

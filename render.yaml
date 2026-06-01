@@ -15,5 +15,7 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: FIREBASE_API_KEY
+        sync: false
       - key: ALLOW_VERCEL_PREVIEWS
         value: "true"

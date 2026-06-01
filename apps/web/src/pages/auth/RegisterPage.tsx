@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User } from 'lucide-react';
 import { register as registerUser, parseFirebaseError } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
@@ -21,13 +22,15 @@ type FormData = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const setUser = useAuthStore((state) => state.setUser);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   async function onSubmit(data: FormData) {
     try {
-      await registerUser(data.name, data.email, data.password);
+      const session = await registerUser(data.name, data.email, data.password);
+      setUser(session.user);
       toast.success('Conta criada com sucesso!');
-      navigate('/app/dashboard');
+      navigate('/app/billing');
     } catch (e: any) {
       toast.error(parseFirebaseError(e.code));
     }
@@ -39,8 +42,8 @@ export default function RegisterPage() {
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm relative z-10">
         <div className="text-center mb-8">
           <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-brand items-center justify-center text-3xl font-black text-white shadow-2xl shadow-brand-600/40 mb-4">3</div>
-          <h1 className="text-2xl font-bold text-white">Crear conta</h1>
-          <p className="text-white/40 text-sm">O primeiro usuário vira admin automaticamente</p>
+          <h1 className="text-2xl font-bold text-white">Criar conta</h1>
+          <p className="text-white/40 text-sm">Cadastre-se e escolha um plano para liberar a plataforma</p>
         </div>
         <div className="bg-gradient-glass backdrop-blur-sm border border-white/8 rounded-2xl p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -48,7 +51,7 @@ export default function RegisterPage() {
             <Input label="E-mail" type="email" placeholder="seu@email.com" icon={<Mail className="w-4 h-4" />} error={errors.email?.message} {...register('email')} />
             <Input label="Senha" type="password" placeholder="••••••••" icon={<Lock className="w-4 h-4" />} error={errors.password?.message} {...register('password')} />
             <Input label="Confirmar senha" type="password" placeholder="••••••••" icon={<Lock className="w-4 h-4" />} error={errors.confirmPassword?.message} {...register('confirmPassword')} />
-            <Button type="submit" loading={isSubmitting} className="w-full justify-center" size="lg">Criar conta</Button>
+            <Button type="submit" loading={isSubmitting} className="w-full justify-center" size="lg">Começar a jornada</Button>
           </form>
           <p className="text-center text-sm text-white/40 mt-4">
             Já tem conta? <Link to="/login" className="text-brand-400 hover:text-brand-300 font-medium">Entrar</Link>

@@ -2,6 +2,7 @@ import { Request, Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'node:crypto';
+import { requireActiveSubscription } from './auth';
 
 export const uploadRouter = Router();
 
@@ -37,7 +38,7 @@ const imageUpload = multer({
   },
 });
 
-uploadRouter.post('/video', videoUpload.single('file'), async (req, res, next) => {
+uploadRouter.post('/video', requireActiveSubscription, videoUpload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
 
@@ -62,7 +63,7 @@ uploadRouter.post('/video', videoUpload.single('file'), async (req, res, next) =
   } catch (e) { next(e); }
 });
 
-uploadRouter.post('/image', imageUpload.single('file'), async (req, res, next) => {
+uploadRouter.post('/image', requireActiveSubscription, imageUpload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
 

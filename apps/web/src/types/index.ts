@@ -5,6 +5,8 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole;
+  subscriptionStatus?: 'unpaid' | 'active' | 'past_due' | 'canceled';
+  planId?: string | null;
   companyName?: string;
   avatarUrl?: string;
   createdAt: string;

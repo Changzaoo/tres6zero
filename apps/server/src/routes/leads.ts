@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requireActiveSubscription } from './auth';
 
 export const leadRouter = Router();
 
 const exportSchema = z.object({ eventId: z.string().optional() });
 
-leadRouter.post('/export', (req, res, next) => {
+leadRouter.post('/export', requireActiveSubscription, (req, res, next) => {
   try {
     exportSchema.parse(req.body);
     const csv = 'name,phone,email,instagram,source,createdAt\n';

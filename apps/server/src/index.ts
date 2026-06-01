@@ -9,6 +9,7 @@ import { videoRouter } from './routes/video';
 import { qrRouter } from './routes/qr';
 import { leadRouter } from './routes/leads';
 import { trackRouter } from './routes/track';
+import { authRouter } from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -65,6 +66,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false }));
 
 app.use('/health', healthRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/video', videoRouter);
 app.use('/api/qr', qrRouter);

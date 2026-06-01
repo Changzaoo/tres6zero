@@ -2,10 +2,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Calendar, Video, Layers, Users,
-  BarChart2, Settings, LogOut, Camera, X, ChevronRight, Shield
+  BarChart2, Settings, LogOut, Camera, X, Shield, Lock, CreditCard,
 } from 'lucide-react';
 import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 
 interface SidebarProps {
@@ -21,15 +22,18 @@ const navItems = [
   { to: '/app/templates', label: 'Templates', icon: Layers },
   { to: '/app/leads', label: 'Leads', icon: Users },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
-  { to: '/app/settings', label: 'Configurações', icon: Settings },
+  { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
+  { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasActiveSubscription } = useAuth();
+  const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
 
   async function handleLogout() {
     await logout();
+    resetAuth();
     navigate('/login');
     toast.success('Até logo!');
   }
@@ -47,15 +51,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isActive ? 'bg-brand-500/15 text-brand-400 border border-brand-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/5'}`
-            }>
-            <Icon className="w-4.5 h-4.5 shrink-0" style={{ width: 18, height: 18 }} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+        {navItems.map(({ to, label, icon: Icon, unlocked }) => {
+          const locked = !hasActiveSubscription && !unlocked;
+          return (
+            <NavLink key={to} to={to} onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isActive ? 'bg-brand-500/15 text-brand-400 border border-brand-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/5'} ${locked ? 'opacity-70' : ''}`
+              }>
+              <Icon className="w-4.5 h-4.5 shrink-0" style={{ width: 18, height: 18 }} />
+              <span className="flex-1">{label}</span>
+              {locked && <Lock className="w-3.5 h-3.5 text-white/30" />}
+            </NavLink>
+          );
+        })}
 
         {isAdmin && (
           <NavLink to="/app/admin" onClick={onClose}
@@ -63,7 +71,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mt-2 ${isActive ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/5'}`
             }>
             <Shield style={{ width: 18, height: 18 }} />
-            <span>Admin</span>
+            <span className="flex-1">Admin</span>
+            {!hasActiveSubscription && <Lock className="w-3.5 h-3.5 text-white/30" />}
           </NavLink>
         )}
       </nav>
@@ -75,7 +84,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white/80 truncate">{user?.name}</p>
-            <p className="text-xs text-white/40 truncate">{user?.role}</p>
+            <p className="text-xs text-white/40 truncate">
+              {hasActiveSubscription ? 'Assinatura ativa' : 'Aguardando pagamento'}
+            </p>
           </div>
         </div>
         <button onClick={handleLogout}
@@ -89,10 +100,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop */}
       <aside className="hidden lg:block shrink-0">{content}</aside>
 
-      {/* Mobile drawer */}
       <AnimatePresence>
         {open && (
           <div className="fixed inset-0 z-50 lg:hidden">
