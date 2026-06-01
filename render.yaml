@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: tres6zero
+    name: six3
     runtime: node
     plan: free
-    buildCommand: npm install --workspace=@tres6zero/server --include-workspace-root=false && npm run build:server
-    startCommand: npm run start --workspace=@tres6zero/server
+    buildCommand: npm install --workspace=@six3/server --include-workspace-root=false && npm run build:server
+    startCommand: npm run start --workspace=@six3/server
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION

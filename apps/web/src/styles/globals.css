@@ -13,7 +13,16 @@
 
   body {
     @apply bg-surface text-white font-sans antialiased;
-    background-color: #0f0f13;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.018), transparent 28rem),
+      linear-gradient(180deg, #08090c 0%, #0b0d12 48%, #08090c 100%);
+    min-width: 320px;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: rgba(139, 92, 246, 0.5);
+    color: #fff;
   }
 
   ::-webkit-scrollbar {
@@ -31,15 +40,49 @@
   }
 
   select option {
-    background-color: #1a1a24;
+    background-color: #151821;
   }
 }
 
 @layer utilities {
   .bg-gradient-glass {
-    background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.018) 100%);
   }
   .bg-gradient-brand {
-    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    background: linear-gradient(135deg, #3b6dff 0%, #8b5cf6 100%);
+  }
+  .six3-grid-bg {
+    position: relative;
+    overflow-x: clip;
+  }
+  .six3-grid-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent 70%);
+    opacity: 0.18;
+  }
+  .brand-wordmark {
+    letter-spacing: 0;
+  }
+  .brand-degree {
+    display: inline-block;
+    margin-left: 0.04em;
+    background: linear-gradient(135deg, #3b6dff 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.45);
+  }
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

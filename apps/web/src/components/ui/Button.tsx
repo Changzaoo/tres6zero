@@ -13,18 +13,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-gradient-brand text-white shadow-lg shadow-brand-600/30 hover:shadow-brand-600/50',
-  secondary: 'bg-surface-50 text-white border border-white/10 hover:bg-white/10',
-  ghost: 'text-white/70 hover:text-white hover:bg-white/8',
+  primary: 'bg-gradient-brand text-white shadow-glow ring-1 ring-white/[0.15] hover:shadow-[0_22px_70px_-26px_rgba(139,92,246,0.95)]',
+  secondary: 'bg-white/[0.055] text-white border border-white/10 hover:bg-white/[0.085] hover:border-white/[0.15]',
+  ghost: 'text-white/70 hover:text-white hover:bg-white/[0.06]',
   danger: 'bg-red-600/90 text-white hover:bg-red-600',
-  outline: 'border border-brand-500 text-brand-400 hover:bg-brand-500/10',
+  outline: 'border border-brand-400/55 text-brand-300 hover:bg-brand-500/10 hover:text-white',
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'px-3 py-1.5 text-sm rounded-lg',
-  md: 'px-4 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3 text-base rounded-xl',
-  xl: 'px-8 py-4 text-lg rounded-2xl',
+  sm: 'px-3.5 py-2 text-sm rounded-full',
+  md: 'px-5 py-2.5 text-sm rounded-full',
+  lg: 'px-6 py-3 text-base rounded-full',
+  xl: 'px-7 py-4 text-base sm:text-lg rounded-full',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -34,7 +34,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       whileTap={{ scale: 0.97 }}
       whileHover={{ scale: 1.01 }}
       disabled={disabled || loading}
-      className={`inline-flex items-center gap-2 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center gap-2 font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
       {...(props as any)}
     >
       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}

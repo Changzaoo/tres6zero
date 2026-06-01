@@ -1,19 +1,20 @@
-# Tres6Zero - Plataforma 360 Photo Booth
+# SIX3° - Plataforma SaaS 360
 
-Sistema para operacao de eventos com plataforma 360: cadastro, upload, galeria publica, QR Code, leads, templates e dashboard.
+Sistema para operação de experiências 360: cadastro, pagamento, acesso por assinatura, upload, galeria pública, QR Code, leads, templates, modo offline e dashboard.
 
 ## Stack
 
 - Frontend: React + Vite + TypeScript + Tailwind
 - Backend: Node.js + Express + TypeScript
 - Dados/auth/storage: Firebase client SDK
+- Pagamento: Stripe Checkout com Pix
 - Deploy frontend: Vercel
 - Deploy backend: Render (`https://tres6zero.onrender.com`)
 
 ## Estrutura
 
 ```text
-tres6zero/
+six3/
   apps/
     web/       # Frontend React/Vite
     server/    # Backend Express para Render
@@ -32,7 +33,7 @@ npm run dev:web
 npm run dev:server
 ```
 
-Copie `.env.example` para `.env` e preencha os valores locais. Nao coloque secrets em variaveis `VITE_*`, porque tudo que começa com `VITE_` entra no bundle publico do navegador.
+Copie `.env.example` para `.env` e preencha os valores locais. Não coloque secrets em variáveis `VITE_*`, porque tudo que começa com `VITE_` entra no bundle público do navegador.
 
 ## Build local
 
@@ -44,16 +45,16 @@ npm run typecheck
 
 ## Deploy na Vercel
 
-Use a raiz do repositorio como Root Directory do projeto Vercel.
+Use a raiz do repositório como Root Directory do projeto Vercel.
 
-Configuracao esperada:
+Configuração esperada:
 
-- Install Command: `npm install --workspace=@tres6zero/web --include-workspace-root=false`
+- Install Command: `npm install --workspace=@six3/web --include-workspace-root=false`
 - Build Command: `npm run build:web`
 - Output Directory: `apps/web/dist`
 - Framework Preset: Vite
 
-Variaveis na Vercel:
+Variáveis na Vercel:
 
 ```text
 VITE_API_URL=https://tres6zero.onrender.com
@@ -67,28 +68,31 @@ VITE_FIREBASE_APP_ID=...
 VITE_FIREBASE_MEASUREMENT_ID=...
 ```
 
-Somente variaveis publicas devem ir para a Vercel. Service accounts, private keys e tokens ficam fora do client.
+Somente variáveis públicas devem ir para a Vercel. Service accounts, private keys, Stripe secret keys e tokens ficam fora do client.
 
 ## Deploy no Render
 
 O backend deve ser publicado no Render usando `render.yaml` ou os comandos:
 
 ```bash
-npm install --workspace=@tres6zero/server --include-workspace-root=false
+npm install --workspace=@six3/server --include-workspace-root=false
 npm run build:server
-npm run start --workspace=@tres6zero/server
+npm run start --workspace=@six3/server
 ```
 
-Variaveis no Render:
+Variáveis no Render:
 
 ```text
 PUBLIC_BACKEND_URL=https://tres6zero.onrender.com
 FRONTEND_URL=https://seu-frontend.vercel.app
 CORS_ORIGINS=https://seu-frontend.vercel.app
 ALLOW_VERCEL_PREVIEWS=true
+ADMIN_EMAIL=...
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
 ```
 
-## URLs uteis
+## URLs úteis
 
 - Frontend local: `http://localhost:5173`
 - Backend local: `http://localhost:3333`

@@ -8,7 +8,7 @@ type PlanFeature = {
 export const PLANS = [
   {
     id: 'starter',
-    name: 'Essencial 360',
+    name: 'Essencial SIX3°',
     price: 69.99,
     tagline: 'Para começar com uma operação simples e bem organizada.',
     highlight: false,
@@ -37,7 +37,7 @@ export const PLANS = [
   },
   {
     id: 'pro',
-    name: 'Profissional',
+    name: 'Profissional SIX3°',
     price: 129.99,
     tagline: 'Para quem quer vender uma experiência mais completa.',
     highlight: true,
@@ -66,7 +66,7 @@ export const PLANS = [
   },
   {
     id: 'unlimited',
-    name: 'Ilimitado 360',
+    name: 'Ilimitado SIX3°',
     price: 199.99,
     tagline: 'Tudo liberado para escalar sem travas.',
     highlight: false,

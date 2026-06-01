@@ -14,7 +14,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">{icon}</div>}
         <input
           ref={ref}
-          className={`w-full bg-white/5 border ${error ? 'border-red-500/60' : 'border-white/10'} rounded-xl px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30 transition-all ${icon ? 'pl-10' : ''} ${className}`}
+          className={`w-full bg-white/[0.055] border ${error ? 'border-red-500/60' : 'border-white/10'} rounded-[18px] px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-brand-400/70 focus:ring-2 focus:ring-brand-500/20 transition-all ${icon ? 'pl-10' : ''} ${className}`}
           {...props}
         />
       </div>

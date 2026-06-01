@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -35,20 +36,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-900/20 to-transparent pointer-events-none" />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-600/10 rounded-full blur-3xl pointer-events-none" />
-
+    <div className="six3-grid-bg min-h-screen bg-surface flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm relative z-10">
 
         <div className="text-center mb-8">
-          <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-brand items-center justify-center text-3xl font-black text-white shadow-2xl shadow-brand-600/40 mb-4">3</div>
-          <h1 className="text-2xl font-bold text-white">Tres6Zero</h1>
-          <p className="text-white/40 text-sm mt-1">Plataforma 360 Photo Booth</p>
+          <BrandLogo className="items-center" wordmarkClassName="text-4xl" showSubtitle />
         </div>
 
-        <div className="bg-gradient-glass backdrop-blur-sm border border-white/8 rounded-2xl p-6 shadow-2xl">
+        <div className="bg-gradient-glass backdrop-blur-xl border border-white/[0.08] rounded-[24px] p-6 shadow-glass">
           <h2 className="text-lg font-semibold text-white mb-6">Entrar na conta</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -74,7 +70,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-white/40 mt-4">
             Não tem conta?{' '}
-            <Link to="/register" className="text-brand-400 hover:text-brand-300 font-medium">Criar conta</Link>
+            <Link to="/register" className="text-brand-300 hover:text-white font-medium">Começar a jornada</Link>
           </p>
         </div>
       </motion.div>

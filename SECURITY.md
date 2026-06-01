@@ -1,4 +1,4 @@
-# Security Guide - Tres6Zero
+# Security Guide - SIX3°
 
 ## Environment Variables
 

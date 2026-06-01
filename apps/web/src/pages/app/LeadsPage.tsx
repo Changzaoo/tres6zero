@@ -52,7 +52,7 @@ export default function LeadsPage() {
         <div className="space-y-2">
           {filtered.map(lead => (
             <motion.div key={lead.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="bg-gradient-glass border border-white/8 rounded-xl p-4 flex items-center gap-3">
+              className="bg-gradient-glass border border-white/[0.08] rounded-xl p-4 flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-brand flex items-center justify-center text-sm font-bold text-white shrink-0">
                 {lead.name.charAt(0).toUpperCase()}
               </div>

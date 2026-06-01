@@ -1,8 +1,8 @@
 import { API_URL } from '@/config/api';
 import type { UserProfile } from '@/types';
 
-const TOKEN_KEY = 'tres6zero.authToken';
-const REFRESH_TOKEN_KEY = 'tres6zero.refreshToken';
+const TOKEN_KEY = 'six3.authToken';
+const REFRESH_TOKEN_KEY = 'six3.refreshToken';
 
 export type AuthSession = {
   token: string;

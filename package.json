@@ -1,5 +1,5 @@
 {
-  "name": "tres6zero",
+  "name": "six3",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -14,9 +14,9 @@
     "dev": "npm run dev:server & npm run dev:web",
     "dev:web": "npm --workspace=apps/web run dev",
     "dev:server": "npm --workspace=apps/server run dev",
-    "build": "npm run build --workspace=@tres6zero/web",
-    "build:web": "npm run build --workspace=@tres6zero/web",
-    "build:server": "npm run build --workspace=@tres6zero/server",
+    "build": "npm run build --workspace=@six3/web",
+    "build:web": "npm run build --workspace=@six3/web",
+    "build:server": "npm run build --workspace=@six3/server",
     "vercel-build": "npm run build:web",
     "lint": "npm --workspace=apps/web run lint && npm --workspace=apps/server run lint",
     "typecheck": "npm --workspace=apps/web run typecheck && npm --workspace=apps/server run typecheck",

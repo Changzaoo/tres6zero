@@ -25,9 +25,9 @@ export type BillingAccess = {
 };
 
 export const BILLING_PLANS: Record<BillingPlanId, { name: string; amount: number }> = {
-  starter: { name: 'Essencial 360', amount: 6999 },
-  pro: { name: 'Profissional', amount: 12999 },
-  unlimited: { name: 'Ilimitado 360', amount: 19999 },
+  starter: { name: 'Essencial SIX3°', amount: 6999 },
+  pro: { name: 'Profissional SIX3°', amount: 12999 },
+  unlimited: { name: 'Ilimitado SIX3°', amount: 19999 },
 };
 
 let stripeClient: StripeClient | null = null;
@@ -111,7 +111,7 @@ export async function findOrCreateCustomerForUser(user: AuthenticatedBillingUser
     name: user.displayName,
     metadata: {
       firebase_uid: user.localId,
-      source: 'tres6zero',
+      source: 'six3',
     },
   });
 }

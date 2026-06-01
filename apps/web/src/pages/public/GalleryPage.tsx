@@ -53,7 +53,7 @@ export default function GalleryPage() {
 
   if (event.passwordEnabled && !unlocked) return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-gradient-glass border border-white/8 rounded-2xl p-6 space-y-4">
+      <div className="w-full max-w-sm bg-gradient-glass border border-white/[0.08] rounded-2xl p-6 space-y-4">
         <div className="text-center">
           <Lock className="w-10 h-10 text-brand-400 mx-auto mb-3" />
           <h2 className="text-lg font-bold text-white">Galeria protegida</h2>
@@ -108,7 +108,7 @@ export default function GalleryPage() {
             {videos.map(v => (
               <motion.div key={v.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 onClick={() => navigate(`/g/${eventSlug}/${v.id}`)}
-                className="bg-gradient-glass border border-white/8 rounded-xl overflow-hidden cursor-pointer hover:border-brand-500/30 transition-all">
+                className="bg-gradient-glass border border-white/[0.08] rounded-xl overflow-hidden cursor-pointer hover:border-brand-500/30 transition-all">
                 <div className="aspect-[9/16] bg-black/40 flex items-center justify-center">
                   {v.thumbnailUrl ? (
                     <img src={v.thumbnailUrl} className="w-full h-full object-cover" alt={v.title} />

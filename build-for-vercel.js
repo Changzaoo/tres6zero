@@ -10,6 +10,6 @@ if (!existsSync(webDir)) {
   process.exit(1);
 }
 
-console.log('[vercel] Building @tres6zero/web');
+console.log('[vercel] Building @six3/web');
 execSync('npm run build:web', { cwd: repoRoot, stdio: 'inherit' });
 console.log('[vercel] Build complete');

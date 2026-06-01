@@ -28,9 +28,9 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
           <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }}
             className={`relative w-full ${sizes[size]} bg-surface-50 rounded-2xl border border-white/10 shadow-2xl shadow-black/50`}>
             {title && (
-              <div className="flex items-center justify-between p-6 border-b border-white/8">
+              <div className="flex items-center justify-between p-6 border-b border-white/[0.08]">
                 <h2 className="text-lg font-semibold">{title}</h2>
-                <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/8 text-white/50 hover:text-white transition-colors">
+                <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/[0.08] text-white/50 hover:text-white transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>

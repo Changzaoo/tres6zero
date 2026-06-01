@@ -51,7 +51,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="rounded-2xl border border-white/8 bg-gradient-glass p-4 sm:p-5">
+      <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${hasActiveSubscription ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-400'}`}>

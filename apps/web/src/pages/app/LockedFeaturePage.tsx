@@ -7,7 +7,7 @@ export default function LockedFeaturePage() {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="max-w-md text-center rounded-2xl border border-white/8 bg-gradient-glass p-8">
+      <div className="max-w-md text-center rounded-2xl border border-white/[0.08] bg-gradient-glass p-8">
         <div className="mx-auto mb-5 w-16 h-16 rounded-2xl bg-yellow-500/15 border border-yellow-500/25 flex items-center justify-center">
           <LockKeyhole className="w-8 h-8 text-yellow-400" />
         </div>

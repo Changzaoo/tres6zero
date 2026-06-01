@@ -43,11 +43,11 @@ export default function SettingsPage() {
           <Input label="Empresa" placeholder="Nome da empresa" icon={<Building className="w-4 h-4" />} {...register('companyName')} />
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-white/70">E-mail</label>
-            <p className="text-sm text-white/40 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5">{user?.email}</p>
+            <p className="text-sm text-white/40 bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5">{user?.email}</p>
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-white/70">Função</label>
-            <p className="text-sm text-white/40 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 capitalize">{user?.role}</p>
+            <p className="text-sm text-white/40 bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 capitalize">{user?.role}</p>
           </div>
           <Button type="submit" loading={isSubmitting}>Salvar perfil</Button>
         </form>

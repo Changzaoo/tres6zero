@@ -3,6 +3,7 @@ import { Layers, Zap } from 'lucide-react';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { motion } from 'framer-motion';
 import type { AppTemplate } from '@/types';
 
@@ -35,10 +36,10 @@ export default function TemplatesPage() {
           {templates.map(t => (
             <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.02 }} className="cursor-pointer group">
-              <div className="rounded-2xl overflow-hidden border border-white/8 hover:border-brand-500/30 transition-all">
+              <div className="rounded-2xl overflow-hidden border border-white/[0.08] hover:border-brand-500/30 transition-all">
                 <div className="aspect-[9/16] max-h-48 flex items-center justify-center relative"
                   style={{ background: `linear-gradient(135deg, ${t.colors.primary}, ${t.colors.secondary})` }}>
-                  <span className="text-white/80 text-4xl font-black drop-shadow-lg">3</span>
+                  <BrandWordmark className="text-3xl drop-shadow-lg" />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-white text-xs font-medium bg-black/40 px-3 py-1.5 rounded-full">Usar template</span>
                   </div>

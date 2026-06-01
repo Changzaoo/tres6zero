@@ -19,10 +19,10 @@ const PAGE_TITLES: Record<string, string> = {
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] || 'Tres6Zero';
+  const title = PAGE_TITLES[location.pathname] || 'SIX3°';
 
   return (
-    <div className="flex h-screen bg-surface overflow-hidden">
+    <div className="six3-grid-bg flex h-screen bg-surface overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} title={title} />

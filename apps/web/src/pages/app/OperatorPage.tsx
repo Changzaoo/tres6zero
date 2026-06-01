@@ -126,7 +126,7 @@ export default function OperatorPage() {
 
       {step === 'select' && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          <div className="bg-gradient-glass border border-white/8 rounded-2xl p-6 space-y-4">
+          <div className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-6 space-y-4">
             <Select label="Evento ativo" options={eventOptions} value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
@@ -192,7 +192,7 @@ export default function OperatorPage() {
 
       {step === 'processing' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="bg-gradient-glass border border-white/8 rounded-2xl p-8 flex flex-col items-center gap-4">
+          className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-8 flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-brand-400 animate-spin" />
           <p className="text-white font-medium">Enviando vídeo...</p>
           <div className="w-full bg-white/10 rounded-full h-2">

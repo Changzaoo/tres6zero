@@ -15,7 +15,7 @@ export function StatCard({ title, value, icon, trend, color = 'text-brand-400', 
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-white/8 bg-gradient-glass backdrop-blur-sm p-5 flex flex-col gap-4"
+      className="rounded-2xl border border-white/[0.08] bg-gradient-glass backdrop-blur-sm p-5 flex flex-col gap-4"
     >
       <div className="flex items-center justify-between">
         <span className="text-sm text-white/50 font-medium">{title}</span>

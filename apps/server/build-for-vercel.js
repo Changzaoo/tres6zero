@@ -14,7 +14,7 @@ if (!existsSync(webDir)) {
 }
 
 console.log('[vercel] Installing frontend workspace');
-execSync('npm install --workspace=@tres6zero/web --include-workspace-root=false', {
+execSync('npm install --workspace=@six3/web --include-workspace-root=false', {
   cwd: repoRoot,
   stdio: 'inherit',
 });

@@ -76,7 +76,7 @@ export default function EventsPage() {
         <div className="space-y-3">
           {events.map(event => (
             <motion.div key={event.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-glass border border-white/8 rounded-2xl p-5 flex items-center gap-4 hover:border-brand-500/20 transition-all">
+              className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-5 flex items-center gap-4 hover:border-brand-500/20 transition-all">
               <div className="w-12 h-12 rounded-xl bg-gradient-brand flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-lg shadow-brand-600/20">
                 {event.name.charAt(0)}
               </div>
@@ -95,25 +95,25 @@ export default function EventsPage() {
                 <Button variant="secondary" size="sm" onClick={() => navigate(`/app/events/${event.id}`)}>Ver</Button>
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === event.id ? null : event.id)}
-                    className="p-2 rounded-lg hover:bg-white/8 text-white/40 hover:text-white transition-colors">
+                    className="p-2 rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-white transition-colors">
                     <MoreVertical className="w-4 h-4" />
                   </button>
                   {menuId === event.id && (
                     <div className="absolute right-0 top-full mt-1 w-44 bg-surface-50 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
                       <button onClick={() => { navigate(`/app/events/${event.id}/edit`); setMenuId(null); }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/8 hover:text-white">
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.08] hover:text-white">
                         <Edit2 className="w-4 h-4" /> Editar
                       </button>
                       <button onClick={() => handleDuplicate(event.id)}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/8 hover:text-white">
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.08] hover:text-white">
                         <Copy className="w-4 h-4" /> Duplicar
                       </button>
                       <button onClick={() => handleArchive(event.id)}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/8 hover:text-white">
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.08] hover:text-white">
                         <Archive className="w-4 h-4" /> Arquivar
                       </button>
                       <button onClick={() => { setDeleteId(event.id); setMenuId(null); }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/8">
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/[0.08]">
                         <Trash2 className="w-4 h-4" /> Excluir
                       </button>
                     </div>

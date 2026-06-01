@@ -83,7 +83,7 @@ export default function AdminPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/8 bg-gradient-glass p-5">
+      <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-5">
         <div className="mb-4 flex items-center gap-2">
           <UserCheck className="h-5 w-5 text-brand-400" />
           <h2 className="text-base font-semibold text-white">Clientes com acesso</h2>
@@ -94,7 +94,7 @@ export default function AdminPage() {
         ) : (
           <div className="space-y-2">
             {customers.map((customer) => (
-              <div key={customer.id} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+              <div key={customer.id} className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-white">{customer.name || customer.email || 'Cliente'}</p>

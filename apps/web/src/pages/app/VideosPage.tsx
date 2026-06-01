@@ -35,7 +35,7 @@ export default function VideosPage() {
         <div className="space-y-3">
           {videos.map(v => (
             <motion.div key={v.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="bg-gradient-glass border border-white/8 rounded-2xl p-4 flex items-center gap-4">
+              className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-4 flex items-center gap-4">
               <div className="w-16 h-12 rounded-xl bg-black/40 overflow-hidden shrink-0">
                 {v.thumbnailUrl ? <img src={v.thumbnailUrl} className="w-full h-full object-cover" alt="" /> :
                   <div className="w-full h-full flex items-center justify-center text-white/20"><Video className="w-5 h-5" /></div>}
@@ -52,7 +52,7 @@ export default function VideosPage() {
                 </div>
               </div>
               {v.videoUrl && (
-                <a href={v.videoUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg text-white/30 hover:text-white hover:bg-white/8">
+                <a href={v.videoUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg text-white/30 hover:text-white hover:bg-white/[0.08]">
                   <ExternalLink className="w-4 h-4" />
                 </a>
               )}

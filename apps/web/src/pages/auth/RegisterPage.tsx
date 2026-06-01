@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 
 const schema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
@@ -37,15 +38,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-900/20 to-transparent pointer-events-none" />
+    <div className="six3-grid-bg min-h-screen bg-surface flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-brand items-center justify-center text-3xl font-black text-white shadow-2xl shadow-brand-600/40 mb-4">3</div>
+          <BrandLogo className="items-center mb-4" wordmarkClassName="text-4xl" />
           <h1 className="text-2xl font-bold text-white">Criar conta</h1>
           <p className="text-white/40 text-sm">Cadastre-se e escolha um plano para liberar a plataforma</p>
         </div>
-        <div className="bg-gradient-glass backdrop-blur-sm border border-white/8 rounded-2xl p-6">
+        <div className="bg-gradient-glass backdrop-blur-xl border border-white/[0.08] rounded-[24px] p-6 shadow-glass">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input label="Nome" placeholder="Seu nome" icon={<User className="w-4 h-4" />} error={errors.name?.message} {...register('name')} />
             <Input label="E-mail" type="email" placeholder="seu@email.com" icon={<Mail className="w-4 h-4" />} error={errors.email?.message} {...register('email')} />

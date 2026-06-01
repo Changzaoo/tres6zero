@@ -8,6 +8,7 @@ import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 
 interface SidebarProps {
   open?: boolean;
@@ -39,15 +40,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   }
 
   const content = (
-    <div className="h-full flex flex-col bg-surface-100 border-r border-white/8 w-64">
-      <div className="p-5 border-b border-white/8">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-brand flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-brand-600/30">3</div>
-          <div>
-            <span className="font-bold text-white text-base">Tres6Zero</span>
-            <p className="text-xs text-white/40">360 Photo Booth</p>
-          </div>
-        </div>
+    <div className="h-full flex flex-col bg-surface-100/95 border-r border-white/[0.08] w-64 backdrop-blur-xl">
+      <div className="p-5 border-b border-white/[0.08]">
+        <BrandLogo wordmarkClassName="text-2xl" showSubtitle subtitle="SaaS 360" />
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
@@ -56,9 +51,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           return (
             <NavLink key={to} to={to} onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isActive ? 'bg-brand-500/15 text-brand-400 border border-brand-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/5'} ${locked ? 'opacity-70' : ''}`
+                `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all group ${isActive ? 'bg-brand-500/15 text-brand-200 border border-brand-400/20' : 'text-white/50 hover:text-white/90 hover:bg-white/[0.055]'} ${locked ? 'opacity-70' : ''}`
               }>
-              <Icon className="w-4.5 h-4.5 shrink-0" style={{ width: 18, height: 18 }} />
+              <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
               <span className="flex-1">{label}</span>
               {locked && <Lock className="w-3.5 h-3.5 text-white/30" />}
             </NavLink>
@@ -68,7 +63,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {isAdmin && (
           <NavLink to="/app/admin" onClick={onClose}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mt-2 ${isActive ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/5'}`
+              `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all mt-2 ${isActive ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/[0.055]'}`
             }>
             <Shield style={{ width: 18, height: 18 }} />
             <span className="flex-1">Admin</span>
@@ -76,7 +71,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
       </nav>
 
-      <div className="p-3 border-t border-white/8">
+      <div className="p-3 border-t border-white/[0.08]">
         <div className="flex items-center gap-3 px-3 py-2.5 mb-1">
           <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-xs font-bold text-white">
             {user?.name?.charAt(0).toUpperCase()}
@@ -89,7 +84,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
         </div>
         <button onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-red-400 hover:bg-red-500/8 transition-all">
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all">
           <LogOut style={{ width: 16, height: 16 }} />
           <span>Sair</span>
         </button>

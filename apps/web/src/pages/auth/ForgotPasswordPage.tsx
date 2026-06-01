@@ -8,6 +8,7 @@ import { resetPassword } from '@/services/authService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 
 const schema = z.object({ email: z.string().email('E-mail inválido') });
 type FormData = z.infer<typeof schema>;
@@ -25,13 +26,14 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+    <div className="six3-grid-bg min-h-screen bg-surface flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
         <div className="text-center mb-8">
+          <BrandLogo className="items-center mb-4" wordmarkClassName="text-4xl" />
           <h1 className="text-2xl font-bold text-white">Recuperar senha</h1>
           <p className="text-white/40 text-sm mt-1">Enviaremos um link para seu e-mail</p>
         </div>
-        <div className="bg-gradient-glass border border-white/8 rounded-2xl p-6">
+        <div className="bg-gradient-glass border border-white/[0.08] rounded-[24px] p-6 shadow-glass backdrop-blur-xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input label="E-mail" type="email" placeholder="seu@email.com" icon={<Mail className="w-4 h-4" />} error={errors.email?.message} {...register('email')} />
             <Button type="submit" loading={isSubmitting} className="w-full justify-center" size="lg">Enviar link</Button>
