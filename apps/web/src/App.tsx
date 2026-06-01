@@ -50,6 +50,14 @@ function PaidRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, initialized, isAdmin } = useAuth();
+  if (!initialized) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/app/billing" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   const { initialized } = useAuth();
   if (!initialized) return <LoadingScreen />;
@@ -82,7 +90,7 @@ export default function App() {
         <Route path="analytics" element={<PaidRoute><AnalyticsPage /></PaidRoute>} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="admin" element={<PaidRoute><AdminPage /></PaidRoute>} />
+        <Route path="admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,44 +1,64 @@
 import { useEffect, useState } from 'react';
-import { Shield, Users, Calendar, Video } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { Shield, ShieldCheck, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAllEvents } from '@/services/eventService';
-import { getAllLeads } from '@/services/leadService';
+import { getAdminSession } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { StatCard } from '@/components/ui/StatCard';
 import { toast } from '@/components/ui/Toast';
+import type { UserProfile } from '@/types';
 
 export default function AdminPage() {
-  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ events: 0, leads: 0 });
+  const setUser = useAuthStore((state) => state.setUser);
+  const [adminUser, setAdminUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    if (!isAdmin) { toast.error('Acesso restrito a administradores.'); navigate('/app/dashboard'); return; }
-    Promise.all([getAllEvents(), getAllLeads()]).then(([events, leads]) => {
-      setStats({ events: events.length, leads: leads.length });
-    });
-  }, [isAdmin]);
+    let mounted = true;
 
-  if (!isAdmin) return null;
+    getAdminSession()
+      .then(({ user }) => {
+        if (!mounted) return;
+        setAdminUser(user);
+        setUser(user);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        toast.error('Acesso restrito ao administrador.');
+        navigate('/app/billing', { replace: true });
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate, setUser]);
+
+  if (!adminUser) {
+    return <LoadingState message="Validando acesso administrativo..." />;
+  }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Shield className="w-6 h-6 text-yellow-400" />
+        <Shield className="h-6 w-6 text-yellow-400" />
         <div>
           <h1 className="text-2xl font-bold text-white">Admin</h1>
-          <p className="text-white/40 text-sm">Painel administrativo</p>
+          <p className="text-sm text-white/40">Sessão administrativa confirmada</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total eventos" value={stats.events} icon={<Calendar className="w-5 h-5" />} />
-        <StatCard title="Total leads" value={stats.leads} icon={<Users className="w-5 h-5" />} color="text-yellow-400" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard title="Cargo" value="Admin" icon={<ShieldCheck className="h-5 w-5" />} color="text-yellow-400" />
+        <StatCard title="Validação" value="API" icon={<UserCheck className="h-5 w-5" />} color="text-green-400" />
       </div>
 
-      <div className="bg-gradient-glass border border-yellow-500/20 rounded-2xl p-5">
-        <p className="text-sm text-white/60">Administrador logado: <span className="text-white font-medium">{user?.name}</span></p>
-        <p className="text-xs text-white/30 mt-1">Área administrativa. Mais recursos serão adicionados em versões futuras.</p>
+      <div className="rounded-2xl border border-yellow-500/20 bg-gradient-glass p-5">
+        <p className="text-sm text-white/60">
+          Administrador logado: <span className="font-medium text-white">{adminUser.name}</span>
+        </p>
+        <p className="mt-1 text-xs text-white/30">
+          Acesso confirmado pela API do servidor.
+        </p>
       </div>
     </div>
   );

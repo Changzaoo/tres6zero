@@ -17,5 +17,7 @@ services:
         sync: false
       - key: FIREBASE_API_KEY
         sync: false
+      - key: ADMIN_EMAIL
+        sync: false
       - key: ALLOW_VERCEL_PREVIEWS
         value: "true"

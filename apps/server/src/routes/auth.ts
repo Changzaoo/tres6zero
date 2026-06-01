@@ -35,10 +35,13 @@ type FirebaseAuthResponse = {
 type FirebaseUserRecord = {
   localId: string;
   email?: string;
+  emailVerified?: boolean;
   displayName?: string;
   customAttributes?: string;
   createdAt?: string;
 };
+
+type UserRole = 'admin' | 'user';
 
 function getFirebaseApiKey() {
   const key = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
@@ -64,9 +67,25 @@ function getBearerToken(header?: string) {
   return scheme?.toLowerCase() === 'bearer' ? token : undefined;
 }
 
+function authError(message = 'AUTH_REQUIRED', status = 401): never {
+  const err = new Error(message);
+  (err as any).status = status;
+  throw err;
+}
+
 async function getUserFromIdToken(idToken: string) {
   const lookup = await firebaseAuthRequest<{ users: FirebaseUserRecord[] }>('accounts:lookup', { idToken });
   return lookup.users?.[0];
+}
+
+async function getAuthenticatedUser(req: Request) {
+  const idToken = getBearerToken(req.headers.authorization);
+  if (!idToken) authError();
+
+  const user = await getUserFromIdToken(idToken);
+  if (!user) authError();
+
+  return user;
 }
 
 function firebaseErrorStatus(code?: string) {
@@ -112,13 +131,29 @@ function planFromUser(user: FirebaseUserRecord) {
   return { status, planId };
 }
 
+function getConfiguredAdminEmail() {
+  const parsed = z.string().email().safeParse((process.env.ADMIN_EMAIL || '').trim().toLowerCase());
+  return parsed.success ? parsed.data : null;
+}
+
+function roleFromUser(user: FirebaseUserRecord): UserRole {
+  const adminEmail = getConfiguredAdminEmail();
+  const userEmail = (user.email || '').trim().toLowerCase();
+
+  if (adminEmail && user.emailVerified === true && userEmail === adminEmail) {
+    return 'admin';
+  }
+
+  return 'user';
+}
+
 function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') {
   const plan = planFromUser(user);
   return {
     uid: user.localId,
     name: user.displayName || fallbackName,
     email: user.email || '',
-    role: 'operator',
+    role: roleFromUser(user),
     subscriptionStatus: plan.status,
     planId: plan.planId,
     createdAt: user.createdAt ? new Date(Number(user.createdAt)).toISOString() : new Date().toISOString(),
@@ -195,20 +230,7 @@ authRouter.post('/password-reset', async (req, res, next) => {
 
 authRouter.get('/me', async (req, res, next) => {
   try {
-    const idToken = getBearerToken(req.headers.authorization);
-    if (!idToken) {
-      const err = new Error('AUTH_REQUIRED');
-      (err as any).status = 401;
-      throw err;
-    }
-
-    const user = await getUserFromIdToken(idToken);
-    if (!user) {
-      const err = new Error('AUTH_REQUIRED');
-      (err as any).status = 401;
-      throw err;
-    }
-
+    const user = await getAuthenticatedUser(req);
     res.json({ user: userProfile(user) });
   } catch (e) {
     next(e);
@@ -218,11 +240,7 @@ authRouter.get('/me', async (req, res, next) => {
 authRouter.put('/profile', async (req, res, next) => {
   try {
     const idToken = getBearerToken(req.headers.authorization);
-    if (!idToken) {
-      const err = new Error('AUTH_REQUIRED');
-      (err as any).status = 401;
-      throw err;
-    }
+    if (!idToken) authError();
 
     const data = profileSchema.parse(req.body);
     if (data.name) {
@@ -234,11 +252,7 @@ authRouter.put('/profile', async (req, res, next) => {
     }
 
     const user = await getUserFromIdToken(idToken);
-    if (!user) {
-      const err = new Error('AUTH_REQUIRED');
-      (err as any).status = 401;
-      throw err;
-    }
+    if (!user) authError();
 
     res.json({
       user: {
@@ -251,21 +265,29 @@ authRouter.put('/profile', async (req, res, next) => {
   }
 });
 
-export async function requireActiveSubscription(req: Request, _res: Response, next: NextFunction) {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   try {
-    const idToken = getBearerToken(req.headers.authorization);
-    if (!idToken) {
-      const err = new Error('AUTH_REQUIRED');
-      (err as any).status = 401;
-      throw err;
+    const user = await getAuthenticatedUser(req);
+    const profile = userProfile(user);
+
+    if (profile.role !== 'admin') {
+      authError('FORBIDDEN', 403);
     }
 
-    const user = await getUserFromIdToken(idToken);
-    if (!user) {
-      const err = new Error('AUTH_REQUIRED');
-      (err as any).status = 401;
-      throw err;
-    }
+    res.locals.user = profile;
+    next();
+  } catch (e) {
+    next(e);
+  }
+}
+
+authRouter.get('/admin/session', requireAdmin, (_req, res) => {
+  res.json({ ok: true, user: res.locals.user });
+});
+
+export async function requireActiveSubscription(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const user = await getAuthenticatedUser(req);
 
     const profile = userProfile(user);
     if (profile.subscriptionStatus !== 'active') {

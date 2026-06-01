@@ -96,6 +96,10 @@ export async function updateUserProfile(_uid: string, data: Partial<UserProfile>
   return user;
 }
 
+export async function getAdminSession() {
+  return request<{ ok: true; user: UserProfile }>('/api/auth/admin/session');
+}
+
 const FIREBASE_ERRORS: Record<string, string> = {
   EMAIL_NOT_FOUND: 'Usuário não encontrado.',
   INVALID_PASSWORD: 'Senha incorreta.',

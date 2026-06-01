@@ -72,7 +72,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             }>
             <Shield style={{ width: 18, height: 18 }} />
             <span className="flex-1">Admin</span>
-            {!hasActiveSubscription && <Lock className="w-3.5 h-3.5 text-white/30" />}
           </NavLink>
         )}
       </nav>

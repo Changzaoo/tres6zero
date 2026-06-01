@@ -10,6 +10,6 @@ export function useAuth() {
     initialized,
     hasActiveSubscription,
     isAdmin: user?.role === 'admin',
-    isOperator: user?.role === 'operator' || user?.role === 'admin',
+    isOperator: Boolean(user),
   };
 }
