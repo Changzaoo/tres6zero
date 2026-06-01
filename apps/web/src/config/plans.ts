@@ -9,7 +9,7 @@ export const PLANS = [
   {
     id: 'starter',
     name: 'Essencial 360',
-    price: 79,
+    price: 69.99,
     tagline: 'Para começar com uma operação simples e bem organizada.',
     highlight: false,
     features: [
@@ -38,7 +38,7 @@ export const PLANS = [
   {
     id: 'pro',
     name: 'Profissional',
-    price: 129,
+    price: 129.99,
     tagline: 'Para quem quer vender uma experiência mais completa.',
     highlight: true,
     features: [
@@ -67,7 +67,7 @@ export const PLANS = [
   {
     id: 'unlimited',
     name: 'Ilimitado 360',
-    price: 200,
+    price: 199.99,
     tagline: 'Tudo liberado para escalar sem travas.',
     highlight: false,
     features: [
