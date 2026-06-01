@@ -13,27 +13,31 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-white/8 bg-gradient-glass p-5">
-        <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-          <div className="flex items-start gap-3">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${hasActiveSubscription ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-400'}`}>
-              {hasActiveSubscription ? <ShieldCheck className="w-5 h-5" /> : <LockKeyhole className="w-5 h-5" />}
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-2xl border border-white/8 bg-gradient-glass p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${hasActiveSubscription ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-400'}`}>
+              {hasActiveSubscription ? <ShieldCheck className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold leading-tight text-white sm:text-2xl">
                 {hasActiveSubscription ? 'Assinatura ativa' : 'Conta bloqueada até o pagamento'}
               </h1>
-              <p className="text-sm text-white/50 mt-1">
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-white/55">
                 {hasActiveSubscription
                   ? 'Sua plataforma está liberada para operar.'
-                  : `${user?.name || 'Sua conta'} já pode entrar, mas eventos, vídeos, leads e analytics ficam protegidos por cadeado até a assinatura ser confirmada.`}
+                  : `${user?.name || 'Sua conta'} já pode entrar, mas as áreas principais do SaaS ficam protegidas por cadeado até a assinatura ser confirmada.`}
               </p>
             </div>
           </div>
 
           {!hasActiveSubscription && (
-            <Button variant="outline" onClick={() => toast.info('Conecte o provedor de pagamento no backend para liberar checkout automático.')}>
+            <Button
+              variant="outline"
+              className="w-full justify-center sm:w-auto"
+              onClick={() => toast.info('Conecte o provedor de pagamento no backend para liberar checkout automático.')}
+            >
               Aguardando checkout
             </Button>
           )}
