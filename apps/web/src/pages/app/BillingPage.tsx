@@ -1,15 +1,52 @@
+import { useEffect, useState } from 'react';
 import { LockKeyhole, ShieldCheck } from 'lucide-react';
 import { PlanCards } from '@/components/billing/PlanCards';
-import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/authStore';
+import { createCheckout } from '@/services/billingService';
+import { getCurrentUser } from '@/services/authService';
 import type { PlanId } from '@/config/plans';
 
-export default function BillingPage() {
-  const { user, hasActiveSubscription } = useAuth();
+function formatDate(value?: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(value));
+}
 
-  function selectPlan(planId: PlanId) {
-    toast.info(`Plano selecionado: ${planId}. Integração de pagamento pendente no servidor.`);
+export default function BillingPage() {
+  const { user, hasActiveSubscription, isAdmin } = useAuth();
+  const setUser = useAuthStore((state) => state.setUser);
+  const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
+  const periodEnd = formatDate(user?.currentPeriodEnd);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
+    if (!checkout) return;
+
+    window.history.replaceState({}, '', '/app/billing');
+
+    if (checkout === 'success') {
+      toast.info('Pagamento recebido. Assim que a Stripe confirmar o Pix, seu acesso será liberado.');
+      getCurrentUser().then((freshUser) => {
+        if (freshUser) setUser(freshUser);
+      });
+    }
+
+    if (checkout === 'cancelled') {
+      toast.info('Checkout cancelado.');
+    }
+  }, [setUser]);
+
+  async function selectPlan(planId: PlanId) {
+    try {
+      setLoadingPlan(planId);
+      const { url } = await createCheckout(planId);
+      window.location.assign(url);
+    } catch {
+      toast.error('Não foi possível iniciar o checkout Pix.');
+      setLoadingPlan(null);
+    }
   }
 
   return (
@@ -22,29 +59,24 @@ export default function BillingPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold leading-tight text-white sm:text-2xl">
-                {hasActiveSubscription ? 'Assinatura ativa' : 'Conta bloqueada até o pagamento'}
+                {hasActiveSubscription ? 'Acesso ativo' : 'Conta bloqueada até o pagamento'}
               </h1>
               <p className="mt-1 max-w-3xl text-sm leading-relaxed text-white/55">
-                {hasActiveSubscription
-                  ? 'Sua plataforma está liberada para operar.'
-                  : `${user?.name || 'Sua conta'} já pode entrar, mas as áreas principais do SaaS ficam protegidas por cadeado até a assinatura ser confirmada.`}
+                {isAdmin && 'Seu acesso administrativo é ilimitado.'}
+                {!isAdmin && hasActiveSubscription && periodEnd && `Seu acesso está liberado até ${periodEnd}. A renovação mantém o mesmo dia da assinatura.`}
+                {!isAdmin && hasActiveSubscription && !periodEnd && 'Sua plataforma está liberada para operar.'}
+                {!hasActiveSubscription && `${user?.name || 'Sua conta'} já pode entrar, mas as áreas principais do SaaS ficam protegidas por cadeado até a confirmação do Pix.`}
               </p>
             </div>
           </div>
-
-          {!hasActiveSubscription && (
-            <Button
-              variant="outline"
-              className="w-full justify-center sm:w-auto"
-              onClick={() => toast.info('Conecte o provedor de pagamento no backend para liberar checkout automático.')}
-            >
-              Aguardando checkout
-            </Button>
-          )}
         </div>
       </div>
 
-      <PlanCards ctaLabel="Selecionar plano" onSelect={selectPlan} disabled={hasActiveSubscription} />
+      <PlanCards
+        ctaLabel={loadingPlan ? 'Abrindo checkout...' : 'Pagar com Pix'}
+        onSelect={selectPlan}
+        disabled={Boolean(loadingPlan) || hasActiveSubscription}
+      />
     </div>
   );
 }

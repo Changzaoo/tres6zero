@@ -19,5 +19,9 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
       - key: ALLOW_VERCEL_PREVIEWS
         value: "true"

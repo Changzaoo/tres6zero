@@ -7,6 +7,8 @@ export interface UserProfile {
   role: UserRole;
   subscriptionStatus?: 'unpaid' | 'active' | 'past_due' | 'canceled';
   planId?: string | null;
+  currentPeriodEnd?: string | null;
+  renewalDay?: number | null;
   companyName?: string;
   avatarUrl?: string;
   createdAt: string;

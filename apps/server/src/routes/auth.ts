@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
+import { getStripeAccessForUser } from '../services/stripeBilling';
 
 export const authRouter = Router();
 
@@ -78,7 +79,7 @@ async function getUserFromIdToken(idToken: string) {
   return lookup.users?.[0];
 }
 
-async function getAuthenticatedUser(req: Request) {
+export async function getAuthenticatedUser(req: Request) {
   const idToken = getBearerToken(req.headers.authorization);
   if (!idToken) authError();
 
@@ -147,15 +148,30 @@ function roleFromUser(user: FirebaseUserRecord): UserRole {
   return 'user';
 }
 
-function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') {
+async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') {
   const plan = planFromUser(user);
+  const role = roleFromUser(user);
+  let stripeAccess = null;
+
+  if (role !== 'admin') {
+    try {
+      stripeAccess = await getStripeAccessForUser(user);
+    } catch (error) {
+      console.warn('[billing] Could not load Stripe access:', error instanceof Error ? error.message : 'unknown');
+    }
+  }
+
+  const access = stripeAccess?.subscriptionStatus === 'active' ? stripeAccess : null;
+
   return {
     uid: user.localId,
     name: user.displayName || fallbackName,
     email: user.email || '',
-    role: roleFromUser(user),
-    subscriptionStatus: plan.status,
-    planId: plan.planId,
+    role,
+    subscriptionStatus: role === 'admin' ? 'active' : access?.subscriptionStatus || plan.status,
+    planId: role === 'admin' ? 'unlimited' : access?.planId || plan.planId,
+    currentPeriodEnd: role === 'admin' ? null : access?.currentPeriodEnd || null,
+    renewalDay: role === 'admin' ? null : access?.renewalDay || null,
     createdAt: user.createdAt ? new Date(Number(user.createdAt)).toISOString() : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -172,7 +188,7 @@ async function sessionFromAuthResponse(auth: FirebaseAuthResponse, fallbackName?
     token: auth.idToken,
     refreshToken: auth.refreshToken,
     expiresIn: Number(auth.expiresIn || 3600),
-    user: userProfile(user, fallbackName),
+    user: await userProfile(user, fallbackName),
   };
 }
 
@@ -231,7 +247,7 @@ authRouter.post('/password-reset', async (req, res, next) => {
 authRouter.get('/me', async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
-    res.json({ user: userProfile(user) });
+    res.json({ user: await userProfile(user) });
   } catch (e) {
     next(e);
   }
@@ -256,7 +272,7 @@ authRouter.put('/profile', async (req, res, next) => {
 
     res.json({
       user: {
-        ...userProfile(user),
+        ...(await userProfile(user)),
         companyName: data.companyName,
       },
     });
@@ -268,7 +284,7 @@ authRouter.put('/profile', async (req, res, next) => {
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   try {
     const user = await getAuthenticatedUser(req);
-    const profile = userProfile(user);
+    const profile = await userProfile(user);
 
     if (profile.role !== 'admin') {
       authError('FORBIDDEN', 403);
@@ -289,7 +305,7 @@ export async function requireActiveSubscription(req: Request, _res: Response, ne
   try {
     const user = await getAuthenticatedUser(req);
 
-    const profile = userProfile(user);
+    const profile = await userProfile(user);
     if (profile.subscriptionStatus !== 'active') {
       const err = new Error('PAYMENT_REQUIRED');
       (err as any).status = 402;
