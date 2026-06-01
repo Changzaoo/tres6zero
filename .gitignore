@@ -1,0 +1,16 @@
+.env
+.env.local
+.env.production
+.env.*.local
+node_modules
+dist
+build
+.firebase
+*.log
+.DS_Store
+Thumbs.db
+coverage
+.nyc_output
+*.tsbuildinfo
+tmp/
+uploads/
