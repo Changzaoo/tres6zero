@@ -1,9 +1,9 @@
 {
   "version": 2,
   "installCommand": "npm install",
-  "buildCommand": "npm run build",
+  "buildCommand": "node build-for-vercel.js",
   "outputDirectory": "dist",
-  "framework": "vite",
+  "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]

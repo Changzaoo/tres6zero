@@ -1,34 +1,46 @@
-# Security Guide – Tres6Zero
+# Security Guide - Tres6Zero
 
 ## Environment Variables
 
-Never commit `.env` to git. Copy `.env.example` to `.env` and fill in your values.
+Never commit `.env`, service-account JSON, private keys, API secrets or provider tokens.
 
-Required variables:
-- `NGROK_AUTHTOKEN` – your ngrok token from https://dashboard.ngrok.com
-- `VITE_FIREBASE_*` – Firebase web config (safe to expose in client code)
+`VITE_*` variables are public by design because Vite embeds them in the browser bundle. Use them only for public client configuration:
+
+- `VITE_API_URL`
+- `VITE_FIREBASE_*` web app config
+
+Backend-only secrets must be configured only in Render environment variables.
 
 ## Firebase
 
-1. Enable **Email/Password** authentication in Firebase Console → Authentication → Sign-in methods
-2. Enable **Firestore** in Firebase Console → Firestore Database
-3. Enable **Storage** in Firebase Console → Storage
-4. Copy `firebase.rules.example` → apply rules in Firebase Console
-5. Restrict API key in Google Cloud Console → APIs & Services → Credentials
+Firebase web config is not a server secret, but the Firebase API key should still be restricted in Google Cloud Console:
 
-## Storage Rules
+1. Restrict allowed HTTP referrers to your Vercel domains and localhost.
+2. Enable only the APIs the app needs.
+3. Keep Firestore/Storage rules locked down with authentication and ownership checks.
 
-Set storage rules to require authentication for uploads and allow public reads.
+## Vercel
 
-## Backend
+Vercel should deploy only the static frontend from `apps/web/dist`.
 
-The backend runs locally and is exposed via ngrok. The ngrok URL changes on each restart unless you have a paid plan with a static domain.
+Do not add backend secrets to Vercel unless they are required by a serverless function. This project does not deploy the Express backend on Vercel.
 
-Update `PUBLIC_BACKEND_URL` in `.env` when the ngrok URL changes.
+## Render
 
-## Rotating Credentials
+Render hosts the Express backend at `https://tres6zero.onrender.com`.
 
-If you accidentally expose any credential:
-1. Regenerate the Firebase API key in Google Cloud Console
-2. Regenerate ngrok token at https://dashboard.ngrok.com
-3. Update `.env` locally
+Configure these in Render:
+
+- `PUBLIC_BACKEND_URL`
+- `FRONTEND_URL`
+- `CORS_ORIGINS`
+- Any future private backend-only credentials
+
+## Credential Rotation
+
+If a real credential is exposed:
+
+1. Revoke or rotate it in the provider dashboard.
+2. Remove it from git history if it was committed.
+3. Update `.env`, Vercel and Render with the new value.
+4. Redeploy both services.

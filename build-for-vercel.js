@@ -1,18 +1,15 @@
-/**
- * Vercel build script – changes working directory to apps/web before building.
- * Uses Node.js child_process so the cwd change persists for all sub-commands.
- */
-const { execSync } = require('child_process');
-const path = require('path');
+const { execSync } = require('node:child_process');
+const { existsSync } = require('node:fs');
+const path = require('node:path');
 
-const webDir = path.join(__dirname, 'apps', 'web');
-console.log('[build] chdir →', webDir);
-process.chdir(webDir);
+const repoRoot = __dirname;
+const webDir = path.join(repoRoot, 'apps', 'web');
 
-console.log('[build] npm install');
-execSync('npm install', { stdio: 'inherit' });
+if (!existsSync(webDir)) {
+  console.error(`[vercel] Web workspace not found at ${webDir}`);
+  process.exit(1);
+}
 
-console.log('[build] npm run build');
-execSync('npm run build', { stdio: 'inherit' });
-
-console.log('[build] done ✓');
+console.log('[vercel] Building @tres6zero/web');
+execSync('npm run build:web', { cwd: repoRoot, stdio: 'inherit' });
+console.log('[vercel] Build complete');

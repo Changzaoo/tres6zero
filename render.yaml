@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tres6zero
+    runtime: node
+    plan: free
+    buildCommand: npm install --workspace=@tres6zero/server --include-workspace-root=false && npm run build:server
+    startCommand: npm run start --workspace=@tres6zero/server
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.15.0
+      - key: PUBLIC_BACKEND_URL
+        value: https://tres6zero.onrender.com
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ALLOW_VERCEL_PREVIEWS
+        value: "true"

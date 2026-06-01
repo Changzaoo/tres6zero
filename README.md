@@ -1,143 +1,96 @@
-# Tres6Zero – Plataforma 360 Photo Booth
+# Tres6Zero - Plataforma 360 Photo Booth
 
-Sistema completo para empresas de plataforma 360 photo booth: gravação, upload, galeria pública, QR Code, leads, templates, dashboard e muito mais.
+Sistema para operacao de eventos com plataforma 360: cadastro, upload, galeria publica, QR Code, leads, templates e dashboard.
 
 ## Stack
 
-- **Frontend**: React + Vite + TypeScript + Tailwind + Framer Motion
-- **Backend**: Node.js + Express + TypeScript
-- **Database**: Firebase Firestore + Realtime Database
-- **Storage**: Firebase Storage
-- **Auth**: Firebase Auth (Email/Password)
+- Frontend: React + Vite + TypeScript + Tailwind
+- Backend: Node.js + Express + TypeScript
+- Dados/auth/storage: Firebase client SDK
+- Deploy frontend: Vercel
+- Deploy backend: Render (`https://tres6zero.onrender.com`)
 
 ## Estrutura
 
-```
+```text
 tres6zero/
-├── apps/
-│   ├── web/         # Frontend React
-│   └── server/      # Backend Express
-├── packages/
-│   └── shared/      # Tipos compartilhados
-├── scripts/         # Scripts utilitários
-├── .env             # Variáveis (não commitar)
-├── .env.example     # Modelo de variáveis
-└── firebase.rules.example
+  apps/
+    web/       # Frontend React/Vite
+    server/    # Backend Express para Render
+  packages/
+    shared/    # Tipos compartilhados
+  scripts/
+  vercel.json
+  render.yaml
 ```
 
-## Instalação
+## Desenvolvimento
 
 ```bash
-cd D:\tres6zero
 npm install
-```
-
-## Configurar .env
-
-Copie `.env.example` para `.env` e preencha:
-
-```
-PORT=3333
-FRONTEND_URL=http://localhost:5173
-PUBLIC_BACKEND_URL=https://seu-tunel.ngrok-free.dev
-NGROK_AUTHTOKEN=seu_token_aqui
-VITE_API_URL=https://seu-tunel.ngrok-free.dev
-VITE_FIREBASE_API_KEY=...
-# (demais variáveis do Firebase)
-```
-
-## Rodar em desenvolvimento
-
-```bash
-# Rodar frontend (porta 5173)
 npm run dev:web
-
-# Rodar backend (porta 3333)
 npm run dev:server
-
-# Rodar ambos
-npm run dev
 ```
 
-## Build
+Copie `.env.example` para `.env` e preencha os valores locais. Nao coloque secrets em variaveis `VITE_*`, porque tudo que começa com `VITE_` entra no bundle publico do navegador.
+
+## Build local
 
 ```bash
-npm run build
+npm run build:web
+npm run build:server
+npm run typecheck
 ```
 
-## Firebase – Configuração obrigatória
+## Deploy na Vercel
 
-1. Acesse https://console.firebase.google.com
-2. Projeto: `forge-d690c`
-3. Ative **Authentication** → Sign-in methods → **Email/Password**
-4. Ative **Firestore Database** → Modo de produção
-5. Ative **Storage**
-6. Aplique as regras de `firebase.rules.example` no console
+Use a raiz do repositorio como Root Directory do projeto Vercel.
 
-## Ngrok
+Configuracao esperada:
 
-1. Crie conta em https://ngrok.com
-2. Copie o authtoken
-3. Defina `NGROK_AUTHTOKEN=seu_token` no `.env`
-4. Para iniciar com ngrok: `node scripts/start-local-backend.js`
+- Install Command: `npm install --workspace=@tres6zero/web --include-workspace-root=false`
+- Build Command: `npm run build:web`
+- Output Directory: `apps/web/dist`
+- Framework Preset: Vite
 
-## URLs
+Variaveis na Vercel:
 
-| URL | Descrição |
-|-----|-----------|
-| http://localhost:5173 | Frontend |
-| http://localhost:3333 | Backend local |
-| http://localhost:5173/app/dashboard | Dashboard |
-| http://localhost:5173/app/operator | Modo Operador |
-| http://localhost:5173/g/:slug | Galeria pública |
-| http://localhost:3333/health | Saúde do backend |
-
-## Primeiro usuário admin
-
-O primeiro usuário cadastrado vira **admin** automaticamente (sem nenhum admin existente no banco).
-
-## Fluxo completo de uso
-
-1. Acesse `/register` e crie sua conta
-2. Vá em **Eventos** → **Novo evento**
-3. Configure nome, data, local, tipo
-4. Ative o evento (status = Ativo)
-5. Acesse **Modo Operador**
-6. Selecione o evento, grave ou envie o vídeo
-7. Salve → QR Code gerado automaticamente
-8. Convidado escaneia o QR → acessa galeria → baixa/compartilha
-9. Acompanhe tudo no **Dashboard**
-
-## Deploy
-
-### Frontend (Vercel)
-```bash
-cd apps/web
-npx vercel --prod
+```text
+VITE_API_URL=https://tres6zero.onrender.com
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_DATABASE_URL=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_MEASUREMENT_ID=...
 ```
 
-### Backend
-O backend roda localmente. Use ngrok para expor publicamente.
-Para deploy em nuvem: Railway, Render, Fly.io.
+Somente variaveis publicas devem ir para a Vercel. Service accounts, private keys e tokens ficam fora do client.
 
-## Push no GitHub
+## Deploy no Render
+
+O backend deve ser publicado no Render usando `render.yaml` ou os comandos:
 
 ```bash
-git init
-git add .
-git commit -m "feat: build complete Tres6Zero 360 event platform"
-git branch -M main
-git remote add origin https://github.com/Changzaoo/tres6zero.git
-git push -u origin main
+npm install --workspace=@tres6zero/server --include-workspace-root=false
+npm run build:server
+npm run start --workspace=@tres6zero/server
 ```
 
-## Roadmap Futuro
+Variaveis no Render:
 
-- [ ] Processamento real com FFmpeg
-- [ ] IA para seleção automática de melhores momentos
-- [ ] Integração WhatsApp Business API
-- [ ] Pagamentos e assinatura
-- [ ] App mobile nativo
-- [ ] Remoção de fundo com IA
-- [ ] Marketplace de templates
-- [ ] Multi-empresa / multi-operador
+```text
+PUBLIC_BACKEND_URL=https://tres6zero.onrender.com
+FRONTEND_URL=https://seu-frontend.vercel.app
+CORS_ORIGINS=https://seu-frontend.vercel.app
+ALLOW_VERCEL_PREVIEWS=true
+```
+
+## URLs uteis
+
+- Frontend local: `http://localhost:5173`
+- Backend local: `http://localhost:3333`
+- Health backend: `http://localhost:3333/health`
+- Backend Render: `https://tres6zero.onrender.com`

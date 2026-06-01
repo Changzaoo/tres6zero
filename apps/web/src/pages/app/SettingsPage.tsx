@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { toast } from '@/components/ui/Toast';
+import { API_URL } from '@/config/api';
 import { User, Building, Globe } from 'lucide-react';
 
 interface FormData {
@@ -55,7 +56,7 @@ export default function SettingsPage() {
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-white/70">URL pública do backend</label>
           <p className="text-xs text-white/30 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5 font-mono break-all">
-            {import.meta.env.VITE_API_URL || 'Não configurado'}
+            {API_URL}
           </p>
         </div>
         <p className="text-xs text-white/30 mt-3">Configure em <code className="text-brand-400">.env</code> → <code className="text-brand-400">VITE_API_URL</code></p>

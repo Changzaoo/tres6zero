@@ -12,19 +12,53 @@ import { trackRouter } from './routes/track';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
-const PORT = process.env.PORT || 3333;
+const PORT = Number(process.env.PORT) || 3333;
 
-const allowedOrigins = [
+function parseOrigins(value?: string) {
+  return (value || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+const allowedOrigins = new Set([
   'http://localhost:5173',
+  'http://127.0.0.1:5173',
   'http://localhost:3000',
-  'https://tres6zero-server.vercel.app',
+  'http://127.0.0.1:3000',
   process.env.FRONTEND_URL,
-  process.env.PUBLIC_BACKEND_URL,
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
-].filter(Boolean) as string[];
+  ...parseOrigins(process.env.CORS_ORIGINS),
+].filter(Boolean) as string[]);
 
+function isAllowedOrigin(origin?: string) {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+
+  try {
+    const url = new URL(origin);
+    return (
+      process.env.ALLOW_VERCEL_PREVIEWS !== 'false' &&
+      url.protocol === 'https:' &&
+      url.hostname.endsWith('.vercel.app')
+    );
+  } catch {
+    return false;
+  }
+}
+
+app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
+  credentials: false,
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 

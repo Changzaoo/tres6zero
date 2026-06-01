@@ -4,7 +4,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { AppEvent, EventStatus } from '@/types';
-import { v4 as uuid } from 'uuid';
 
 const COLL = 'events';
 
