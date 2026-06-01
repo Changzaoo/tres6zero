@@ -1,18 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "cd apps/web && npm install && npm run build",
-  "outputDirectory": "apps/web/dist",
   "installCommand": "npm install",
+  "buildCommand": "node build-for-vercel.js",
+  "outputDirectory": "apps/web/dist",
   "framework": null,
-  "functions": {
-    "api/server.ts": {
-      "maxDuration": 30,
-      "memory": 256
-    }
-  },
   "rewrites": [
-    { "source": "/health", "destination": "/api/server" },
-    { "source": "/api/:path*", "destination": "/api/server" },
-    { "source": "/((?!assets|favicon|logo).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
