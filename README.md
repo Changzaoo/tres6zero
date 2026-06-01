@@ -84,8 +84,8 @@ Variáveis no Render:
 
 ```text
 PUBLIC_BACKEND_URL=https://tres6zero.onrender.com
-FRONTEND_URL=https://seu-frontend.vercel.app
-CORS_ORIGINS=https://seu-frontend.vercel.app
+FRONTEND_URL=https://six3.vercel.app
+CORS_ORIGINS=https://six3.vercel.app
 ALLOW_VERCEL_PREVIEWS=true
 ADMIN_EMAIL=...
 STRIPE_SECRET_KEY=...

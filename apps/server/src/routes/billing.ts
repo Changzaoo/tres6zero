@@ -18,7 +18,7 @@ const checkoutSchema = z.object({
 });
 
 function frontendUrl() {
-  return (process.env.FRONTEND_URL || 'https://tres6zero.vercel.app').replace(/\/+$/, '');
+  return (process.env.FRONTEND_URL || 'https://six3.vercel.app').replace(/\/+$/, '');
 }
 
 async function activateFromCheckoutSession(session: CheckoutSession) {
