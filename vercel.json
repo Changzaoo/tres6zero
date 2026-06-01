@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "npm install && npm run build --workspace=apps/web",
+  "outputDirectory": "apps/web/dist",
+  "framework": null,
+  "functions": {
+    "api/server.ts": {
+      "maxDuration": 30,
+      "memory": 256
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api/server" },
+    { "source": "/api/:path*", "destination": "/api/server" },
+    { "source": "/((?!assets|favicon|logo).*)", "destination": "/index.html" }
+  ]
+}

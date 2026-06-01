@@ -17,8 +17,10 @@ const PORT = process.env.PORT || 3333;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://tres6zero-server.vercel.app',
   process.env.FRONTEND_URL,
   process.env.PUBLIC_BACKEND_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
 ].filter(Boolean) as string[];
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -37,9 +39,12 @@ app.use('/api/track', trackRouter);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`[server] Running on http://localhost:${PORT}`);
-  console.log(`[server] Public URL: ${process.env.PUBLIC_BACKEND_URL || 'not set'}`);
-});
+// Only start HTTP server when running locally (not in Vercel serverless)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[server] Running on http://localhost:${PORT}`);
+    console.log(`[server] Public URL: ${process.env.PUBLIC_BACKEND_URL || 'not set'}`);
+  });
+}
 
 export default app;
