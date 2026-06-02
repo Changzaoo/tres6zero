@@ -1007,7 +1007,11 @@ export default function OperatorPage() {
             </div>
           )}
           {publicUrl && <p className="text-xs text-white/30 break-all">{publicUrl}</p>}
-          <div className="flex gap-3 w-full">
+          <div className="grid w-full gap-3 sm:grid-cols-3">
+            <Button className="justify-center" disabled={!publicUrl} onClick={() => publicUrl && window.open(publicUrl, '_blank', 'noopener,noreferrer')}
+              icon={<Eye className="w-4 h-4" />}>
+              Ver video
+            </Button>
             <Button variant="secondary" className="flex-1 justify-center" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>
               Novo video
             </Button>
