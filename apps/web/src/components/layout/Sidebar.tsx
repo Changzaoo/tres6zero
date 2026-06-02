@@ -53,7 +53,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   const content = (
     <div className="flex h-full w-64 flex-col border-r border-white/[0.08] bg-[#0e1016]/90 backdrop-blur-2xl">
-      <div className="flex h-[96px] items-center justify-center border-b border-white/[0.08] px-4 py-1">
+      <div className="flex h-[84px] items-center justify-center border-b border-white/[0.08] px-4 py-0">
         <BrandLogo className="items-center" wordmarkClassName="text-5xl" />
       </div>
 
@@ -96,30 +96,30 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
       </nav>
 
-      <div className="border-t border-white/[0.08] p-2.5">
-        <div className="mb-0.5 flex items-center gap-2 px-2 py-1.5">
+      <div className="border-t border-white/[0.08] p-2">
+        <div className="mb-0.5 flex items-center gap-2 px-1.5 py-1">
           <div className="flex shrink-0 items-center gap-1.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-brand text-xs font-bold text-white shadow-glow ring-1 ring-white/15">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-brand text-[11px] font-bold text-white shadow-glow ring-1 ring-white/15">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
             <button
               type="button"
               aria-label="Notificações"
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/45 transition-colors hover:bg-white/[0.09] hover:text-white"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/45 transition-colors hover:bg-white/[0.09] hover:text-white"
             >
-              <Bell className="h-3.5 w-3.5" />
+              <Bell className="h-3 w-3" />
             </button>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-white/80">{user?.name}</p>
-            <p className="truncate text-[11px] text-white/40">
+            <p className="truncate text-[11px] font-medium text-white/80">{user?.name}</p>
+            <p className="truncate text-[10px] text-white/40">
               {hasActiveSubscription ? 'Assinatura ativa' : 'Aguardando pagamento'}
             </p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2.5 rounded-2xl px-2 py-2 text-xs text-white/40 transition-all hover:bg-red-500/10 hover:text-red-400"
+          className="flex w-full items-center gap-2 rounded-2xl px-1.5 py-1.5 text-[11px] text-white/40 transition-all hover:bg-red-500/10 hover:text-red-400"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span>Sair</span>
