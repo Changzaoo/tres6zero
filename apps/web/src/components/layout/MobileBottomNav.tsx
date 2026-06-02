@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart2,
   Calendar,
@@ -9,12 +9,16 @@ import {
   LifeBuoy,
   LayoutDashboard,
   Lock,
+  LogOut,
   Settings,
   Shield,
   Users,
   Video,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { logout } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
+import { toast } from '@/components/ui/Toast';
 
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
@@ -43,8 +47,10 @@ function ProfileBubble({ avatarUrl, initial, size = 'sm' }: { avatarUrl?: string
 
 export function MobileBottomNav() {
   const { user, isAdmin, hasActiveSubscription } = useAuth();
+  const resetAuth = useAuthStore((state) => state.reset);
   const [accountOpen, setAccountOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const items = isAdmin
     ? [...accountItems, { to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true }]
     : accountItems;
@@ -56,6 +62,14 @@ export function MobileBottomNav() {
 
   function isLocked(unlocked?: boolean) {
     return !hasActiveSubscription && !unlocked;
+  }
+
+  async function handleLogout() {
+    await logout();
+    resetAuth();
+    setAccountOpen(false);
+    navigate('/login');
+    toast.success('Ate logo!');
   }
 
   return (
@@ -75,6 +89,15 @@ export function MobileBottomNav() {
                 <p className="truncate text-sm font-bold text-white">{user?.name || 'Conta'}</p>
                 <p className="truncate text-xs text-white/42">{user?.email || 'Perfil SIX3'}</p>
               </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                aria-label="Sair da conta"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-300/15 bg-red-500/10 px-3 text-xs font-bold text-red-100/80 transition-all hover:bg-red-500/18 hover:text-red-50"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sair
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-1.5">
