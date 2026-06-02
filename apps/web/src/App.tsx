@@ -10,6 +10,7 @@ const LandingPage = lazy(() => import('@/pages/public/LandingPage'));
 const PricingPage = lazy(() => import('@/pages/public/PricingPage'));
 const GalleryPage = lazy(() => import('@/pages/public/GalleryPage'));
 const VideoPage = lazy(() => import('@/pages/public/VideoPage'));
+const BlueprintPage = lazy(() => import('@/pages/public/BlueprintPage'));
 
 // Auth
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -68,6 +69,7 @@ export default function App() {
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/plans" element={<PricingPage />} />
+        <Route path="/blueprint" element={<BlueprintPage />} />
         <Route path="/g/:eventSlug" element={<GalleryPage />} />
         <Route path="/g/:eventSlug/:videoId" element={<VideoPage />} />
         <Route path="/v/:videoId" element={<VideoPage />} />
