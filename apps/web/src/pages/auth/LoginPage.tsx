@@ -40,7 +40,7 @@ export default function LoginPage() {
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
         <div className="mb-8 text-center">
-          <BrandLogo className="items-center" wordmarkClassName="text-4xl" showSubtitle />
+          <BrandLogo className="items-center" wordmarkClassName="text-6xl" />
         </div>
 
         <div className="six3-glass p-6">
