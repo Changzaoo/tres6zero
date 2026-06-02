@@ -1,15 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Card } from '@/components/ui/Card';
-
-const chartData = [
-  { name: 'Seg', videos: 4, leads: 8 },
-  { name: 'Ter', videos: 7, leads: 14 },
-  { name: 'Qua', videos: 3, leads: 6 },
-  { name: 'Qui', videos: 9, leads: 18 },
-  { name: 'Sex', videos: 12, leads: 24 },
-  { name: 'Sáb', videos: 18, leads: 36 },
-  { name: 'Dom', videos: 15, leads: 30 },
-];
+import type { DashboardChartPoint } from '@/types';
 
 const tooltipStyle = {
   background: '#1a1a24',
@@ -20,33 +11,53 @@ const tooltipStyle = {
 
 const axisTick = { fill: 'rgba(255,255,255,0.3)', fontSize: 12 };
 
-export default function DashboardCharts() {
+type DashboardChartsProps = {
+  data: DashboardChartPoint[];
+};
+
+function EmptyRealData({ label }: { label: string }) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-5 text-center text-xs text-white/28">
+      {label}
+    </div>
+  );
+}
+
+export default function DashboardCharts({ data }: DashboardChartsProps) {
+  const hasDailyData = data.some((point) => point.videos > 0 || point.leads > 0);
+
   return (
     <div className="grid lg:grid-cols-2 gap-4">
       <Card>
-        <h3 className="text-sm font-semibold text-white/70 mb-4">Vídeos e Leads (últimos 7 dias)</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData}>
-            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
-            <YAxis tick={axisTick} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="videos" fill="#7c3aed" radius={[4, 4, 0, 0]} name="Vídeos" />
-            <Bar dataKey="leads" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Leads" />
-          </BarChart>
-        </ResponsiveContainer>
+        <h3 className="text-sm font-semibold text-white/70 mb-4">Videos e Leads (ultimos 7 dias)</h3>
+        <div className="relative">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={data}>
+              <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+              <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="videos" fill="#7c3aed" radius={[4, 4, 0, 0]} name="Videos reais" />
+              <Bar dataKey="leads" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Leads reais" />
+            </BarChart>
+          </ResponsiveContainer>
+          {!hasDailyData && <EmptyRealData label="Sem videos ou leads reais nos ultimos 7 dias." />}
+        </div>
       </Card>
 
       <Card>
         <h3 className="text-sm font-semibold text-white/70 mb-4">Crescimento semanal</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData}>
-            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
-            <YAxis tick={axisTick} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Line type="monotone" dataKey="videos" stroke="#7c3aed" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="leads" stroke="#4f46e5" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+        <div className="relative">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={data}>
+              <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+              <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Line type="monotone" dataKey="cumulativeVideos" stroke="#7c3aed" strokeWidth={2} dot={false} name="Videos acumulados" />
+              <Line type="monotone" dataKey="cumulativeLeads" stroke="#4f46e5" strokeWidth={2} dot={false} name="Leads acumulados" />
+            </LineChart>
+          </ResponsiveContainer>
+          {!hasDailyData && <EmptyRealData label="Crescimento zerado para o periodo atual." />}
+        </div>
       </Card>
     </div>
   );

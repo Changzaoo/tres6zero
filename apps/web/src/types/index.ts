@@ -231,3 +231,12 @@ export interface DashboardStats {
   activeEvents: number;
   shareRate: number;
 }
+
+export interface DashboardChartPoint {
+  name: string;
+  date: string;
+  videos: number;
+  leads: number;
+  cumulativeVideos: number;
+  cumulativeLeads: number;
+}

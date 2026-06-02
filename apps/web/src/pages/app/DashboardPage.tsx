@@ -6,9 +6,73 @@ import { getUserEvents } from '@/services/eventService';
 import { getUserVideos } from '@/services/videoService';
 import { getAllLeads } from '@/services/leadService';
 import { toast } from '@/components/ui/Toast';
-import type { DashboardStats } from '@/types';
+import type { AppVideo, DashboardChartPoint, DashboardStats, Lead } from '@/types';
 
 const DashboardCharts = lazy(() => import('./DashboardCharts'));
+
+const weekdayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function dateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function safeDate(value?: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildDashboardChartData(videos: AppVideo[] = [], leads: Lead[] = []): DashboardChartPoint[] {
+  const today = startOfLocalDay(new Date());
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(today);
+    day.setDate(today.getDate() - (6 - index));
+    return day;
+  });
+  const points = new Map<string, DashboardChartPoint>();
+
+  days.forEach((day) => {
+    points.set(dateKey(day), {
+      name: weekdayLabels[day.getDay()],
+      date: dateKey(day),
+      videos: 0,
+      leads: 0,
+      cumulativeVideos: 0,
+      cumulativeLeads: 0,
+    });
+  });
+
+  videos.forEach((video) => {
+    const createdAt = safeDate(video.createdAt);
+    if (!createdAt) return;
+    const point = points.get(dateKey(startOfLocalDay(createdAt)));
+    if (point) point.videos += 1;
+  });
+
+  leads.forEach((lead) => {
+    const createdAt = safeDate(lead.createdAt);
+    if (!createdAt) return;
+    const point = points.get(dateKey(startOfLocalDay(createdAt)));
+    if (point) point.leads += 1;
+  });
+
+  let cumulativeVideos = 0;
+  let cumulativeLeads = 0;
+  return days.map((day) => {
+    const point = points.get(dateKey(day))!;
+    cumulativeVideos += point.videos;
+    cumulativeLeads += point.leads;
+    return { ...point, cumulativeVideos, cumulativeLeads };
+  });
+}
 
 function ChartFallback() {
   return (
@@ -28,6 +92,7 @@ function ChartFallback() {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [chartData, setChartData] = useState<DashboardChartPoint[]>(() => buildDashboardChartData());
   const [loading, setLoading] = useState(true);
   const [loadCharts, setLoadCharts] = useState(false);
 
@@ -53,6 +118,7 @@ export default function DashboardPage() {
         const totalDownloads = videos.reduce((s, v) => s + (v.downloads || 0), 0);
         const totalViews = videos.reduce((s, v) => s + (v.views || 0), 0);
 
+        setChartData(buildDashboardChartData(videos, leads));
         setStats({
           totalEvents: events.length,
           totalVideos: videos.length,
@@ -94,7 +160,7 @@ export default function DashboardPage() {
 
       {loadCharts ? (
         <Suspense fallback={<ChartFallback />}>
-          <DashboardCharts />
+          <DashboardCharts data={chartData} />
         </Suspense>
       ) : (
         <ChartFallback />
