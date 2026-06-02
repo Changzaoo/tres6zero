@@ -61,6 +61,7 @@ billingRouter.post('/checkout', async (req, res, next) => {
       customer_update: {
         name: 'auto',
       },
+      excluded_payment_method_types: ['boleto'],
       line_items: [
         {
           quantity: 1,
