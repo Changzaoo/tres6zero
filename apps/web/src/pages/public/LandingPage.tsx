@@ -1,283 +1,535 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   ArrowRight,
   BarChart2,
-  Camera,
-  CheckCircle2,
+  Captions,
+  Check,
+  ChevronRight,
   Download,
+  FileVideo,
   Layers,
-  LockKeyhole,
+  Menu,
+  Music2,
   QrCode,
-  Share2,
+  Scissors,
+  ShieldCheck,
   Sparkles,
-  Users,
-  Wifi,
+  UploadCloud,
+  Wand2,
+  X,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { BrandLogo, BrandWordmark } from '@/components/brand/BrandLogo';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
+import { HeroMockup, PhoneMockup, DesktopMockup } from '@/components/landing/LandingMockups';
+import { FeatureCard, GlassCard, RevealOnScroll, Section, CheckItem } from '@/components/landing/LandingPrimitives';
+import { MouseAura } from '@/components/landing/MouseAura';
+import { PLANS } from '@/config/plans';
+
+const navLinks = [
+  { href: '#recursos', label: 'Recursos' },
+  { href: '#como', label: 'Como funciona' },
+  { href: '#estilos', label: 'Estilos' },
+  { href: '#planos', label: 'Planos' },
+];
+
+const promises = [
+  {
+    icon: Zap,
+    title: 'Do bruto ao viral',
+    description: 'Envie vídeos crus e receba versões prontas para publicar, com cortes, ritmo e acabamento visual.',
+  },
+  {
+    icon: Wand2,
+    title: 'Edição com IA',
+    description: 'A plataforma analisa cenas, áudio, pausas e energia do conteúdo para aplicar o melhor tratamento.',
+  },
+  {
+    icon: FileVideo,
+    title: 'Mobile e desktop',
+    description: 'Comece pelo celular no evento e finalize no PC com preview, timeline e exportação na nuvem.',
+  },
+];
+
+const flow = [
+  {
+    title: 'Envie seus vídeos',
+    description: 'Faça upload pelo celular ou desktop, incluindo arquivos brutos, templates e trilhas próprias.',
+  },
+  {
+    title: 'Escolha o estilo',
+    description: 'Use presets de edição, templates transparentes, formato e música ideal para cada entrega.',
+  },
+  {
+    title: 'A IA prepara tudo',
+    description: 'Cortes, slow motion, filtros, legendas, efeitos e sobreposições entram no ritmo do vídeo.',
+  },
+  {
+    title: 'Publique e compartilhe',
+    description: 'O SIX3° gera galeria, QR Code e links para cliente, leads, downloads e acompanhamento.',
+  },
+];
 
 const features = [
-  { icon: Camera, title: 'Captura 360', desc: 'Organize a operação, publique vídeos e entregue galerias compartilháveis.' },
-  { icon: Layers, title: 'Templates escaláveis', desc: 'Comece com modelos essenciais e libere experiências mais completas por plano.' },
-  { icon: QrCode, title: 'QR Code automático', desc: 'Cada galeria e entrega ganha um acesso rápido, pronto para o convidado.' },
-  { icon: Users, title: 'Leads protegidos', desc: 'Capture contatos antes do download e mantenha tudo vinculado ao evento.' },
-  { icon: Wifi, title: 'Modo offline', desc: 'Continue trabalhando em locais com conexão instável e sincronize quando voltar.' },
-  { icon: BarChart2, title: 'Analytics', desc: 'Veja acessos, downloads e compartilhamentos para medir cada ativação.' },
+  {
+    icon: Scissors,
+    title: 'Cortes automáticos',
+    description: 'Identifica momentos fortes e remove pausas para deixar o vídeo mais direto e compartilhável.',
+  },
+  {
+    icon: Captions,
+    title: 'Legendas dinâmicas',
+    description: 'Transcrição visual sincronizada, pronta para Reels, Shorts, TikTok e galerias de evento.',
+  },
+  {
+    icon: Layers,
+    title: 'Templates inteligentes',
+    description: 'Templates essenciais, premium e personalizados para sobrepor identidade visual aos vídeos.',
+  },
+  {
+    icon: Music2,
+    title: 'Músicas e temas',
+    description: 'Biblioteca de trilhas e uploads do usuário separados dos assets principais da plataforma.',
+  },
+  {
+    icon: QrCode,
+    title: 'Galerias com QR Code',
+    description: 'Cada evento ganha página pública com capa, mídia selecionada, downloads e captura de leads.',
+  },
+  {
+    icon: BarChart2,
+    title: 'Analytics de entrega',
+    description: 'Acompanhe acessos, downloads, compartilhamentos e sinais de engajamento por evento.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Acesso server-side',
+    description: 'Planos, cargo admin e liberação de recursos ficam protegidos no backend, fora do client.',
+  },
+  {
+    icon: UploadCloud,
+    title: 'Uploads personalizados',
+    description: 'Templates e músicas enviados pelo usuário ficam em buckets próprios, com acesso por plano.',
+  },
+  {
+    icon: Download,
+    title: 'Salvar offline',
+    description: 'Continue trabalhando quando a internet oscilar e sincronize quando a conexão voltar.',
+  },
 ];
 
-const workflow = [
-  'Crie o evento e escolha o template',
-  'Publique vídeos, QR Codes e galerias',
-  'Libere leads, downloads e relatórios',
+const styles = [
+  ['Viral Shorts', 'Ritmo acelerado, ganchos curtos, zooms e legendas grandes.', 'from-blue-500 to-violet-500'],
+  ['Cinematic', 'Cor rica, transições suaves e um ar de filme para entregas premium.', 'from-indigo-500 to-fuchsia-500'],
+  ['Clean Apple', 'Minimalista, tipografia respirada e foco total no vídeo.', 'from-slate-300 to-slate-500'],
+  ['Party Pop', 'Flashs, batidas marcadas e energia alta para pista e celebrações.', 'from-cyan-400 to-purple-500'],
+  ['Business Ads', 'Direto, elegante e com chamada clara para ativações comerciais.', 'from-sky-500 to-indigo-500'],
+  ['Wedding Soft', 'Luz suave, slow motion e sensação emocional para eventos especiais.', 'from-violet-300 to-blue-500'],
 ];
 
-function ProductPreview() {
+const benefits = [
+  'Economize horas de edição em cada evento ou campanha',
+  'Padronize a identidade visual sem depender de operação manual',
+  'Libere recursos conforme o plano e mantenha tudo bloqueado até o pagamento',
+  'Use no celular, notebook ou PC sem mudar o fluxo do projeto',
+  'Entregue página própria com QR Code para operador compartilhar com o cliente',
+  'Acompanhe leads e resultados depois que o vídeo saiu do booth',
+];
+
+const priceFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function LandingNav() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 24);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [open]);
+
   return (
-    <div className="relative mx-auto grid min-h-[430px] w-full max-w-[34rem] place-items-center lg:min-h-[540px]">
-      <motion.div
-        initial={{ opacity: 0, y: 26, rotateX: 8, rotateY: -12 }}
-        animate={{ opacity: 1, y: 0, rotateX: 6, rotateY: -10 }}
-        transition={{ delay: 0.15, duration: 0.7 }}
-        className="absolute right-0 top-12 hidden h-[20rem] w-[28rem] overflow-hidden rounded-[26px] border border-white/10 bg-gradient-glass shadow-glass backdrop-blur-xl md:block"
+    <>
+      <nav
+        className={`fixed inset-x-0 top-0 z-50 flex h-[var(--nav-h)] items-center border-b transition-all duration-300 ${
+          scrolled ? 'border-white/10 bg-[#08090c]/80 shadow-2xl shadow-black/20 backdrop-blur-2xl' : 'border-transparent bg-transparent'
+        }`}
       >
-        <div className="flex h-8 items-center gap-2 border-b border-white/10 bg-white/[0.035] px-4">
-          <span className="h-2 w-2 rounded-full bg-white/20" />
-          <span className="h-2 w-2 rounded-full bg-white/20" />
-          <span className="h-2 w-2 rounded-full bg-gradient-brand" />
-          <span className="ml-auto font-mono text-[10px] text-white/35">six3.app/studio</span>
-        </div>
-        <div className="grid h-[calc(100%-2rem)] grid-cols-[3.25rem_1fr]">
-          <aside className="flex flex-col items-center gap-3 border-r border-white/10 bg-white/[0.02] py-4">
-            {[Camera, Layers, QrCode, Users].map((Icon, index) => (
-              <span
-                key={index}
-                className={`grid h-8 w-8 place-items-center rounded-xl ${index === 0 ? 'bg-gradient-brand text-white' : 'bg-white/[0.055] text-white/40'}`}
-              >
-                <Icon className="h-4 w-4" />
-              </span>
-            ))}
-          </aside>
-          <main className="space-y-3 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-white/45">Evento ativo</p>
-                <h3 className="text-lg font-black text-white">Experiência 360</h3>
-              </div>
-              <span className="rounded-full border border-brand-400/25 bg-brand-500/10 px-3 py-1 font-mono text-xs text-brand-200">
-                online
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {['Galeria', 'Leads', 'QR'].map((label, index) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                  <p className="font-mono text-[10px] uppercase text-white/35">{label}</p>
-                  <p className="mt-2 text-xl font-black text-white">{index === 0 ? '24' : index === 1 ? '186' : '12'}</p>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-[#0b0d12] p-3">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-semibold text-white/50">Compartilhamentos</span>
-                <Share2 className="h-4 w-4 text-brand-300" />
-              </div>
-              <div className="flex h-24 items-end gap-2">
-                {[35, 55, 44, 72, 64, 88, 78].map((height, index) => (
-                  <span
-                    key={index}
-                    className="flex-1 rounded-t-lg bg-gradient-to-t from-brand-700 to-brand-300"
-                    style={{ height: `${height}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </main>
-        </div>
-      </motion.div>
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <button type="button" onClick={() => navigate('/')} aria-label="SIX3°" className="text-left">
+            <BrandWordmark className="text-2xl" />
+          </button>
 
-      <motion.div
-        initial={{ opacity: 0, y: 32, rotate: -2 }}
-        animate={{ opacity: 1, y: 0, rotate: -1 }}
-        transition={{ delay: 0.28, duration: 0.7 }}
-        className="relative w-[min(78vw,18.25rem)] rounded-[2.2rem] border border-white/[0.12] bg-[#07080b] p-2 shadow-[0_34px_90px_-38px_rgba(59,109,255,0.9)]"
-      >
-        <div className="absolute left-1/2 top-3 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-black" />
-        <div className="overflow-hidden rounded-[1.7rem] border border-white/10 bg-surface-100">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 pb-3 pt-8">
-            <BrandWordmark className="text-lg" />
-            <span className="rounded-full bg-white/[0.06] px-2 py-1 font-mono text-[10px] text-white/45">9:16</span>
+          <div className="hidden items-center gap-1 md:flex">
+            {navLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="rounded-full px-4 py-2 text-sm font-bold text-white/55 transition hover:bg-white/[0.055] hover:text-white"
+              >
+                {link.label}
+              </a>
+            ))}
           </div>
-          <div className="space-y-3 p-3">
-            <div className="aspect-[9/13] rounded-[1.25rem] border border-white/10 bg-[linear-gradient(160deg,#1c2430_0%,#0b0d12_52%,#151821_100%)] p-3">
-              <div className="flex h-full flex-col justify-between">
-                <span className="w-fit rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] font-bold text-white/60">
-                  Booth 360
-                </span>
-                <div className="rounded-2xl bg-black/30 p-3 backdrop-blur">
-                  <p className="text-sm font-black text-white">Vídeo pronto</p>
-                  <p className="mt-1 text-xs text-white/45">QR, download e lead capture ativos.</p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[Download, QrCode, Users].map((Icon, index) => (
-                <span key={index} className="grid h-12 place-items-center rounded-2xl bg-white/[0.055] text-white/70">
-                  <Icon className="h-5 w-5" />
-                </span>
-              ))}
-            </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="hidden rounded-full px-4 py-2 text-sm font-bold text-white/55 transition hover:bg-white/[0.055] hover:text-white sm:inline-flex"
+            >
+              Entrar
+            </button>
+            <Button size="sm" onClick={() => navigate('/plans')}>
+              Começar agora
+            </Button>
+            <button
+              type="button"
+              className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/70 backdrop-blur md:hidden"
+              onClick={() => setOpen(true)}
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
           </div>
         </div>
-      </motion.div>
+      </nav>
+
+      {open && (
+        <div className="fixed inset-0 z-40 bg-[#08090c]/90 px-5 pb-8 pt-[calc(var(--nav-h)+1rem)] backdrop-blur-2xl md:hidden">
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/70"
+            aria-label="Fechar menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="flex flex-col gap-2">
+            {navLinks.map((link, index) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between border-b border-white/10 py-5 text-2xl font-black tracking-[-0.02em] text-white"
+              >
+                {link.label}
+                <span className="font-mono text-xs font-bold text-white/30">{String(index + 1).padStart(2, '0')}</span>
+              </a>
+            ))}
+          </div>
+          <Button className="mt-8 w-full" size="xl" onClick={() => navigate('/plans')}>
+            Começar agora
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PricingPreview() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {PLANS.map((plan, index) => (
+        <RevealOnScroll key={plan.id} delay={index * 0.06}>
+          <GlassCard className={`flex h-full flex-col p-5 sm:p-6 ${plan.highlight ? 'border-brand-400/50 shadow-glow' : ''}`}>
+            {plan.highlight && (
+              <span className="mb-4 inline-flex w-fit rounded-full bg-gradient-brand px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-glow">
+                Mais escolhido
+              </span>
+            )}
+            <h3 className="text-xl font-black tracking-[-0.02em] text-white">{plan.name}</h3>
+            <p className="mt-2 min-h-[3rem] text-sm leading-relaxed text-white/50">{plan.tagline}</p>
+            <div className="mt-6 flex items-end gap-1">
+              <span className="pb-1 text-sm text-white/40">R$</span>
+              <span className="text-4xl font-black leading-none tracking-[-0.03em] text-white">{priceFormatter.format(plan.price)}</span>
+              <span className="pb-1 font-mono text-xs text-white/35">/mês</span>
+            </div>
+            <ul className="mt-6 flex flex-1 flex-col gap-3">
+              {plan.features.slice(0, plan.id === 'unlimited' ? 6 : 5).map((feature) => (
+                <li key={feature.label} className="flex gap-2 text-sm leading-relaxed text-white/70" title={feature.description}>
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                  <span>{feature.label}</span>
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="mt-6 w-full"
+              variant={plan.highlight ? 'primary' : 'secondary'}
+              onClick={() => navigate('/plans')}
+            >
+              {plan.id === 'unlimited' ? 'Liberar ilimitado' : 'Escolher plano'}
+            </Button>
+          </GlassCard>
+        </RevealOnScroll>
+      ))}
     </div>
   );
 }
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const compactBenefits = useMemo(() => benefits.slice(0, 6), []);
+
+  function scrollToDemo() {
+    document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   return (
-    <div className="six3-grid-bg min-h-screen bg-surface text-white">
-      <nav className="sticky top-0 z-40 border-b border-white/10 bg-surface/75 backdrop-blur-2xl">
-        <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <button onClick={() => navigate('/')} className="text-left">
-            <BrandLogo wordmarkClassName="text-2xl" />
-          </button>
-          <div className="hidden items-center gap-1 md:flex">
-            <a href="#recursos" className="rounded-full px-4 py-2 text-sm font-semibold text-white/55 hover:bg-white/[0.055] hover:text-white">
-              Recursos
-            </a>
-            <a href="#fluxo" className="rounded-full px-4 py-2 text-sm font-semibold text-white/55 hover:bg-white/[0.055] hover:text-white">
-              Fluxo
-            </a>
-            <a href="#planos" className="rounded-full px-4 py-2 text-sm font-semibold text-white/55 hover:bg-white/[0.055] hover:text-white">
-              Planos
-            </a>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Entrar</Button>
-            <Button size="sm" onClick={() => navigate('/plans')}>Começar</Button>
-          </div>
-        </div>
-      </nav>
+    <div className="six3-grid-bg min-h-screen overflow-x-clip bg-surface text-white">
+      <MouseAura />
+      <LandingNav />
 
       <main className="relative z-10">
-        <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-24 lg:pt-20">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl">
-            <div className="mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-white/55 backdrop-blur-xl">
-              <span className="h-1.5 w-1.5 rounded-full bg-gradient-brand shadow-[0_0_16px_rgba(59,109,255,0.85)]" />
-              SaaS 360 para eventos e ativações
-            </div>
-            <h1 className="text-[clamp(3.35rem,13vw,8rem)] font-black leading-[0.88] tracking-normal text-white">
-              SIX3<span className="brand-degree">°</span>
+        <section className="mx-auto grid min-h-screen max-w-7xl items-center gap-10 px-4 pb-12 pt-[calc(var(--nav-h)+2rem)] sm:px-6 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pb-16 lg:pt-[calc(var(--nav-h)+4rem)]">
+          <RevealOnScroll className="max-w-3xl">
+            <span className="six3-eyebrow">
+              <span className="six3-eyebrow-dot" />
+              Edição de vídeo com IA · 360°
+            </span>
+            <h1 className="mt-7 text-[clamp(2.7rem,8vw,5.9rem)] font-black leading-[0.94] tracking-[-0.055em] text-white">
+              Edite vídeos automaticamente em <span className="six3-gradient-text">qualquer lugar</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/60 sm:text-xl">
-              Uma plataforma premium para publicar experiências 360, entregar galerias com QR Code, capturar leads, trabalhar offline e controlar o acesso por assinatura.
+              SIX3° transforma vídeos brutos em conteúdos prontos para postar, com cortes inteligentes, legendas, efeitos, música, ritmo e formatos otimizados para cada rede social.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="xl" onClick={() => navigate('/plans')} icon={<ArrowRight className="h-5 w-5" />}>
-                Começar a jornada
+                Começar agora
               </Button>
-              <Button variant="secondary" size="xl" onClick={() => navigate('/login')}>
-                Já tenho conta
+              <Button variant="secondary" size="xl" onClick={scrollToDemo} icon={<Sparkles className="h-5 w-5" />}>
+                Ver demonstração
               </Button>
             </div>
-            <div className="mt-9 grid max-w-xl grid-cols-3 gap-4">
+            <div className="mt-9 grid max-w-2xl grid-cols-3 gap-4">
               {[
-                ['Pix', 'pagamento'],
-                ['Offline', 'salvar local'],
-                ['Server-side', 'acesso seguro'],
+                ['10x', 'mais rápido'],
+                ['4 formatos', 'auto export'],
+                ['0', 'experiência exigida'],
               ].map(([value, label]) => (
-                <div key={value}>
-                  <p className="text-xl font-black text-white">{value}</p>
-                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-white/35">{label}</p>
+                <div key={value} className="min-w-0">
+                  <p className="text-xl font-black tracking-[-0.02em] text-white sm:text-2xl">{value}</p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-white/35 sm:text-[11px]">{label}</p>
                 </div>
               ))}
             </div>
-          </motion.div>
+          </RevealOnScroll>
 
-          <ProductPreview />
+          <HeroMockup />
         </section>
 
-        <section id="recursos" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mb-10 max-w-2xl">
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-brand-300">Recursos</p>
-            <h2 className="mt-3 text-3xl font-black leading-tight text-white sm:text-5xl">
-              A operação 360 em uma tela só.
-            </h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map(({ icon: Icon, title, desc }, i) => (
-              <motion.article
-                key={title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-80px' }}
-                transition={{ delay: i * 0.04 }}
-                className="rounded-[24px] border border-white/[0.08] bg-gradient-glass p-5 shadow-glass backdrop-blur-md"
-              >
-                <div className="mb-4 grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.055] text-brand-200">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-black text-white">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/50">{desc}</p>
-              </motion.article>
+        <Section tight>
+          <div className="grid gap-4 md:grid-cols-3">
+            {promises.map(({ icon: Icon, title, description }, index) => (
+              <RevealOnScroll key={title} delay={index * 0.08}>
+                <GlassCard className="h-full overflow-hidden p-6">
+                  <div className="mb-5 grid h-[3.25rem] w-[3.25rem] place-items-center rounded-[18px] border border-white/10 bg-white/[0.055] text-brand-200">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-black tracking-[-0.02em] text-white">{title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-white/55">{description}</p>
+                </GlassCard>
+              </RevealOnScroll>
             ))}
           </div>
-        </section>
+        </Section>
 
-        <section id="fluxo" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="grid gap-8 rounded-[30px] border border-white/[0.08] bg-white/[0.035] p-5 backdrop-blur-xl sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
-            <div>
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-brand-300">Fluxo automático</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight text-white sm:text-5xl">
-                Do cadastro ao acesso pago, tudo encaixado.
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-white/55">
-                O visitante cria conta, escolhe o plano e só libera os módulos após o pagamento. Admin tem visão total dos acessos ativos.
-              </p>
-            </div>
-            <div className="grid gap-3">
-              {workflow.map((item, index) => (
-                <div key={item} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-surface-100/80 p-4">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-brand font-black text-white">
+        <Section
+          id="como"
+          kicker="Fluxo automático"
+          title="Como o SIX3° trabalha por você"
+          lead="Quatro passos para transformar captura 360 em entrega profissional, com menos operação manual e mais consistência."
+        >
+          <div className="relative grid gap-4 md:grid-cols-4">
+            <div className="absolute left-[7%] right-[7%] top-7 hidden h-px bg-gradient-to-r from-transparent via-white/15 to-transparent md:block" />
+            <div className="absolute left-[7%] top-7 hidden h-px w-[86%] bg-gradient-brand shadow-[0_0_22px_rgba(59,109,255,.55)] md:block" />
+            {flow.map((step, index) => (
+              <RevealOnScroll key={step.title} delay={index * 0.08}>
+                <div className="relative z-10 flex h-full flex-col gap-4">
+                  <div className="grid h-14 w-14 place-items-center rounded-full border border-white/15 bg-gradient-brand text-lg font-black text-white shadow-glow">
                     {index + 1}
-                  </span>
-                  <p className="font-bold text-white">{item}</p>
-                  <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-brand-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/55">{step.description}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
+              </RevealOnScroll>
+            ))}
           </div>
-        </section>
+        </Section>
 
-        <section id="planos" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="rounded-[30px] border border-brand-400/20 bg-gradient-to-br from-brand-500/15 via-white/[0.035] to-white/[0.02] p-6 shadow-glow backdrop-blur-xl sm:p-10">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-400/25 bg-brand-500/10 px-3 py-2 text-sm text-brand-100">
-                  <LockKeyhole className="h-4 w-4" />
-                  Recursos bloqueados até o pagamento
+        <Section id="recursos" kicker="Recursos" title={<>Tudo que um editor faria. <span className="six3-gradient-text">Em automático.</span></>}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature, index) => (
+              <FeatureCard key={feature.title} {...feature} delay={(index % 3) * 0.04} />
+            ))}
+          </div>
+        </Section>
+
+        <Section
+          kicker="Mobile-first"
+          title="Criado para editar no celular"
+          lead="Uma experiência fluida para o operador trabalhar no evento: enviar mídia, escolher estilo, gerar entrega e compartilhar com QR Code."
+          align="center"
+        >
+          <div className="relative mx-auto grid min-h-[560px] max-w-5xl place-items-center overflow-hidden">
+            <div className="six3-glass six3-float-a absolute left-2 top-8 hidden items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-white/80 sm:flex">
+              <UploadCloud className="h-5 w-5 text-brand-200" />
+              Arraste os clipes
+            </div>
+            <div className="six3-glass six3-float-b absolute right-2 top-28 hidden items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-white/80 sm:flex">
+              <Sparkles className="h-5 w-5 text-brand-200" />
+              Escolha estilo
+            </div>
+            <div className="six3-glass six3-float-b absolute bottom-28 left-4 hidden items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold text-white/80 sm:flex">
+              <QrCode className="h-5 w-5 text-brand-200" />
+              QR para cliente
+            </div>
+            <PhoneMockup compact />
+          </div>
+        </Section>
+
+        <Section
+          kicker="Desktop"
+          title="Potência completa no PC"
+          lead="Sidebar, preview, timeline e painel de estilos com renderização automática em um clique, mantendo os mesmos projetos do mobile."
+        >
+          <RevealOnScroll>
+            <DesktopMockup />
+          </RevealOnScroll>
+        </Section>
+
+        <Section
+          id="estilos"
+          kicker="Estilos de edição"
+          title="Um preset para cada vibe"
+          lead="Cada estilo carrega ritmo, tipografia, filtros, cortes e efeitos próprios para entregar vídeos com intenção."
+        >
+          <div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+            {styles.map(([title, description, gradient], index) => (
+              <RevealOnScroll key={title} delay={index * 0.04} className="w-[78vw] max-w-[18rem] shrink-0 snap-start lg:w-auto lg:flex-1">
+                <GlassCard className="h-full overflow-hidden">
+                  <div className={`aspect-video bg-gradient-to-br ${gradient} relative`}>
+                    <div className="absolute inset-0 opacity-40 [background:repeating-linear-gradient(125deg,rgba(255,255,255,.08)_0_2px,transparent_2px_10px)]" />
+                    <span className="absolute left-3 top-3 rounded-lg border border-white/20 bg-black/35 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white backdrop-blur">
+                      {title}
+                    </span>
+                  </div>
+                  <div className="p-5">
+                    <h3 className="text-lg font-black text-white">{title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/55">{description}</p>
+                  </div>
+                </GlassCard>
+              </RevealOnScroll>
+            ))}
+          </div>
+        </Section>
+
+        <Section tight>
+          <div className="grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+            <RevealOnScroll>
+              <span className="six3-kicker">Benefícios</span>
+              <h2 className="mt-4 text-[clamp(2rem,5vw,3.5rem)] font-black leading-[1.04] tracking-[-0.03em] text-white">
+                Menos tempo editando. Mais conteúdo publicado.
+              </h2>
+              <ul className="mt-7 flex flex-col gap-3">
+                {compactBenefits.map((benefit) => (
+                  <CheckItem key={benefit}>{benefit}</CheckItem>
+                ))}
+              </ul>
+            </RevealOnScroll>
+            <RevealOnScroll delay={0.1}>
+              <GlassCard className="relative min-h-[28rem] overflow-hidden p-6">
+                <div className="absolute inset-0 bg-[radial-gradient(60%_70%_at_32%_22%,rgba(59,109,255,.34),transparent_60%),radial-gradient(55%_65%_at_78%_84%,rgba(139,92,246,.38),transparent_62%)]" />
+                <div className="relative z-10 flex h-full min-h-[24rem] flex-col justify-between">
+                  <div className="six3-glass w-fit rounded-2xl px-5 py-4">
+                    <b className="block text-4xl font-black tracking-[-0.04em] text-white">8h</b>
+                    <small className="font-mono text-xs text-white/45">economizadas / semana</small>
+                  </div>
+                  <div className="six3-glass ml-auto w-fit rounded-2xl px-5 py-4 text-right">
+                    <b className="six3-gradient-text block text-4xl font-black tracking-[-0.04em]">5x</b>
+                    <small className="font-mono text-xs text-white/45">mais posts publicados</small>
+                  </div>
                 </div>
-                <h2 className="text-3xl font-black leading-tight text-white sm:text-5xl">
-                  Escolha um plano e libere o SIX3<span className="brand-degree">°</span>.
-                </h2>
-                <p className="mt-4 text-base leading-relaxed text-white/55">
-                  Planos com Pix, renovação mensal de acesso e recursos escalando de templates essenciais até uso ilimitado.
-                </p>
-              </div>
-              <Button size="xl" onClick={() => navigate('/plans')} icon={<ArrowRight className="h-5 w-5" />}>
-                Ver planos
+              </GlassCard>
+            </RevealOnScroll>
+          </div>
+        </Section>
+
+        <Section
+          id="planos"
+          kicker="Planos"
+          title="Escolha o seu ritmo"
+          lead="Os recursos ficam bloqueados até o pagamento. Depois da assinatura, o acesso renova todo mês no mesmo dia da contratação."
+          align="center"
+        >
+          <PricingPreview />
+        </Section>
+
+        <Section tight>
+          <RevealOnScroll>
+            <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(120%_130%_at_50%_0%,rgba(139,92,246,.22),rgba(11,13,18,.98)_70%)] px-5 py-16 text-center shadow-[0_44px_120px_-60px_rgba(59,109,255,.55)] sm:px-10 lg:py-24">
+              <span className="pointer-events-none absolute -right-8 -top-20 text-[18rem] font-black leading-none text-white/[0.035]">°</span>
+              <h2 className="relative mx-auto max-w-3xl text-[clamp(2.1rem,6vw,4rem)] font-black leading-[1.02] tracking-[-0.04em] text-white">
+                Seu próximo vídeo pode ficar pronto em <span className="six3-gradient-text">minutos</span>
+              </h2>
+              <p className="relative mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/55 sm:text-lg">
+                Envie, escolha o estilo e deixe o SIX3° editar, publicar e organizar a entrega por você.
+              </p>
+              <Button className="relative mt-8" size="xl" onClick={() => navigate('/plans')} icon={<ChevronRight className="h-5 w-5" />}>
+                Começar a jornada
               </Button>
             </div>
-          </div>
-        </section>
+          </RevealOnScroll>
+        </Section>
       </main>
 
-      <footer className="relative z-10 border-t border-white/10 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-white/35 sm:flex-row sm:items-center sm:justify-between">
-          <BrandLogo wordmarkClassName="text-xl" />
+      <footer className="relative z-10 border-t border-white/10 px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <BrandWordmark className="text-3xl" />
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/45">
+              Automação criativa em 360°. Do vídeo bruto ao conteúdo pronto para postar, em qualquer tela.
+            </p>
+          </div>
+          {[
+            ['Produto', 'Recursos', 'Como funciona', 'Estilos', 'Planos'],
+            ['Plataforma', 'Mobile', 'Desktop', 'Templates', 'Analytics'],
+            ['Acesso', 'Entrar', 'Criar conta', 'Pagamento', 'Suporte'],
+          ].map(([title, ...items]) => (
+            <div key={title}>
+              <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">{title}</h3>
+              <div className="mt-3 flex flex-col gap-2">
+                {items.map((item) => (
+                  <span key={item} className="text-sm text-white/50">{item}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t border-white/10 pt-6 text-sm text-white/35 sm:flex-row sm:items-center sm:justify-between">
           <span>© 2026 SIX3°. Todos os direitos reservados.</span>
+          <button type="button" onClick={() => navigate('/login')} className="w-fit text-white/45 transition hover:text-white">
+            Entrar na plataforma
+          </button>
         </div>
       </footer>
     </div>

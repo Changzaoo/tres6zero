@@ -12,7 +12,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       {label && <label className="text-sm font-medium text-white/70">{label}</label>}
       <select
         ref={ref}
-        className={`w-full bg-white/5 border ${error ? 'border-red-500/60' : 'border-white/10'} rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30 transition-all ${className}`}
+        className={`w-full border ${error ? 'border-red-500/60' : 'border-white/10'} rounded-[18px] bg-white/[0.055] px-4 py-3 text-white backdrop-blur-md transition-all focus:border-brand-500/60 focus:outline-none focus:ring-2 focus:ring-brand-500/20 ${className}`}
         {...props}
       >
         {options.map(o => <option key={o.value} value={o.value} className="bg-surface-50">{o.label}</option>)}

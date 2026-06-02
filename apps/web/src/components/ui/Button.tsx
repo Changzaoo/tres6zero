@@ -1,4 +1,4 @@
-import { forwardRef, ButtonHTMLAttributes } from 'react';
+import { forwardRef, ButtonHTMLAttributes, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
@@ -9,15 +9,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-gradient-brand text-white shadow-glow ring-1 ring-white/[0.15] hover:shadow-[0_22px_70px_-26px_rgba(139,92,246,0.95)]',
-  secondary: 'bg-white/[0.055] text-white border border-white/10 hover:bg-white/[0.085] hover:border-white/[0.15]',
-  ghost: 'text-white/70 hover:text-white hover:bg-white/[0.06]',
-  danger: 'bg-red-600/90 text-white hover:bg-red-600',
-  outline: 'border border-brand-400/55 text-brand-300 hover:bg-brand-500/10 hover:text-white',
+  primary: 'six3-btn-shine bg-gradient-brand text-white shadow-glow ring-1 ring-white/[0.16] hover:shadow-[0_22px_70px_-26px_rgba(139,92,246,0.95)]',
+  secondary: 'border border-white/10 bg-white/[0.065] text-white backdrop-blur-md hover:bg-white/[0.1] hover:border-white/[0.16]',
+  ghost: 'text-white/70 hover:text-white hover:bg-white/[0.065]',
+  danger: 'bg-red-600/90 text-white hover:bg-red-600 ring-1 ring-red-300/15',
+  outline: 'border border-brand-400/55 text-brand-200 bg-brand-500/5 hover:bg-brand-500/12 hover:text-white',
 };
 
 const sizes: Record<Size, string> = {
@@ -34,11 +34,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       whileTap={{ scale: 0.97 }}
       whileHover={{ scale: 1.01 }}
       disabled={disabled || loading}
-      className={`inline-flex items-center gap-2 font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold tracking-[-0.01em] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
       {...(props as any)}
     >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
-      {children}
+      <span className="inline-flex items-center gap-2">
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
+        {children}
+      </span>
     </motion.button>
   )
 );

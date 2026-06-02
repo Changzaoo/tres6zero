@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { MouseAura } from '@/components/landing/MouseAura';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -23,11 +24,12 @@ export function AppShell() {
   const title = PAGE_TITLES[location.pathname] || 'SIX3°';
 
   return (
-    <div className="six3-grid-bg flex h-screen bg-surface overflow-hidden">
+    <div className="six3-grid-bg flex h-screen overflow-hidden bg-surface">
+      <MouseAura />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} title={title} />
-        <main className="flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-28 lg:pb-6">
+        <main className="relative z-10 flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-28 lg:pb-6">
           <Outlet />
         </main>
         <MobileBottomNav onMoreClick={() => setSidebarOpen(true)} />

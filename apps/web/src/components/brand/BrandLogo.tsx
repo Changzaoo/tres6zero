@@ -25,7 +25,7 @@ function imageSizeClass(wordmarkClassName: string) {
 export function BrandLogo({
   className = '',
   wordmarkClassName = '',
-  subtitle = 'SaaS para experiencias 360',
+  subtitle = 'SaaS para experiências 360',
   showSubtitle = false,
 }: BrandLogoProps) {
   return (

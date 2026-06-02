@@ -14,7 +14,7 @@ export function Card({ glass = true, hover = false, padding = 'md', className = 
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-[22px] border border-white/[0.08] ${glass ? 'bg-gradient-glass backdrop-blur-md shadow-glass' : 'bg-surface-50'} ${paddings[padding]} ${hover ? 'hover:border-brand-400/35 hover:shadow-glow transition-all cursor-pointer' : ''} ${className}`}
+      className={`${glass ? 'six3-glass' : 'rounded-[22px] border border-white/[0.08] bg-surface-50'} ${paddings[padding]} ${hover ? 'six3-card-hover cursor-pointer' : ''} ${className}`}
       onClick={props.onClick}
     >
       {children}

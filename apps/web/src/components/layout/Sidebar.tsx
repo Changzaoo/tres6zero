@@ -1,8 +1,20 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Calendar, Video, Layers, Users,
-  BarChart2, Settings, LogOut, Camera, X, Shield, Lock, CreditCard, Bell,
+  LayoutDashboard,
+  Calendar,
+  Video,
+  Layers,
+  Users,
+  BarChart2,
+  Settings,
+  LogOut,
+  Camera,
+  X,
+  Shield,
+  Lock,
+  CreditCard,
+  Bell,
 } from 'lucide-react';
 import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,61 +52,76 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   }
 
   const content = (
-    <div className="h-full flex flex-col bg-surface-100/95 border-r border-white/[0.08] w-64 backdrop-blur-xl">
-      <div className="p-5 border-b border-white/[0.08]">
+    <div className="flex h-full w-64 flex-col border-r border-white/[0.08] bg-[#0e1016]/90 backdrop-blur-2xl">
+      <div className="border-b border-white/[0.08] p-5">
         <BrandLogo className="items-center" wordmarkClassName="text-5xl" />
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
         {navItems.map(({ to, label, icon: Icon, unlocked }) => {
           const locked = !hasActiveSubscription && !unlocked;
           return (
-            <NavLink key={to} to={to} onClick={onClose}
+            <NavLink
+              key={to}
+              to={to}
+              onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all group ${isActive ? 'bg-brand-500/15 text-brand-200 border border-brand-400/20' : 'text-white/50 hover:text-white/90 hover:bg-white/[0.055]'} ${locked ? 'opacity-70' : ''}`
-              }>
-              <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
+                `group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
+                  isActive
+                    ? 'border border-brand-400/25 bg-brand-500/15 text-brand-100 shadow-[0_16px_44px_-30px_rgba(59,109,255,.8)]'
+                    : 'text-white/50 hover:bg-white/[0.055] hover:text-white/90'
+                } ${locked ? 'opacity-70' : ''}`
+              }
+            >
+              <Icon className="h-[18px] w-[18px] shrink-0" />
               <span className="flex-1">{label}</span>
-              {locked && <Lock className="w-3.5 h-3.5 text-white/30" />}
+              {locked && <Lock className="h-3.5 w-3.5 text-white/30" />}
             </NavLink>
           );
         })}
 
         {isAdmin && (
-          <NavLink to="/app/admin" onClick={onClose}
+          <NavLink
+            to="/app/admin"
+            onClick={onClose}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all mt-2 ${isActive ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/20' : 'text-white/50 hover:text-white/90 hover:bg-white/[0.055]'}`
-            }>
-            <Shield style={{ width: 18, height: 18 }} />
+              `mt-2 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
+                isActive ? 'border border-yellow-500/20 bg-yellow-500/15 text-yellow-300' : 'text-white/50 hover:bg-white/[0.055] hover:text-white/90'
+              }`
+            }
+          >
+            <Shield className="h-[18px] w-[18px]" />
             <span className="flex-1">Admin</span>
           </NavLink>
         )}
       </nav>
 
-      <div className="p-3 border-t border-white/[0.08]">
-        <div className="flex items-center gap-3 px-3 py-2.5 mb-1">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-xs font-bold text-white">
+      <div className="border-t border-white/[0.08] p-3">
+        <div className="mb-1 flex items-center gap-3 px-3 py-2.5">
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-brand text-xs font-bold text-white shadow-glow ring-1 ring-white/15">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
             <button
               type="button"
-              aria-label="Notificacoes"
-              className="w-8 h-8 rounded-full border border-white/10 bg-white/[0.055] flex items-center justify-center text-white/45 hover:text-white hover:bg-white/[0.09] transition-colors"
+              aria-label="Notificações"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/45 transition-colors hover:bg-white/[0.09] hover:text-white"
             >
-              <Bell className="w-4 h-4" />
+              <Bell className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white/80 truncate">{user?.name}</p>
-            <p className="text-xs text-white/40 truncate">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white/80">{user?.name}</p>
+            <p className="truncate text-xs text-white/40">
               {hasActiveSubscription ? 'Assinatura ativa' : 'Aguardando pagamento'}
             </p>
           </div>
         </div>
-        <button onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all">
-          <LogOut style={{ width: 16, height: 16 }} />
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm text-white/40 transition-all hover:bg-red-500/10 hover:text-red-400"
+        >
+          <LogOut className="h-4 w-4" />
           <span>Sair</span>
         </button>
       </div>
@@ -103,19 +130,32 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
-      <aside className="hidden lg:block shrink-0">{content}</aside>
+      <aside className="hidden shrink-0 lg:block">{content}</aside>
 
       <AnimatePresence>
         {open && (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+              onClick={onClose}
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="absolute left-0 top-0 bottom-0">
+              className="absolute bottom-0 left-0 top-0"
+            >
               <div className="relative h-full">
-                <button onClick={onClose} className="absolute top-4 right-[-48px] p-2 rounded-xl bg-white/10 text-white z-10">
-                  <X className="w-5 h-5" />
+                <button
+                  onClick={onClose}
+                  className="absolute right-[-48px] top-4 z-10 rounded-xl bg-white/10 p-2 text-white"
+                  aria-label="Fechar menu"
+                >
+                  <X className="h-5 w-5" />
                 </button>
                 {content}
               </div>

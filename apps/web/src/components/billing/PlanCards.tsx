@@ -27,11 +27,11 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
         {PLANS.map((plan) => (
           <div
             key={plan.id}
-            className={`relative flex min-h-full w-[86vw] max-w-[23.5rem] shrink-0 snap-center flex-col overflow-visible rounded-[24px] border bg-gradient-glass p-4 shadow-glass backdrop-blur-xl sm:p-5 md:w-auto md:max-w-none lg:p-6 ${plan.highlight ? 'border-brand-400/50 shadow-glow' : 'border-white/[0.08]'}`}
+            className={`six3-glass six3-card-hover relative flex min-h-full w-[86vw] max-w-[23.5rem] shrink-0 snap-center flex-col overflow-visible p-4 sm:p-5 md:w-auto md:max-w-none lg:p-6 ${plan.highlight ? 'border-brand-400/50 shadow-glow' : ''}`}
           >
             {plan.highlight && (
               <div className="absolute -top-3 left-4 inline-flex max-w-[calc(100%-2rem)] items-center gap-1 rounded-full bg-gradient-brand px-3 py-1 text-xs font-semibold text-white shadow-glow sm:left-5">
-                <Crown className="w-3 h-3" />
+                <Crown className="h-3 w-3" />
                 Mais escolhido
               </div>
             )}
@@ -41,7 +41,7 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
               <p className="min-h-0 text-sm leading-relaxed text-white/50 sm:min-h-[44px]">{plan.tagline}</p>
               <div className="flex flex-wrap items-end gap-x-1 gap-y-0 pt-1 sm:pt-2">
                 <span className="pb-1 text-sm text-white/40">R$</span>
-                <span className="whitespace-nowrap text-4xl font-black leading-none text-white sm:text-[2.65rem]">
+                <span className="whitespace-nowrap text-4xl font-black leading-none tracking-[-0.04em] text-white sm:text-[2.65rem]">
                   {priceFormatter.format(plan.price)}
                 </span>
                 <span className="pb-1 text-sm text-white/40">/mês</span>
@@ -53,9 +53,7 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
                 const featureKey = `${plan.id}-${index}`;
                 const isActive = activeFeature === featureKey;
                 const tooltipId = `plan-${plan.id}-feature-${index}`;
-                const tooltipPosition = index >= plan.features.length - 2
-                  ? 'md:bottom-full md:mb-2 md:mt-0'
-                  : 'md:top-full md:mt-2';
+                const tooltipPosition = index >= plan.features.length - 2 ? 'md:bottom-full md:mb-2 md:mt-0' : 'md:top-full md:mt-2';
 
                 return (
                   <li
@@ -75,7 +73,11 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
                       aria-expanded={isActive}
                       aria-controls={isActive ? tooltipId : undefined}
                       aria-describedby={isActive ? tooltipId : undefined}
-                      className={`group flex min-h-[44px] w-full min-w-0 items-start gap-2 rounded-2xl border px-2.5 py-2 text-left text-sm leading-snug transition focus:outline-none focus-visible:border-brand-400/60 focus-visible:bg-brand-500/10 focus-visible:ring-2 focus-visible:ring-brand-500/25 sm:px-3 ${isActive ? 'border-brand-400/35 bg-brand-500/10 text-white' : 'border-transparent text-white/70 hover:border-white/10 hover:bg-white/[0.04] hover:text-white'}`}
+                      className={`group flex min-h-[44px] w-full min-w-0 items-start gap-2 rounded-2xl border px-2.5 py-2 text-left text-sm leading-snug transition focus:outline-none focus-visible:border-brand-400/60 focus-visible:bg-brand-500/10 focus-visible:ring-2 focus-visible:ring-brand-500/25 sm:px-3 ${
+                        isActive
+                          ? 'border-brand-400/35 bg-brand-500/10 text-white'
+                          : 'border-transparent text-white/70 hover:border-white/10 hover:bg-white/[0.04] hover:text-white'
+                      }`}
                       onPointerDown={(event) => {
                         lastPointerType.current = event.pointerType;
                       }}
@@ -94,7 +96,7 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
                         setActiveFeature((current) => (current === featureKey ? null : current));
                       }}
                     >
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                       <span className="min-w-0 flex-1 break-words">{feature.label}</span>
                       <Info className={`mt-0.5 h-4 w-4 shrink-0 transition ${isActive ? 'text-brand-300' : 'text-white/25 group-hover:text-white/45'}`} />
                     </button>
@@ -103,7 +105,7 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
                       <div
                         id={tooltipId}
                         role="tooltip"
-                        className={`z-30 mt-2 rounded-2xl border border-white/10 bg-surface-50/95 p-3 text-xs leading-relaxed text-white/70 shadow-2xl shadow-black/30 backdrop-blur-md md:absolute md:left-0 md:right-0 ${tooltipPosition}`}
+                        className={`z-30 mt-2 rounded-2xl border border-white/10 bg-surface-50/95 p-3 text-xs leading-relaxed text-white/70 shadow-2xl shadow-black/35 backdrop-blur-xl md:absolute md:left-0 md:right-0 ${tooltipPosition}`}
                       >
                         {feature.description}
                       </div>
