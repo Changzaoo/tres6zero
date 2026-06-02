@@ -84,7 +84,7 @@ export default function App() {
         <Route path="events/:id" element={<PaidRoute><EventsPage /></PaidRoute>} />
         <Route path="events/:id/edit" element={<PaidRoute><EventFormPage /></PaidRoute>} />
         <Route path="operator" element={<PaidRoute><OperatorPage /></PaidRoute>} />
-        <Route path="videos" element={<PaidRoute><VideosPage /></PaidRoute>} />
+        <Route path="videos" element={<VideosPage />} />
         <Route path="templates" element={<PaidRoute><TemplatesPage /></PaidRoute>} />
         <Route path="leads" element={<PaidRoute><LeadsPage /></PaidRoute>} />
         <Route path="analytics" element={<PaidRoute><AnalyticsPage /></PaidRoute>} />

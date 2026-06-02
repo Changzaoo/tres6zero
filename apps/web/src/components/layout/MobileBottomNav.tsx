@@ -18,7 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
-  { to: '/app/videos', label: 'VÃ­deos', icon: Video },
+  { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
   { to: '/app/operator', label: 'Operar', icon: Camera, primary: true },
   { to: '/app/templates', label: 'Templates', icon: Layers },
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
@@ -28,7 +28,7 @@ const moreItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/leads', label: 'Leads', icon: Users },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
-  { to: '/app/settings', label: 'ConfiguraÃ§Ãµes', icon: Settings, unlocked: true },
+  { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
 ];
 
 export function MobileBottomNav() {
@@ -53,7 +53,7 @@ export function MobileBottomNav() {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="Fechar mais opÃ§Ãµes"
+            aria-label="Fechar mais opções"
             className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
             onClick={() => setMoreOpen(false)}
           />

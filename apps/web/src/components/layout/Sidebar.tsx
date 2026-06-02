@@ -28,7 +28,7 @@ const navItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/events', label: 'Eventos', icon: Calendar },
   { to: '/app/operator', label: 'Modo Operador', icon: Camera },
-  { to: '/app/videos', label: 'Vídeos', icon: Video },
+  { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
   { to: '/app/templates', label: 'Templates', icon: Layers },
   { to: '/app/leads', label: 'Leads', icon: Users },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
