@@ -13,6 +13,7 @@ import { trackRouter } from './routes/track';
 import { authRouter } from './routes/auth';
 import { billingRouter, stripeWebhookHandler } from './routes/billing';
 import { supportRouter } from './routes/support';
+import { eventsRouter } from './routes/events';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -75,6 +76,7 @@ app.use('/api/billing', billingRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/video', videoRouter);
 app.use('/api/templates', templatesRouter);
+app.use('/api/events', eventsRouter);
 app.use('/api/qr', qrRouter);
 app.use('/api/leads', leadRouter);
 app.use('/api/track', trackRouter);

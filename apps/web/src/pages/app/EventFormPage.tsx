@@ -122,7 +122,10 @@ export default function EventFormPage() {
         return;
       }
       navigate(`/app/events/${id}`);
-    } catch { toast.error('Erro ao salvar evento.'); }
+    } catch (error) {
+      console.warn('[events] Save failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar evento.');
+    }
   }
 
   return (
