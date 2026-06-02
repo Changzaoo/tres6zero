@@ -105,6 +105,8 @@ export interface AppTemplate {
   font: string;
   previewUrl?: string;
   overlayUrl?: string;
+  animationUrl?: string;
+  animationStoragePath?: string;
   frameUrl?: string;
   musicUrl?: string;
   storagePath?: string;

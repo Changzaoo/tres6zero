@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import subprocess
 import sys
 
@@ -49,7 +50,7 @@ def effect_filters(effect):
     return filters.get(effect, filters["clean"])
 
 
-def build_graph(effect, has_overlay):
+def build_graph(effect, has_overlay, animated_overlay=False):
     base_effect = chosen_effect(effect, None)
     base_filters = effect_filters(base_effect)
 
@@ -63,7 +64,10 @@ def build_graph(effect, has_overlay):
         graph = f"[0:v]{','.join(base_filters)},scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,format=yuv420p[base]"
 
     if has_overlay:
-        graph += ";[1:v][base]scale2ref=w=iw:h=ih[ov][video];[video][ov]overlay=0:0:format=auto[v]"
+        overlay_options = "format=auto:eof_action=repeat"
+        if animated_overlay:
+            overlay_options += ":shortest=1"
+        graph += f";[1:v][base]scale2ref=w=iw:h=ih[ov][video];[video][ov]overlay=0:0:{overlay_options}[v]"
     else:
         graph += ";[base]null[v]"
 
@@ -91,10 +95,16 @@ def main():
     args = parser.parse_args()
 
     effect = chosen_effect(args.effect, args.event_type)
-    graph = build_graph(effect, bool(args.overlay))
+    overlay_ext = os.path.splitext(args.overlay.lower())[1] if args.overlay else ""
+    animated_overlay = overlay_ext in [".webm", ".mp4", ".mov", ".gif"]
+    graph = build_graph(effect, bool(args.overlay), animated_overlay)
     cmd = [args.ffmpeg, "-y", "-i", args.input]
 
     if args.overlay:
+        if animated_overlay:
+            cmd += ["-stream_loop", "-1"]
+        if overlay_ext == ".webm":
+            cmd += ["-c:v", "libvpx-vp9"]
         cmd += ["-i", args.overlay]
 
     audio_index = None

@@ -101,6 +101,7 @@ export function processVideoOnServer(config: {
   storagePath?: string;
   templateId?: string;
   overlayUrl?: string;
+  animationUrl?: string;
   effect?: string;
   musicTheme?: string;
   musicUrl?: string;

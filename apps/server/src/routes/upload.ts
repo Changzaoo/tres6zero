@@ -9,7 +9,7 @@ export const uploadRouter = Router();
 
 const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
 const ALLOWED_IMAGE = ['image/png', 'image/jpeg', 'image/webp'];
-const ALLOWED_TEMPLATE = ['image/png', 'image/svg+xml', 'image/webp'];
+const ALLOWED_TEMPLATE = ['image/png', 'image/svg+xml', 'image/webp', 'video/webm'];
 const ALLOWED_MUSIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/aac', 'audio/mp4', 'audio/ogg', 'audio/webm'];
 const MAX_VIDEO_MB = 500;
 const MAX_IMAGE_MB = 10;
@@ -41,7 +41,7 @@ const templateUpload = multer({
   limits: { fileSize: MAX_TEMPLATE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_TEMPLATE.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Tipo de template nao permitido. Use PNG, SVG ou WebP transparente.'));
+    else cb(new Error('Tipo de template nao permitido. Use PNG, SVG, WebP ou WebM transparente.'));
   },
 });
 

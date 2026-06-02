@@ -5,6 +5,7 @@ import { Buffer } from 'node:buffer';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { requireAdmin, requireActiveSubscription } from './auth';
 import { buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
+import { buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
 import { buildGeneratedMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 
@@ -14,6 +15,7 @@ const seedSchema = z.object({
   count: z.number().int().min(1).max(1000).optional(),
   offset: z.number().int().min(0).max(10000).optional(),
   musicCount: z.number().int().min(0).max(120).optional(),
+  animatedCount: z.number().int().min(0).max(300).optional(),
 });
 
 type SeedJob = {
@@ -37,7 +39,13 @@ templatesRouter.get('/generated', requireActiveSubscription, (_req, res) => {
     ...template,
     overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
   }));
-  res.json({ templates });
+  const animatedTemplates = buildGeneratedAnimatedTemplates().map(({ svg, ...template }) => ({
+    ...template,
+    overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
+    animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
+  }));
+
+  res.json({ templates: [...animatedTemplates, ...templates] });
 });
 
 templatesRouter.get('/generated-music', requireActiveSubscription, (_req, res) => {
@@ -110,6 +118,33 @@ async function uploadProjectTemplates(count: number, offset = 0, onUploaded?: ()
       ...publicTemplate,
       overlayUrl: result.publicUrl,
       storagePath: result.path,
+    };
+  });
+}
+
+async function uploadProjectAnimatedTemplates(count: number, offset = 0, onUploaded?: () => void) {
+  await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
+  const templates = buildGeneratedAnimatedTemplates(count, offset);
+
+  return mapConcurrent(templates, Math.min(2, seedConcurrency()), async (template) => {
+    const result = await uploadBufferToSupabase({
+      bucket: SUPABASE_BUCKETS.projectTemplates,
+      prefix: `animated/${template.category}`,
+      fileName: `${template.id}.webm`,
+      fallbackExt: '.webm',
+      buffer: await renderAnimatedTemplateWebm(template),
+      contentType: 'video/webm',
+      objectPath: template.animationStoragePath,
+      upsert: true,
+    });
+
+    const { svg, ...publicTemplate } = template;
+    onUploaded?.();
+    return {
+      ...publicTemplate,
+      overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
+      animationUrl: result.publicUrl,
+      animationStoragePath: result.path,
     };
   });
 }
@@ -193,13 +228,22 @@ templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) =
   } catch (e) { next(e); }
 });
 
+templatesRouter.post('/seed-animated', requireSeedSecret, async (req, res, next) => {
+  try {
+    const { count = 144, offset = 0 } = seedSchema.parse(req.body || {});
+    const templates = await uploadProjectAnimatedTemplates(count, offset);
+    res.json({ ok: true, templateCount: templates.length, templates });
+  } catch (e) { next(e); }
+});
+
 templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) => {
   try {
-    const { count = 360, offset = 0, musicCount = 72 } = seedSchema.parse(req.body || {});
+    const { count = 360, offset = 0, musicCount = 72, animatedCount = 0 } = seedSchema.parse(req.body || {});
     await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
     await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
 
     const templates = await uploadProjectTemplates(count, offset);
+    const animatedTemplates = animatedCount > 0 ? await uploadProjectAnimatedTemplates(animatedCount, offset) : [];
     const music = musicCount > 0 ? await uploadProjectMusic(musicCount) : [];
 
     res.json({
@@ -211,9 +255,10 @@ templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) =
         userMusic: SUPABASE_BUCKETS.userMusic,
       },
       templateCount: templates.length,
+      animatedTemplateCount: animatedTemplates.length,
       musicCount: music.length,
       offset,
-      templates,
+      templates: [...animatedTemplates, ...templates],
       music,
     });
   } catch (e) { next(e); }

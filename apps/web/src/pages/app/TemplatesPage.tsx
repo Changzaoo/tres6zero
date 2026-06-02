@@ -65,17 +65,20 @@ export default function TemplatesPage() {
     setProgress(0);
     try {
       const uploaded = await uploadTemplateToServer(file, setProgress);
+      const isAnimated = uploaded.mimetype === 'video/webm';
       const template = await createTemplate({
         name: file.name.replace(/\.[^.]+$/, '') || 'Template personalizado',
         category: 'premium',
         colors: { primary: '#7c3aed', secondary: '#00d4ff' },
         font: 'Inter',
-        overlayUrl: uploaded.publicUrl || uploaded.templateUrl,
+        overlayUrl: isAnimated ? undefined : uploaded.publicUrl || uploaded.templateUrl,
+        animationUrl: isAnimated ? uploaded.publicUrl || uploaded.templateUrl : undefined,
         storagePath: uploaded.storagePath,
+        animationStoragePath: isAnimated ? uploaded.storagePath : undefined,
         ownerId: user.uid,
         source: 'custom',
         aspectRatio: '9:16',
-        effects: ['clean', 'cinematic'],
+        effects: isAnimated ? ['motion_overlay', 'cinematic'] : ['clean', 'cinematic'],
         isGlobal: false,
         isActive: true,
       });
@@ -154,7 +157,7 @@ export default function TemplatesPage() {
           <label className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed bg-white/[0.055] text-white/40 border border-white/10'}`}>
             {canUpload ? <Upload className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             {uploading ? `Enviando ${progress}%` : 'Enviar template'}
-            <input type="file" accept="image/png,image/svg+xml,image/webp" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
+            <input type="file" accept="image/png,image/svg+xml,image/webp,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
           </label>
           <label className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${canUpload ? 'cursor-pointer bg-white/[0.07] text-white border border-white/10 hover:bg-white/[0.1]' : 'cursor-not-allowed bg-white/[0.055] text-white/40 border border-white/10'}`}>
             {canUpload ? <Music2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
@@ -199,7 +202,11 @@ export default function TemplatesPage() {
                 <div className="max-h-56 flex items-center justify-center relative overflow-hidden"
                   style={{ aspectRatio: templateAspectRatio(t.aspectRatio), background: `linear-gradient(135deg, ${t.colors.primary}, ${t.colors.secondary})` }}>
                   <BrandWordmark className="text-3xl drop-shadow-lg" />
-                  {t.overlayUrl && <img src={t.overlayUrl} alt="" className="absolute inset-0 w-full h-full object-contain" />}
+                  {t.animationUrl ? (
+                    <video src={t.animationUrl} className="absolute inset-0 h-full w-full object-contain" autoPlay muted loop playsInline />
+                  ) : t.overlayUrl && (
+                    <img src={t.overlayUrl} alt="" className="absolute inset-0 w-full h-full object-contain" />
+                  )}
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-white text-xs font-medium bg-black/45 px-3 py-1.5 rounded-full">Usar template</span>
                   </div>
@@ -209,6 +216,7 @@ export default function TemplatesPage() {
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     <Badge variant="purple">{t.category}</Badge>
                     <span className="text-xs text-white/30">{t.aspectRatio}</span>
+                    {t.animationUrl && <span className="text-xs text-cyan-200/80">animado</span>}
                     {t.source && <span className="text-xs text-white/30">{t.source}</span>}
                   </div>
                   <div className="flex gap-1 mt-2 flex-wrap">

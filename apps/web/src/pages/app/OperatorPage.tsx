@@ -193,7 +193,7 @@ export default function OperatorPage() {
         inputUrl: uploaded.videoUrl || '',
         storagePath: uploaded.storagePath,
         templateId: selectedTemplateId || undefined,
-        overlayUrl: selectedTemplate?.overlayUrl,
+        overlayUrl: selectedTemplate?.animationUrl || selectedTemplate?.overlayUrl,
         effect,
         musicTheme: selectedMusicUrl ? 'none' : musicTheme,
         musicUrl: selectedMusicUrl,
