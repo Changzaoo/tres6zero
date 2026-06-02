@@ -74,6 +74,7 @@ export interface AppVideo {
   templateId?: string;
   effect?: string;
   musicTheme?: string;
+  musicUrl?: string;
   views: number;
   downloads: number;
   shares: number;
@@ -111,6 +112,23 @@ export interface AppTemplate {
   source?: 'generated' | 'custom' | 'default';
   aspectRatio: '9:16' | '1:1' | '16:9';
   effects: string[];
+  isGlobal: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppMusic {
+  id: string;
+  ownerId?: string;
+  name: string;
+  category: TemplateCategory | 'ambient';
+  theme?: string;
+  bpm?: number;
+  duration?: number;
+  musicUrl?: string;
+  storagePath?: string;
+  source?: 'generated' | 'custom' | 'default';
   isGlobal: boolean;
   isActive: boolean;
   createdAt: string;

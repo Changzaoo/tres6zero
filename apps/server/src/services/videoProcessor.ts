@@ -17,6 +17,7 @@ export type ProcessingConfig = {
   overlayUrl?: string;
   effect?: string;
   musicTheme?: string;
+  musicUrl?: string;
   eventType?: string;
 };
 
@@ -142,11 +143,15 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
 
   let inputTemp: Awaited<ReturnType<typeof downloadToTempFile>> | null = null;
   let overlayTemp: Awaited<ReturnType<typeof downloadToTempFile>> | null = null;
+  let musicTemp: Awaited<ReturnType<typeof downloadToTempFile>> | null = null;
 
   try {
     inputTemp = await downloadToTempFile(config.inputUrl, '.mp4');
     if (config.overlayUrl) {
       overlayTemp = await downloadToTempFile(config.overlayUrl, '.png');
+    }
+    if (config.musicUrl) {
+      musicTemp = await downloadToTempFile(config.musicUrl, '.wav');
     }
 
     const script = resolvePythonScript();
@@ -179,6 +184,7 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
     ];
 
     if (overlayTemp) args.push('--overlay', await rasterOverlayIfNeeded(overlayTemp.filePath));
+    if (musicTemp) args.push('--music-file', musicTemp.filePath);
 
     const editor = await runPythonEditor(args);
     const output = await readFile(outputPath);
@@ -212,6 +218,7 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
   } finally {
     await inputTemp?.cleanup().catch(() => undefined);
     await overlayTemp?.cleanup().catch(() => undefined);
+    await musicTemp?.cleanup().catch(() => undefined);
   }
 }
 

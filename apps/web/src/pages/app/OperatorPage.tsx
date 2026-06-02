@@ -9,9 +9,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents } from '@/services/eventService';
 import { createVideo, updateVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
-import { uploadVideoToServer, processVideoOnServer } from '@/services/serverMediaService';
+import { getUserMusic } from '@/services/musicService';
+import { uploadVideoToServer, processVideoOnServer, getGeneratedMusic } from '@/services/serverMediaService';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
-import type { AppEvent, AppTemplate } from '@/types';
+import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
 
@@ -28,6 +29,7 @@ export default function OperatorPage() {
   const { user, isAdmin } = useAuth();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
+  const [musicCatalog, setMusicCatalog] = useState<AppMusic[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [effect, setEffect] = useState('clean');
@@ -57,6 +59,12 @@ export default function OperatorPage() {
       setTemplates(items.filter((item) => item.isActive));
       if (items[0]) setSelectedTemplateId(items[0].id);
     }).catch(() => undefined);
+    Promise.all([
+      getGeneratedMusic().catch(() => []),
+      getUserMusic(user.uid).catch(() => []),
+    ]).then(([generated, custom]) => {
+      setMusicCatalog([...generated, ...custom].filter((item) => item.musicUrl));
+    });
   }, [user]);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
@@ -84,6 +92,17 @@ export default function OperatorPage() {
     const locked = !hasFeature(user?.planId, item.feature, isAdmin);
     return { value: item.value, label: `${locked ? 'Bloqueado - ' : ''}${item.label}` };
   });
+
+  const resolvedMusicOptions = [
+    ...musicOptions,
+    ...musicCatalog.map((track) => ({
+      value: `url:${track.musicUrl}`,
+      label: `${track.source === 'custom' ? 'Sua musica - ' : 'SIX3 - '}${track.name}`,
+    })),
+  ];
+
+  const selectedMusicUrl = musicTheme.startsWith('url:') ? musicTheme.slice(4) : undefined;
+  const selectedMusicLabel = resolvedMusicOptions.find(o => o.value === musicTheme)?.label || 'Sem trilha';
 
   async function startCamera() {
     try {
@@ -161,7 +180,8 @@ export default function OperatorPage() {
         size: videoBlob.size, format: videoBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
         effect,
-        musicTheme,
+        musicTheme: selectedMusicUrl ? 'custom' : musicTheme,
+        musicUrl: selectedMusicUrl,
       });
 
       createdVideoId = video.id;
@@ -175,7 +195,8 @@ export default function OperatorPage() {
         templateId: selectedTemplateId || undefined,
         overlayUrl: selectedTemplate?.overlayUrl,
         effect,
-        musicTheme,
+        musicTheme: selectedMusicUrl ? 'none' : musicTheme,
+        musicUrl: selectedMusicUrl,
         eventType: selectedEvent.type,
       });
 
@@ -190,6 +211,7 @@ export default function OperatorPage() {
         status: 'published',
         effect: processed.effect || effect,
         musicTheme: processed.musicTheme || musicTheme,
+        musicUrl: selectedMusicUrl,
       });
 
       setProgress(100);
@@ -250,7 +272,7 @@ export default function OperatorPage() {
             <Select label="Template transparente" options={templateOptions} value={selectedTemplateId}
               onChange={e => setSelectedTemplateId(e.target.value)} />
             <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
-            <Select label="Trilha tema" options={musicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+            <Select label="Trilha" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
             {(!canUseEffect || !canUseTemplate) && (
               <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
                 <Lock className="w-4 h-4 shrink-0" />
@@ -297,7 +319,7 @@ export default function OperatorPage() {
             <p className="text-sm font-semibold text-white">Configuracao aplicada</p>
             <p className="text-sm text-white/50">{selectedTemplate?.name || 'Sem overlay'}</p>
             <p className="text-sm text-white/50">{effectMeta?.label || effect}</p>
-            <p className="text-sm text-white/50 flex items-center gap-2"><Music2 className="w-4 h-4" />{musicOptions.find(o => o.value === musicTheme)?.label}</p>
+            <p className="text-sm text-white/50 flex items-center gap-2"><Music2 className="w-4 h-4" />{selectedMusicLabel}</p>
           </div>
         </motion.div>
       )}
@@ -313,7 +335,7 @@ export default function OperatorPage() {
               <p className="text-sm text-white/50">O video sera enviado para o backend, editado com Python/FFmpeg e salvo no Supabase.</p>
               <p className="text-xs text-white/35">Template: {selectedTemplate?.name || 'Sem overlay'}</p>
               <p className="text-xs text-white/35">Efeito: {effectMeta?.label || effect}</p>
-              <p className="text-xs text-white/35">Trilha: {musicOptions.find(o => o.value === musicTheme)?.label}</p>
+              <p className="text-xs text-white/35">Trilha: {selectedMusicLabel}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>

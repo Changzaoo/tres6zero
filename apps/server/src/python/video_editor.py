@@ -85,6 +85,7 @@ def main():
     parser.add_argument("--effect", default="clean")
     parser.add_argument("--overlay")
     parser.add_argument("--music-theme", default="none")
+    parser.add_argument("--music-file")
     parser.add_argument("--event-type", default="")
     parser.add_argument("--ffmpeg", default="ffmpeg")
     args = parser.parse_args()
@@ -96,11 +97,15 @@ def main():
     if args.overlay:
         cmd += ["-i", args.overlay]
 
-    tone = THEME_TONES.get(args.music_theme, THEME_TONES["ambient"])
     audio_index = None
-    if tone:
+    if args.music_file:
         audio_index = 2 if args.overlay else 1
-        cmd += ["-f", "lavfi", "-i", f"sine=frequency={tone}:sample_rate=44100"]
+        cmd += ["-stream_loop", "-1", "-i", args.music_file]
+    else:
+        tone = THEME_TONES.get(args.music_theme, THEME_TONES["ambient"])
+        if tone:
+            audio_index = 2 if args.overlay else 1
+            cmd += ["-f", "lavfi", "-i", f"sine=frequency={tone}:sample_rate=44100"]
 
     cmd += ["-filter_complex", graph, "-map", "[v]"]
 

@@ -15,6 +15,7 @@ const processSchema = z.object({
   overlayUrl: z.string().min(1).optional(),
   effect: z.string().optional(),
   musicTheme: z.string().optional(),
+  musicUrl: z.string().min(1).optional(),
   eventType: z.string().optional(),
 });
 
@@ -54,6 +55,10 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
 
     if (config.overlayUrl && !isAllowedSupabaseUrl(config.overlayUrl) && !isAllowedOverlayDataUrl(config.overlayUrl)) {
       rejectInvalidMediaUrl('INVALID_OVERLAY_URL');
+    }
+
+    if (config.musicUrl && !isAllowedSupabaseUrl(config.musicUrl)) {
+      rejectInvalidMediaUrl('INVALID_MUSIC_URL');
     }
 
     if (profile?.role !== 'admin' && !hasPlanFeature(profile?.planId, feature)) {

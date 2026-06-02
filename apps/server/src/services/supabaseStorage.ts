@@ -6,7 +6,16 @@ import path from 'node:path';
 
 const DEFAULT_SUPABASE_URL = 'https://xmuawzcpydmbcqackgoz.supabase.co';
 
-export type SupabaseBucket = 'videos' | 'templates';
+export const SUPABASE_BUCKETS = {
+  videos: 'videos',
+  legacyTemplates: 'templates',
+  projectTemplates: 'six3-project-templates',
+  projectMusic: 'six3-project-music',
+  userTemplates: 'six3-user-templates',
+  userMusic: 'six3-user-music',
+} as const;
+
+export type SupabaseBucket = typeof SUPABASE_BUCKETS[keyof typeof SUPABASE_BUCKETS];
 
 let client: SupabaseClient | null = null;
 
@@ -46,6 +55,23 @@ export function publicUrl(bucket: SupabaseBucket, objectPath: string) {
   return data.publicUrl;
 }
 
+export async function ensurePublicBucket(bucket: SupabaseBucket) {
+  const storage = getSupabase().storage;
+  const existing = await storage.getBucket(bucket);
+  if (!existing.error) return;
+
+  const created = await storage.createBucket(bucket, {
+    public: true,
+    fileSizeLimit: bucket.includes('music') ? '50MB' : '25MB',
+  });
+
+  if (created.error) {
+    const err = new Error(`SUPABASE_BUCKET_CREATE_FAILED: ${bucket}: ${created.error.message}`);
+    (err as any).status = 502;
+    throw err;
+  }
+}
+
 export async function uploadBufferToSupabase(params: {
   bucket: SupabaseBucket;
   prefix: string;
@@ -53,16 +79,18 @@ export async function uploadBufferToSupabase(params: {
   fallbackExt: string;
   buffer: Buffer;
   contentType: string;
+  objectPath?: string;
+  upsert?: boolean;
 }) {
   const ext = safeExt(params.fileName, params.fallbackExt);
-  const objectPath = `${params.prefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${ext}`;
+  const objectPath = params.objectPath || `${params.prefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${ext}`;
 
   const { data, error } = await getSupabase()
     .storage
     .from(params.bucket)
     .upload(objectPath, params.buffer, {
       contentType: params.contentType,
-      upsert: false,
+      upsert: params.upsert || false,
     });
 
   if (error) {

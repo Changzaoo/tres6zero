@@ -84,11 +84,13 @@ SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 OPENAI_API_KEY=...
 OPENAI_MODEL=chat-latest
+SIX3_SEED_SECRET=...
 PYTHON_BIN=python3
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` e recomendado no Render para uploads server-side sem depender de policies publicas de insert. Nunca coloque essa chave na Vercel nem em `VITE_*`.
 `OPENAI_API_KEY` tambem deve ficar somente no Render. O frontend nunca chama a OpenAI diretamente.
+`SIX3_SEED_SECRET` protege a rota interna que cria buckets e semeia templates/musicas no Supabase.
 
 ## URLs uteis
 

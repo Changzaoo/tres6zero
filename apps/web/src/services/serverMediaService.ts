@@ -1,6 +1,7 @@
 import { API_URL } from '@/config/api';
 import { getAuthToken } from '@/services/authService';
 import type { AppTemplate } from '@/types';
+import type { AppMusic } from '@/types';
 
 export type MediaUploadResult = {
   id: string;
@@ -9,6 +10,7 @@ export type MediaUploadResult = {
   videoUrl?: string;
   imageUrl?: string;
   templateUrl?: string;
+  musicUrl?: string;
   publicUrl?: string;
   size: number;
   mimetype: string;
@@ -89,6 +91,10 @@ export function uploadTemplateToServer(file: File | Blob, onProgress?: (pct: num
   return uploadMultipart('/api/upload/template', file, onProgress);
 }
 
+export function uploadMusicToServer(file: File | Blob, onProgress?: (pct: number) => void) {
+  return uploadMultipart('/api/upload/music', file, onProgress);
+}
+
 export function processVideoOnServer(config: {
   videoId: string;
   inputUrl: string;
@@ -97,6 +103,7 @@ export function processVideoOnServer(config: {
   overlayUrl?: string;
   effect?: string;
   musicTheme?: string;
+  musicUrl?: string;
   eventType?: string;
 }) {
   return authedJson<VideoProcessResult>('/api/video/process', {
@@ -110,7 +117,12 @@ export async function getGeneratedTemplates() {
   return templates;
 }
 
-export async function seedGeneratedTemplates(count = 216) {
+export async function getGeneratedMusic() {
+  const { music } = await authedJson<{ music: AppMusic[] }>('/api/templates/generated-music');
+  return music;
+}
+
+export async function seedGeneratedTemplates(count = 360) {
   const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/seed-transparent', {
     method: 'POST',
     body: JSON.stringify({ count }),

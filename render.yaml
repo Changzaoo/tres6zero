@@ -33,6 +33,8 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: chat-latest
+      - key: SIX3_SEED_SECRET
+        sync: false
       - key: PYTHON_BIN
         value: python3
       - key: ALLOW_VERCEL_PREVIEWS

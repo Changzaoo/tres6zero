@@ -80,7 +80,11 @@ export function templateSvg(params: {
 </svg>`;
 }
 
-export function buildGeneratedTemplates(count = 216) {
+export function generatedTemplatePath(template: { id: string; category: string }) {
+  return `generated/${template.category}/${template.id}.svg`;
+}
+
+export function buildGeneratedTemplates(count = 360) {
   const now = new Date().toISOString();
   return Array.from({ length: count }, (_, index) => {
     const category = CATEGORIES[index % CATEGORIES.length];
@@ -96,6 +100,7 @@ export function buildGeneratedTemplates(count = 216) {
       colors: { primary, secondary },
       font: 'Inter',
       overlayUrl: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+      storagePath: generatedTemplatePath({ id: `generated-${index + 1}`, category }),
       aspectRatio,
       effects: EFFECTS_BY_CATEGORY[category],
       isGlobal: true,
