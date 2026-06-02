@@ -7,10 +7,11 @@ import { Select } from '@/components/ui/Select';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents } from '@/services/eventService';
-import { createVideo, updateVideo } from '@/services/videoService';
+import { createVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
-import { uploadVideoToServer, processVideoOnServer, getGeneratedMusic } from '@/services/serverMediaService';
+import { uploadVideoToServer, getGeneratedMusic } from '@/services/serverMediaService';
+import { canRenderVideoInBrowser, renderVideoInBrowser } from '@/services/browserVideoRenderer';
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import type { AppEvent, AppMusic, AppTemplate } from '@/types';
@@ -64,7 +65,7 @@ const effectPreviewText: Record<string, string> = {
   glitch_flash: 'Flash e falhas rapidas para impacto.',
   wedding_soft: 'Visual suave para eventos delicados.',
   corporate_sharp: 'Nitidez limpa para marcas e empresas.',
-  ai_auto: 'A IA escolhe corte, efeito e clima no servidor.',
+  ai_auto: 'A automacao escolhe corte, efeito e clima no navegador.',
 };
 
 const effectPreviewFilters: Record<string, string> = {
@@ -95,6 +96,19 @@ function formatTime(seconds: number) {
 
 function effectLabel(effectId: string) {
   return VIDEO_EFFECTS.find((item) => item.value === effectId)?.label || effectId;
+}
+
+function localAiEffect(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']) {
+  if (eventType === 'wedding' || templateCategory === 'wedding') return 'wedding_soft';
+  if (eventType === 'corporate' || templateCategory === 'corporate') return 'corporate_sharp';
+  if (eventType === 'birthday' || eventType === 'club' || templateCategory === 'birthday' || templateCategory === 'party') return 'party';
+  if (templateCategory === 'premium') return 'luxury';
+  return 'cinematic';
+}
+
+function renderedVideoFile(blob: Blob) {
+  const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
+  return new File([blob], `six3-edited-${Date.now()}.${extension}`, { type: blob.type || 'video/webm' });
 }
 
 function getEffectPreviewStyle(effect: string): CSSProperties {
@@ -299,7 +313,7 @@ function EditorTimeline({
                 className="border-violet-300/35 bg-violet-500/28"
               />
             )) : effect === 'ai_auto' ? (
-              <TimelineClip label="IA escolhe no servidor" start={0} end={duration} duration={duration} className="border-violet-300/35 bg-violet-500/28" />
+              <TimelineClip label="Automacao local" start={0} end={duration} duration={duration} className="border-violet-300/35 bg-violet-500/28" />
             ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
             )}
@@ -419,7 +433,7 @@ export default function OperatorPage() {
   const musicPreviewUrl = selectedMusicUrl || selectedMusicTrack?.musicUrl;
   const processingMusicUrl = musicTheme === 'none' ? undefined : musicPreviewUrl;
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
-  const effectDescription = effectPreviewText[effect] || 'Acabamento aplicado pelo servidor.';
+  const effectDescription = effectPreviewText[effect] || 'Acabamento aplicado pelo editor.';
   const effectSegments = useMemo<EffectSegment[]>(() => {
     if (effect === 'clean' || effect === 'ai_auto') return [];
 
@@ -524,7 +538,7 @@ export default function OperatorPage() {
     setMusicTheme('none');
     setEffectSegmentStart(0);
     setEffectSegmentEnd(duration);
-    toast.success('IA automatica ativada. O servidor vai escolher efeito, clima e trilha.');
+    toast.success('IA automatica ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -552,20 +566,50 @@ export default function OperatorPage() {
 
     setStep('processing');
     setProgress(2);
-    let createdVideoId = '';
     try {
-      setProcessingLabel('Enviando video para o servidor...');
-      const uploaded = await uploadVideoToServer(videoBlob, (pct) => setProgress(Math.min(55, Math.round(pct * 0.55))));
-      setProcessingLabel('Criando registro do video...');
+      if (!canRenderVideoInBrowser()) {
+        throw new Error('Seu navegador nao suporta o editor local. Atualize o navegador e tente novamente.');
+      }
+
+      const browserEffect = processingBaseEffect === 'ai_auto'
+        ? localAiEffect(selectedEvent?.type, selectedTemplate?.category)
+        : processingBaseEffect;
+
+      setProcessingLabel(effect === 'ai_auto'
+        ? 'Editando com automacao local e poupando o servidor...'
+        : 'Editando video no navegador...');
+
+      const renderedBlob = await renderVideoInBrowser({
+        input: videoBlob,
+        durationSeconds: duration,
+        overlayUrl: selectedTemplate?.overlayUrl,
+        animationUrl: selectedTemplate?.animationUrl,
+        effect: browserEffect,
+        effectSegments: shouldProcessEffectAsSegment ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
+          effect: segmentEffect,
+          start,
+          end,
+        })) : undefined,
+        musicUrl: processingMusicUrl,
+        onProgress: (pct) => setProgress(Math.min(70, 2 + Math.round(pct * 0.68))),
+      });
+
+      setProgress(72);
+      setProcessingLabel('Enviando video editado para a nuvem...');
+      const uploaded = await uploadVideoToServer(renderedVideoFile(renderedBlob), (pct) => {
+        setProgress(Math.min(94, 72 + Math.round(pct * 0.22)));
+      });
+
+      setProcessingLabel('Publicando video...');
       const video = await createVideo({
         eventId: selectedEventId || STANDALONE_EVENT_ID, ownerId: user.uid, operatorId: user.uid,
         title: `${isStandaloneVideo ? 'Video avulso' : 'Video 360'} - ${new Date().toLocaleDateString('pt-BR')}`,
         storagePath: uploaded.storagePath,
         videoUrl: uploaded.videoUrl || '',
-        rawVideoUrl: uploaded.videoUrl,
-        status: 'processing',
+        rawVideoUrl: undefined,
+        status: 'published',
         views: 0, downloads: 0, shares: 0,
-        size: videoBlob.size, format: videoBlob.type || 'video/webm',
+        size: renderedBlob.size, format: renderedBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
         effect,
         musicTheme: storedMusicTheme,
@@ -573,51 +617,11 @@ export default function OperatorPage() {
         duration,
       });
 
-      createdVideoId = video.id;
       setSavedVideoId(video.id);
-      setProgress(65);
-      setProcessingLabel(effect === 'ai_auto' ? 'Analisando cena com IA e editando no servidor...' : 'Processando com Python e FFmpeg...');
-      const processed = await processVideoOnServer({
-        videoId: video.id,
-        inputUrl: uploaded.videoUrl || '',
-        storagePath: uploaded.storagePath,
-        templateId: selectedTemplateId || undefined,
-        overlayUrl: selectedTemplate?.overlayUrl,
-        animationUrl: selectedTemplate?.animationUrl,
-        effect: processingBaseEffect,
-        effectSegments: shouldProcessEffectAsSegment ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
-          effect: segmentEffect,
-          start,
-          end,
-        })) : undefined,
-        musicTheme: processingMusicUrl ? 'none' : musicTheme,
-        musicUrl: processingMusicUrl,
-        eventType: selectedEvent?.type,
-        durationSeconds: duration,
-      });
-
-      if (processed.status !== 'processed' || !processed.outputUrl) {
-        await updateVideo(video.id, { status: 'failed' });
-        throw new Error(processed.error || 'VIDEO_PROCESSING_FAILED');
-      }
-
-      await updateVideo(video.id, {
-        storagePath: processed.storagePath || uploaded.storagePath,
-        videoUrl: processed.outputUrl,
-        status: 'published',
-        effect,
-        musicTheme: processed.musicTheme || storedMusicTheme || musicTheme,
-        musicUrl: processingMusicUrl,
-        duration,
-      });
-
       setProgress(100);
       setStep('done');
-      toast.success(processed.aiRationale || 'Video processado e publicado!');
+      toast.success('Video editado no navegador e publicado sem sobrecarregar o servidor.');
     } catch (error) {
-      if (createdVideoId) {
-        updateVideo(createdVideoId, { status: 'failed' }).catch(() => undefined);
-      }
       toast.error(error instanceof Error ? error.message : 'Erro ao processar video.');
       setStep('preview');
     }
@@ -642,7 +646,7 @@ export default function OperatorPage() {
     <div className="max-w-6xl mx-auto space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-white">Gravar</h1>
-        <p className="text-white/40 text-sm">Grave, edite com IA e publique videos 360 pelo servidor</p>
+        <p className="text-white/40 text-sm">Grave, edite com IA e publique videos 360 sem sobrecarregar o servidor</p>
       </div>
 
       {step === 'select' && (
@@ -693,7 +697,7 @@ export default function OperatorPage() {
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
                 <span className="block text-xs leading-relaxed text-white/42">
-                  Analisa a cena no servidor, escolhe efeito, clima e trilha por tema.
+                  Escolhe efeito e clima no navegador para publicar sem derrubar o backend.
                 </span>
               </span>
               {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
@@ -705,7 +709,7 @@ export default function OperatorPage() {
             {(!canUseEffect || !canUseTemplate) && (
               <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
                 <Lock className="w-4 h-4 shrink-0" />
-                Recurso bloqueado pelo plano atual. O servidor tambem valida antes de processar.
+                Recurso bloqueado pelo plano atual. O backend tambem valida antes de publicar.
               </div>
             )}
             <div className="grid gap-4 border-t border-white/[0.08] pt-4 sm:grid-cols-[180px_minmax(0,1fr)]">
@@ -752,7 +756,7 @@ export default function OperatorPage() {
                     <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />
                   ) : (
                     <p className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/40">
-                      {musicTheme === 'none' ? 'Sem trilha selecionada.' : 'Essa trilha sera gerada no processamento do servidor.'}
+                      {musicTheme === 'none' ? 'Sem trilha selecionada.' : 'Essa trilha sera aplicada no editor local.'}
                     </p>
                   )}
                 </div>
@@ -827,7 +831,7 @@ export default function OperatorPage() {
                     <Wand2 className="h-4 w-4 text-brand-300" />
                     Editor do video
                   </div>
-                  <p className="mt-1 text-xs text-white/38">Ajuste tudo antes de enviar para o servidor.</p>
+                  <p className="mt-1 text-xs text-white/38">Ajuste tudo antes de gerar o video final.</p>
                 </div>
                 <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/55">
                   {formatTime(duration)}
@@ -935,7 +939,7 @@ export default function OperatorPage() {
                   {effect === 'clean'
                     ? 'Escolha um efeito para marcar o trecho na timeline.'
                     : effect === 'ai_auto'
-                      ? 'A IA escolhe o efeito e o clima depois de analisar o primeiro frame no servidor.'
+                      ? 'A automacao escolhe efeito e clima no editor local.'
                       : effectDescription}
                 </p>
               </div>

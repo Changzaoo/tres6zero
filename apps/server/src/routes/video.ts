@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { processVideo, getAvailableEffects } from '../services/videoProcessor';
-import { featureForEffect, hasPlanFeature } from '../services/planEntitlements';
+import { AI_EFFECTS, BASIC_EFFECTS, POPULAR_EFFECTS, featureForEffect, hasPlanFeature } from '../services/planEntitlements';
 import { getSupabaseUrl } from '../services/supabaseStorage';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
@@ -133,6 +132,18 @@ function canManageVideo(user: UserProfile, video: Record<string, unknown>) {
   return user.role === 'admin' || video.ownerId === user.uid;
 }
 
+function serverVideoProcessingEnabled() {
+  return process.env.SERVER_VIDEO_PROCESSING_ENABLED === 'true';
+}
+
+function getAvailableEffects() {
+  return [
+    ...BASIC_EFFECTS.map((id) => ({ id, tier: 'starter' })),
+    ...POPULAR_EFFECTS.map((id) => ({ id, tier: 'pro' })),
+    ...AI_EFFECTS.map((id) => ({ id, tier: 'unlimited' })),
+  ];
+}
+
 async function loadManageableVideo(id: string, user: UserProfile) {
   const snap = await getDb().collection('videos').doc(id).get();
   const video = videoFromDoc(snap);
@@ -184,6 +195,15 @@ videoRouter.post('/', requireActiveSubscription, async (req, res, next) => {
 
 videoRouter.post('/process', requireActiveSubscription, async (req, res, next) => {
   try {
+    if (!serverVideoProcessingEnabled()) {
+      return res.status(409).json({
+        videoId: String(req.body?.videoId || ''),
+        status: 'failed',
+        error: 'SERVER_VIDEO_PROCESSING_DISABLED_USE_BROWSER_RENDERER',
+        processedAt: new Date().toISOString(),
+      });
+    }
+
     const config = processSchema.parse(req.body);
     const profile = res.locals.user;
     const requiredEffectFeatures = [
@@ -218,6 +238,7 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
       });
     }
 
+    const { processVideo } = await import('../services/videoProcessor');
     const result = await processVideo({
       ...config,
       userId: profile?.uid,

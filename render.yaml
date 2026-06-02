@@ -43,5 +43,7 @@ services:
         value: "120"
       - key: VIDEO_PROCESS_CONCURRENCY
         value: "1"
+      - key: SERVER_VIDEO_PROCESSING_ENABLED
+        value: "false"
       - key: ALLOW_VERCEL_PREVIEWS
         value: "true"
