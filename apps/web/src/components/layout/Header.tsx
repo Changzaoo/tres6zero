@@ -11,7 +11,7 @@ export function Header({ title }: HeaderProps) {
   const [search, setSearch] = useState('');
 
   return (
-    <header className="relative z-10 flex h-16 shrink-0 items-center gap-4 border-b border-white/[0.08] bg-[#0e1016]/80 px-4 backdrop-blur-2xl">
+    <header className="relative z-10 hidden h-16 shrink-0 items-center gap-4 border-b border-white/[0.08] bg-[#0e1016]/80 px-4 backdrop-blur-2xl lg:flex">
       {title && <h1 className="hidden text-lg font-semibold text-white/90 lg:block">{title}</h1>}
 
       <div className="hidden max-w-sm flex-1 md:block">
