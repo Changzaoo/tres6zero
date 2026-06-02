@@ -20,6 +20,25 @@ export type AuthSession = {
   user: UserProfile;
 };
 
+export type PasswordRecoveryOption = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+export type PasswordRecoveryOptionsResponse = {
+  challengeId: string;
+  expiresIn: number;
+  options: PasswordRecoveryOption[];
+};
+
+export type PasswordRecoveryVerifyResponse = {
+  ok: boolean;
+  mode: 'password' | 'email';
+  resetToken?: string;
+  expiresIn?: number;
+};
+
 type ApiError = Error & { code?: string; status?: number };
 
 function isBrowser() {
@@ -338,6 +357,27 @@ export async function resetPassword(email: string) {
   await request<{ ok: boolean }>('/api/auth/password-reset', {
     method: 'POST',
     body: JSON.stringify({ email }),
+  });
+}
+
+export async function getPasswordRecoveryOptions(identifier: string) {
+  return request<PasswordRecoveryOptionsResponse>('/api/auth/recovery/options', {
+    method: 'POST',
+    body: JSON.stringify({ identifier }),
+  });
+}
+
+export async function verifyPasswordRecoveryOption(challengeId: string, optionId: string) {
+  return request<PasswordRecoveryVerifyResponse>('/api/auth/recovery/verify', {
+    method: 'POST',
+    body: JSON.stringify({ challengeId, optionId }),
+  });
+}
+
+export async function setRecoveredPassword(challengeId: string, resetToken: string, newPassword: string) {
+  return request<{ ok: boolean }>('/api/auth/recovery/password', {
+    method: 'POST',
+    body: JSON.stringify({ challengeId, resetToken, newPassword }),
   });
 }
 

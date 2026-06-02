@@ -1,6 +1,8 @@
+import crypto from 'crypto';
 import { NextFunction, Request, Response, Router } from 'express';
+import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { getStripeAccessForUser } from '../services/stripeBilling';
+import { BILLING_PLANS, getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore, toFirebaseUserRecord } from '../services/firebaseAdmin';
 import { createNotification, getNotificationPreferences } from '../services/notifications';
@@ -29,6 +31,21 @@ const loginSchema = z.object({
 
 const resetSchema = z.object({
   email: z.string().email(),
+});
+
+const recoveryOptionsSchema = z.object({
+  identifier: z.string().min(3).max(120),
+});
+
+const recoveryVerifySchema = z.object({
+  challengeId: z.string().min(16).max(96),
+  optionId: z.string().min(12).max(96),
+});
+
+const recoveredPasswordSchema = z.object({
+  challengeId: z.string().min(16).max(96),
+  resetToken: z.string().min(32).max(160),
+  newPassword: z.string().min(8),
 });
 
 const profileSchema = z.object({
@@ -62,6 +79,31 @@ type FirebaseUserRecord = {
 };
 
 type UserRole = 'admin' | 'user';
+
+type RecoveryOption = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+type RecoveryChallengeRecord = {
+  uid: string;
+  email: string;
+  correctOptionId: string;
+  trustedDeviceMatched: boolean;
+  attempts: number;
+  expiresAt: string;
+  resetTokenHash?: string;
+  resetTokenExpiresAt?: string;
+  verifiedAt?: string;
+  passwordResetAt?: string;
+};
+
+const RECOVERY_TTL_MS = 10 * 60 * 1000;
+const RECOVERY_TOKEN_TTL_MS = 10 * 60 * 1000;
+const RECOVERY_MAX_ATTEMPTS = 3;
+const recoveryMemoryChallenges = new Map<string, RecoveryChallengeRecord>();
+const recoveryRateLimits = new Map<string, { count: number; resetAt: number }>();
 
 function getFirebaseApiKey() {
   const key = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
@@ -144,6 +186,284 @@ async function firebaseAuthRequest<T>(path: string, body: Record<string, unknown
   }
 
   return payload as T;
+}
+
+function randomId(bytes = 18) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function hashRecoveryToken(challengeId: string, resetToken: string) {
+  const secret = process.env.PASSWORD_RECOVERY_SECRET || process.env.SESSION_SECRET || 'six3-password-recovery';
+  return crypto.createHmac('sha256', secret).update(`${challengeId}:${resetToken}`).digest('hex');
+}
+
+function normalizeRecoveryIdentifier(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized.includes('@') && /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(normalized)) {
+    return `${normalized}@six3.com`;
+  }
+
+  return normalized;
+}
+
+function recoveryClientIp(req: Request) {
+  const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return (forwarded || req.ip || req.socket.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+}
+
+function assertRecoveryRateLimit(req: Request, identifier: string) {
+  const now = Date.now();
+  const identifierHash = crypto.createHash('sha256').update(identifier).digest('hex').slice(0, 16);
+  const key = `${recoveryClientIp(req)}:${identifierHash}`;
+  const current = recoveryRateLimits.get(key);
+
+  if (!current || current.resetAt <= now) {
+    recoveryRateLimits.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return;
+  }
+
+  if (current.count >= 8) {
+    const err = new Error('TOO_MANY_ATTEMPTS_TRY_LATER');
+    (err as any).status = 429;
+    throw err;
+  }
+
+  current.count += 1;
+}
+
+function maskMiddle(value: string, minStars = 5) {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '*'.repeat(minStars);
+  if (normalized.length === 1) return `${normalized}${'*'.repeat(minStars)}`;
+
+  const first = normalized[0];
+  const last = normalized[normalized.length - 1];
+  const stars = '*'.repeat(Math.max(minStars, Math.min(10, normalized.length - 2)));
+  return `${first}${stars}${last}`;
+}
+
+function maskText(value: string) {
+  return value
+    .replace(/[A-Za-z0-9]{2,}/g, (part) => maskMiddle(part, 4))
+    .slice(0, 80);
+}
+
+function maskEmail(email: string) {
+  const [localPart, domainPart = ''] = email.trim().toLowerCase().split('@');
+  const domainParts = domainPart.split('.').filter(Boolean);
+  const suffix = domainParts.length > 1 ? `.${domainParts[domainParts.length - 1]}` : '';
+  const domainRoot = domainParts.length > 1 ? domainParts.slice(0, -1).join('.') : domainPart;
+  const maskedDomain = '*'.repeat(Math.max(6, Math.min(12, domainRoot.length || 6)));
+
+  return `${maskMiddle(localPart || 'u')}@${maskedDomain}${suffix}`;
+}
+
+function shuffle<T>(items: T[]) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const nextIndex = crypto.randomInt(index + 1);
+    [copy[index], copy[nextIndex]] = [copy[nextIndex], copy[index]];
+  }
+
+  return copy;
+}
+
+function recoveryCollection() {
+  return getFirebaseAdminFirestore()?.collection('passwordRecoveryChallenges') || null;
+}
+
+function pruneMemoryRecoveryChallenges() {
+  const now = Date.now();
+  recoveryMemoryChallenges.forEach((challenge, id) => {
+    if (new Date(challenge.expiresAt).getTime() <= now) {
+      recoveryMemoryChallenges.delete(id);
+    }
+  });
+}
+
+async function saveRecoveryChallenge(id: string, challenge: RecoveryChallengeRecord) {
+  const collection = recoveryCollection();
+
+  if (!collection) {
+    pruneMemoryRecoveryChallenges();
+    recoveryMemoryChallenges.set(id, challenge);
+    return;
+  }
+
+  await collection.doc(id).set({
+    ...challenge,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    _ts: FieldValue.serverTimestamp(),
+  });
+}
+
+async function readRecoveryChallenge(id: string) {
+  const collection = recoveryCollection();
+
+  if (!collection) {
+    pruneMemoryRecoveryChallenges();
+    return recoveryMemoryChallenges.get(id) || null;
+  }
+
+  const snap = await collection.doc(id).get();
+  return snap.exists ? snap.data() as RecoveryChallengeRecord : null;
+}
+
+async function updateRecoveryChallenge(id: string, data: Partial<RecoveryChallengeRecord>) {
+  const collection = recoveryCollection();
+
+  if (!collection) {
+    const current = recoveryMemoryChallenges.get(id);
+    if (current) recoveryMemoryChallenges.set(id, { ...current, ...data });
+    return;
+  }
+
+  await collection.doc(id).set({
+    ...data,
+    updatedAt: new Date().toISOString(),
+    _ts: FieldValue.serverTimestamp(),
+  }, { merge: true });
+}
+
+async function findRecoveryUser(identifier: string) {
+  const email = normalizeRecoveryIdentifier(identifier);
+  if (!z.string().email().safeParse(email).success) return { email, user: null };
+
+  const adminAuth = getFirebaseAdminAuth();
+  if (!adminAuth) return { email, user: null };
+
+  try {
+    const record = await adminAuth.getUserByEmail(email);
+    return { email, user: toFirebaseUserRecord(record) };
+  } catch {
+    return { email, user: null };
+  }
+}
+
+async function requestMatchesTrustedDevice(req: Request, user: FirebaseUserRecord) {
+  const db = getFirebaseAdminFirestore();
+  if (!db) return false;
+
+  try {
+    const currentDeviceHash = getRequestDeviceHash(req);
+    const snap = await db.collection('users').doc(user.localId).collection('devices').doc(currentDeviceHash).get();
+    const device = snap.exists ? snap.data() as { revokedAt?: string | null } : null;
+    return Boolean(device && !device.revokedAt);
+  } catch {
+    return false;
+  }
+}
+
+async function recoveryFactsForUser(user: FirebaseUserRecord) {
+  const facts: { kind: string; label: string; value: string }[] = [];
+  const email = user.email || '';
+  const name = user.displayName || email.split('@')[0] || '';
+
+  if (email) {
+    facts.push({ kind: 'email', label: 'E-mail cadastrado', value: maskEmail(email) });
+  }
+
+  if (name) {
+    facts.push({ kind: 'name', label: 'Nome de usuario', value: maskText(name) });
+  }
+
+  const customPlan = planFromUser(user);
+  let activePlanId = customPlan.planId;
+
+  try {
+    const stripeAccess = await getStripeAccessForUser(user);
+    activePlanId = stripeAccess?.planId || activePlanId;
+  } catch {
+    // Stripe is optional for the recovery hint; never fail recovery because of billing metadata.
+  }
+
+  const planName = activePlanId && Object.prototype.hasOwnProperty.call(BILLING_PLANS, activePlanId)
+    ? BILLING_PLANS[activePlanId as keyof typeof BILLING_PLANS].name
+    : 'Sem assinatura ativa';
+  facts.push({ kind: 'plan', label: 'Plano do ultimo mes', value: maskText(planName) });
+
+  const devices = await publicTrustedDevices(user).catch(() => []);
+  const recentDevice = devices[0];
+  if (recentDevice?.name) {
+    facts.push({ kind: 'device', label: 'Dispositivo reconhecido', value: maskText(recentDevice.name) });
+  }
+
+  if (recentDevice?.location && !/nao identificada|rede local/i.test(recentDevice.location)) {
+    facts.push({ kind: 'location', label: 'Local de acesso recente', value: maskText(recentDevice.location) });
+  }
+
+  return facts;
+}
+
+function recoveryDecoys(kind: string, realValue: string) {
+  const pools: Record<string, string[]> = {
+    email: [
+      'a*****5@******.com',
+      'm*****2@******.com',
+      'c*****9@******.com',
+      'v*****7@******.com',
+      'r*****4@******.com',
+      's*****8@******.com',
+    ],
+    name: ['V******s', 'A****n', 'M*****a', 'C*****s', 'R*****l', 'L*****a'],
+    plan: [
+      maskText(BILLING_PLANS.starter.name),
+      maskText(BILLING_PLANS.pro.name),
+      maskText(BILLING_PLANS.unlimited.name),
+      maskText('Sem assinatura ativa'),
+      maskText('Assinatura pausada'),
+      maskText('Plano em analise'),
+    ],
+    device: [
+      'W******s - C****e',
+      'A*****d - C****e',
+      'i****e - S****i',
+      'm***S - S****i',
+      'L***x - F*****x',
+      'W******s - E**e',
+    ],
+    location: [
+      'S** P****, B****l',
+      'R** d* J******, B****l',
+      'B********e, B****l',
+      'C******a, B****l',
+      'S******r, B****l',
+      'F***********s, B****l',
+    ],
+  };
+
+  const pool = pools[kind] || pools.email;
+  return pool.filter((value) => value !== realValue);
+}
+
+function buildRecoveryOptions(facts: { kind: string; label: string; value: string }[]) {
+  const availableFacts = facts.length > 0 ? facts : [{ kind: 'email', label: 'E-mail cadastrado', value: 'a*****5@******.com' }];
+  const realFact = availableFacts[crypto.randomInt(availableFacts.length)];
+  const correctOptionId = randomId(12);
+  const options: RecoveryOption[] = [
+    { id: correctOptionId, label: realFact.label, value: realFact.value },
+  ];
+
+  recoveryDecoys(realFact.kind, realFact.value).slice(0, 8).forEach((value) => {
+    if (options.length < 5) {
+      options.push({ id: randomId(12), label: realFact.label, value });
+    }
+  });
+
+  while (options.length < 5) {
+    options.push({ id: randomId(12), label: realFact.label, value: maskEmail(`${randomId(2)}@six3.com`) });
+  }
+
+  return { correctOptionId, options: shuffle(options).slice(0, 5) };
+}
+
+function assertRecoveryChallengeActive(challenge: RecoveryChallengeRecord | null): asserts challenge is RecoveryChallengeRecord {
+  if (!challenge || challenge.passwordResetAt || new Date(challenge.expiresAt).getTime() <= Date.now()) {
+    const err = new Error('RECOVERY_EXPIRED');
+    (err as any).status = 400;
+    throw err;
+  }
 }
 
 function planFromUser(user: FirebaseUserRecord) {
@@ -323,6 +643,132 @@ authRouter.post('/password-reset', async (req, res, next) => {
       requestType: 'PASSWORD_RESET',
       email: data.email,
     });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.post('/recovery/options', async (req, res, next) => {
+  try {
+    const data = recoveryOptionsSchema.parse(req.body);
+    const identifier = normalizeRecoveryIdentifier(data.identifier);
+    assertRecoveryRateLimit(req, identifier);
+
+    const { user } = await findRecoveryUser(identifier);
+    const facts = user ? await recoveryFactsForUser(user) : [];
+    const { correctOptionId, options } = buildRecoveryOptions(facts);
+    const challengeId = randomId(24);
+    const trustedDeviceMatched = user ? await requestMatchesTrustedDevice(req, user) : false;
+
+    await saveRecoveryChallenge(challengeId, {
+      uid: user?.localId || '',
+      email: user?.email || '',
+      correctOptionId,
+      trustedDeviceMatched,
+      attempts: 0,
+      expiresAt: new Date(Date.now() + RECOVERY_TTL_MS).toISOString(),
+    });
+
+    res.json({
+      challengeId,
+      expiresIn: Math.floor(RECOVERY_TTL_MS / 1000),
+      options,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.post('/recovery/verify', async (req, res, next) => {
+  try {
+    const data = recoveryVerifySchema.parse(req.body);
+    const challenge = await readRecoveryChallenge(data.challengeId);
+    assertRecoveryChallengeActive(challenge);
+
+    if (challenge.attempts >= RECOVERY_MAX_ATTEMPTS) {
+      const err = new Error('TOO_MANY_ATTEMPTS_TRY_LATER');
+      (err as any).status = 429;
+      throw err;
+    }
+
+    if (data.optionId !== challenge.correctOptionId) {
+      await updateRecoveryChallenge(data.challengeId, { attempts: challenge.attempts + 1 });
+      const err = new Error('RECOVERY_OPTION_MISMATCH');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const verifiedAt = new Date().toISOString();
+
+    if (challenge.uid && challenge.trustedDeviceMatched) {
+      const resetToken = randomId(32);
+      await updateRecoveryChallenge(data.challengeId, {
+        verifiedAt,
+        resetTokenHash: hashRecoveryToken(data.challengeId, resetToken),
+        resetTokenExpiresAt: new Date(Date.now() + RECOVERY_TOKEN_TTL_MS).toISOString(),
+      });
+
+      res.json({
+        ok: true,
+        mode: 'password',
+        resetToken,
+        expiresIn: Math.floor(RECOVERY_TOKEN_TTL_MS / 1000),
+      });
+      return;
+    }
+
+    if (challenge.email && z.string().email().safeParse(challenge.email).success) {
+      await firebaseAuthRequest('accounts:sendOobCode', {
+        requestType: 'PASSWORD_RESET',
+        email: challenge.email,
+      }).catch((error) => {
+        console.warn('[auth] recovery email skipped:', error instanceof Error ? error.message : error);
+      });
+    }
+
+    await updateRecoveryChallenge(data.challengeId, { verifiedAt });
+    res.json({ ok: true, mode: 'email' });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.post('/recovery/password', async (req, res, next) => {
+  try {
+    const data = recoveredPasswordSchema.parse(req.body);
+    const challenge = await readRecoveryChallenge(data.challengeId);
+    assertRecoveryChallengeActive(challenge);
+
+    const tokenExpiresAt = challenge.resetTokenExpiresAt ? new Date(challenge.resetTokenExpiresAt).getTime() : 0;
+    const tokenHash = hashRecoveryToken(data.challengeId, data.resetToken);
+    if (!challenge.uid || !challenge.resetTokenHash || challenge.resetTokenHash !== tokenHash || tokenExpiresAt <= Date.now()) {
+      const err = new Error('RECOVERY_EXPIRED');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const adminAuth = getFirebaseAdminAuth();
+    if (!adminAuth) {
+      const err = new Error('FIREBASE_ADMIN_REQUIRED');
+      (err as any).status = 500;
+      throw err;
+    }
+
+    await adminAuth.updateUser(challenge.uid, { password: data.newPassword });
+    await updateRecoveryChallenge(data.challengeId, {
+      passwordResetAt: new Date().toISOString(),
+    });
+
+    await createNotification({
+      recipientUid: challenge.uid,
+      category: 'system',
+      title: 'Senha alterada',
+      body: 'Sua senha foi redefinida por um dispositivo reconhecido.',
+      link: '/login',
+      priority: 'high',
+    }).catch((error) => console.warn('[notifications] password recovery skipped:', error instanceof Error ? error.message : error));
+
     res.json({ ok: true });
   } catch (e) {
     next(e);
