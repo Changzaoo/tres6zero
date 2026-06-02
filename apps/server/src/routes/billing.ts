@@ -22,14 +22,6 @@ function frontendUrl() {
   return (process.env.FRONTEND_URL || 'https://six3.vercel.app').replace(/\/+$/, '');
 }
 
-function isPixUnavailableError(error: unknown) {
-  const stripeError = error as { message?: string; raw?: { message?: string; param?: string } } | null;
-  const message = `${stripeError?.message || ''} ${stripeError?.raw?.message || ''}`.toLowerCase();
-  const param = stripeError?.raw?.param?.toLowerCase() || '';
-
-  return (message.includes('pix') || param.includes('payment_method_types')) && (message.includes('invalid') || message.includes('activated'));
-}
-
 async function activateFromCheckoutSession(session: CheckoutSession) {
   const plan = getPlan(session.metadata?.plan_id || '');
   const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
@@ -69,7 +61,6 @@ billingRouter.post('/checkout', async (req, res, next) => {
       customer_update: {
         name: 'auto',
       },
-      payment_method_types: ['card', 'pix'],
       line_items: [
         {
           quantity: 1,
@@ -101,18 +92,7 @@ billingRouter.post('/checkout', async (req, res, next) => {
       cancel_url: `${baseUrl}/app/billing?checkout=cancelled`,
     };
 
-    let session: CheckoutSession;
-    try {
-      session = await stripe.checkout.sessions.create(checkoutParams);
-    } catch (error) {
-      if (!isPixUnavailableError(error)) throw error;
-
-      console.warn('[billing] Pix is unavailable in Stripe settings. Falling back to card checkout.');
-      session = await stripe.checkout.sessions.create({
-        ...checkoutParams,
-        payment_method_types: ['card'],
-      });
-    }
+    const session = await stripe.checkout.sessions.create(checkoutParams);
 
     res.json({ url: session.url });
   } catch (e) {

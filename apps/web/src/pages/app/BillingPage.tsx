@@ -73,7 +73,7 @@ export default function BillingPage() {
       </div>
 
       <PlanCards
-        ctaLabel={loadingPlan ? 'Abrindo checkout...' : 'Pagar com Pix ou cartão'}
+        ctaLabel={loadingPlan ? 'Abrindo checkout...' : 'Pagar com carteiras digitais'}
         onSelect={selectPlan}
         disabled={Boolean(loadingPlan) || hasActiveSubscription}
       />
