@@ -184,6 +184,7 @@ export function processVideoOnServer(config: {
   overlayUrl?: string;
   animationUrl?: string;
   effect?: string;
+  effectSegments?: { effect: string; start: number; end: number }[];
   musicTheme?: string;
   musicUrl?: string;
   eventType?: string;

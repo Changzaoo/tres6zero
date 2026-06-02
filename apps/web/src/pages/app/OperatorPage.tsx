@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles } from 'lucide-react';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -17,7 +17,15 @@ import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
 
+type EffectSegment = {
+  id: string;
+  effect: string;
+  start: number;
+  end: number;
+};
+
 const STANDALONE_EVENT_ID = 'standalone';
+const MIN_EFFECT_SEGMENT_SECONDS = 0.5;
 
 const DURATION_OPTIONS = [5, 15, 25, 35, 45] as const;
 
@@ -71,6 +79,21 @@ const effectPreviewFilters: Record<string, string> = {
   corporate_sharp: 'contrast(1.08) saturate(0.92)',
   ai_auto: 'contrast(1.1) saturate(1.12)',
 };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatTime(seconds: number) {
+  const safeSeconds = Math.max(0, seconds);
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = Math.floor(safeSeconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+function effectLabel(effectId: string) {
+  return VIDEO_EFFECTS.find((item) => item.value === effectId)?.label || effectId;
+}
 
 function getEffectPreviewStyle(effect: string): CSSProperties {
   return { filter: effectPreviewFilters[effect] || effectPreviewFilters.clean };
@@ -154,6 +177,141 @@ function VideoPreviewFrame({
   );
 }
 
+function TimelineClip({
+  label,
+  start,
+  end,
+  duration,
+  className,
+}: {
+  label: string;
+  start: number;
+  end: number;
+  duration: number;
+  className: string;
+}) {
+  const safeDuration = Math.max(duration, 1);
+  const left = `${clamp(start / safeDuration, 0, 1) * 100}%`;
+  const width = `${Math.max(2, clamp((end - start) / safeDuration, 0, 1) * 100)}%`;
+
+  return (
+    <div
+      className={`absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-xl border px-3 text-xs font-bold text-white shadow-lg ${className}`}
+      style={{ left, width }}
+      title={`${label} - ${formatTime(start)} ate ${formatTime(end)}`}
+    >
+      <span className="truncate">{label}</span>
+    </div>
+  );
+}
+
+function TimelineRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid min-w-[640px] grid-cols-[116px_minmax(0,1fr)] items-center gap-3">
+      <div className="flex items-center gap-2 text-xs font-semibold text-white/58">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <div className="relative h-11 rounded-2xl border border-white/[0.08] bg-black/24">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function EditorTimeline({
+  duration,
+  sourceDuration,
+  templateName,
+  musicLabel,
+  effectSegments,
+}: {
+  duration: number;
+  sourceDuration: number;
+  templateName?: string;
+  musicLabel: string;
+  effectSegments: EffectSegment[];
+}) {
+  const markers = [0, duration / 2, duration].map((value) => clamp(value, 0, duration));
+
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-sm font-bold text-white">
+          <SlidersHorizontal className="h-4 w-4 text-brand-300" />
+          Timeline de edicao
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-white/35">
+          <span>Fonte {sourceDuration ? formatTime(sourceDuration) : '--:--'}</span>
+          <span>Final {formatTime(duration)}</span>
+        </div>
+      </div>
+
+      <div className="hide-scrollbar overflow-x-auto">
+        <div className="min-w-[640px] space-y-2">
+          <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
+            <div />
+            <div className="relative h-5">
+              {markers.map((marker) => (
+                <span
+                  key={marker}
+                  className="absolute top-0 -translate-x-1/2 text-[11px] font-semibold text-white/35"
+                  style={{ left: `${(marker / Math.max(duration, 1)) * 100}%` }}
+                >
+                  {formatTime(marker)}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <TimelineRow icon={<Film className="h-4 w-4" />} label="Video">
+            <TimelineClip label="Video carregado" start={0} end={duration} duration={duration} className="border-blue-300/30 bg-blue-500/24" />
+          </TimelineRow>
+
+          <TimelineRow icon={<Layers className="h-4 w-4" />} label="Template">
+            {templateName ? (
+              <TimelineClip label={templateName} start={0} end={duration} duration={duration} className="border-cyan-300/30 bg-cyan-500/24" />
+            ) : (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem template</span>
+            )}
+          </TimelineRow>
+
+          <TimelineRow icon={<Sparkles className="h-4 w-4" />} label="Efeito">
+            {effectSegments.length > 0 ? effectSegments.map((segment) => (
+              <TimelineClip
+                key={segment.id}
+                label={effectLabel(segment.effect)}
+                start={segment.start}
+                end={segment.end}
+                duration={duration}
+                className="border-violet-300/35 bg-violet-500/28"
+              />
+            )) : (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
+            )}
+          </TimelineRow>
+
+          <TimelineRow icon={<Music2 className="h-4 w-4" />} label="Trilha">
+            {musicLabel !== 'Sem trilha' ? (
+              <TimelineClip label={musicLabel} start={0} end={duration} duration={duration} className="border-emerald-300/30 bg-emerald-500/24" />
+            ) : (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem trilha sonora</span>
+            )}
+          </TimelineRow>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OperatorPage() {
   const operatorPreferences = useMemo(() => getOperatorPreferences(), []);
   const { user, isAdmin } = useAuth();
@@ -173,6 +331,9 @@ export default function OperatorPage() {
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [duration, setDuration] = useState<number>(operatorPreferences.defaultDuration);
+  const [sourceDuration, setSourceDuration] = useState(0);
+  const [effectSegmentStart, setEffectSegmentStart] = useState(0);
+  const [effectSegmentEnd, setEffectSegmentEnd] = useState<number>(operatorPreferences.defaultDuration);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -249,6 +410,21 @@ export default function OperatorPage() {
   const processingMusicUrl = musicTheme === 'none' ? undefined : musicPreviewUrl;
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
   const effectDescription = effectPreviewText[effect] || 'Acabamento aplicado pelo servidor.';
+  const effectSegments = useMemo<EffectSegment[]>(() => {
+    if (effect === 'clean') return [];
+
+    const start = clamp(effectSegmentStart, 0, Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS));
+    const end = clamp(effectSegmentEnd, start + MIN_EFFECT_SEGMENT_SECONDS, duration);
+    return [{ id: 'main-effect', effect, start, end }];
+  }, [duration, effect, effectSegmentEnd, effectSegmentStart]);
+  const shouldProcessEffectAsSegment = effectSegments.length > 0
+    && (effectSegments[0].start > 0.05 || effectSegments[0].end < duration - 0.05);
+  const processingBaseEffect = shouldProcessEffectAsSegment ? 'clean' : effect;
+
+  useEffect(() => {
+    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS)));
+    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, duration));
+  }, [duration]);
 
   async function startCamera() {
     try {
@@ -280,6 +456,9 @@ export default function OperatorPage() {
       setVideoBlob(blob);
       const url = URL.createObjectURL(blob);
       setVideoUrl(url);
+      setSourceDuration(duration);
+      setEffectSegmentStart(0);
+      setEffectSegmentEnd(duration);
       streamRef.current?.getTracks().forEach(t => t.stop());
       setStep('preview');
     };
@@ -288,12 +467,52 @@ export default function OperatorPage() {
     setTimeout(() => { mr.stop(); setRecording(false); }, duration * 1000);
   }
 
+  function handlePreviewMetadata(event: SyntheticEvent<HTMLVideoElement>) {
+    const mediaDuration = event.currentTarget.duration;
+    if (Number.isFinite(mediaDuration) && mediaDuration > 0) {
+      setSourceDuration(mediaDuration);
+    }
+  }
+
+  function updateEffectStart(value: number) {
+    const maxStart = Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS);
+    const nextStart = clamp(value, 0, maxStart);
+    setEffectSegmentStart(nextStart);
+    setEffectSegmentEnd((currentEnd) => Math.max(currentEnd, nextStart + MIN_EFFECT_SEGMENT_SECONDS));
+  }
+
+  function updateEffectEnd(value: number) {
+    const minEnd = Math.min(duration, effectSegmentStart + MIN_EFFECT_SEGMENT_SECONDS);
+    setEffectSegmentEnd(clamp(value, minEnd, duration));
+  }
+
+  function setEffectRangePreset(preset: 'all' | 'intro' | 'center' | 'ending') {
+    if (preset === 'all') {
+      setEffectSegmentStart(0);
+      setEffectSegmentEnd(duration);
+      return;
+    }
+
+    const segmentSize = clamp(duration * 0.34, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, duration));
+    const starts = {
+      intro: 0,
+      center: Math.max(0, (duration - segmentSize) / 2),
+      ending: Math.max(0, duration - segmentSize),
+    };
+
+    setEffectSegmentStart(starts[preset]);
+    setEffectSegmentEnd(Math.min(duration, starts[preset] + segmentSize));
+  }
+
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     setVideoBlob(file);
     setVideoUrl(URL.createObjectURL(file));
+    setSourceDuration(0);
+    setEffectSegmentStart(0);
+    setEffectSegmentEnd(duration);
     setStep('preview');
   }
 
@@ -342,7 +561,12 @@ export default function OperatorPage() {
         templateId: selectedTemplateId || undefined,
         overlayUrl: selectedTemplate?.overlayUrl,
         animationUrl: selectedTemplate?.animationUrl,
-        effect,
+        effect: processingBaseEffect,
+        effectSegments: shouldProcessEffectAsSegment ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
+          effect: segmentEffect,
+          start,
+          end,
+        })) : undefined,
         musicTheme: processingMusicUrl ? 'none' : musicTheme,
         musicUrl: processingMusicUrl,
         eventType: selectedEvent?.type,
@@ -358,7 +582,7 @@ export default function OperatorPage() {
         storagePath: processed.storagePath || uploaded.storagePath,
         videoUrl: processed.outputUrl,
         status: 'published',
-        effect: processed.effect || effect,
+        effect,
         musicTheme: storedMusicTheme || processed.musicTheme || musicTheme,
         musicUrl: processingMusicUrl,
         duration,
@@ -539,25 +763,147 @@ export default function OperatorPage() {
       )}
 
       {step === 'preview' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[minmax(320px,560px)_1fr] gap-4">
-          <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Preview aplicado" className="aspect-[9/16] max-h-[70vh]">
-            <video ref={previewRef} src={videoUrl} controls className="h-full w-full object-contain" />
-          </VideoPreviewFrame>
-          <div className="space-y-4">
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 space-y-3">
-              <p className="text-sm font-semibold text-white">Pronto para processar</p>
-              <p className="text-sm text-white/50">O video sera enviado para o backend, editado com Python/FFmpeg e salvo no Supabase.</p>
-              <p className="text-xs text-white/35">Template: {selectedTemplate?.name || 'Sem overlay'}</p>
-              <p className="text-xs text-white/35">Efeito: {effectMeta?.label || effect}</p>
-              <p className="text-xs text-white/35">Duracao final: {duration} segundos</p>
-              <p className="text-xs text-white/35">Trilha: {selectedMusicLabel}</p>
-              {musicPreviewUrl && <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
-              <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>Processar</Button>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(300px,500px)_minmax(0,1fr)]">
+            <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Editor" className="aspect-[9/16] max-h-[66vh]">
+              <video
+                ref={previewRef}
+                src={videoUrl}
+                controls
+                onLoadedMetadata={handlePreviewMetadata}
+                className="h-full w-full object-contain"
+              />
+            </VideoPreviewFrame>
+
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 sm:p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-bold text-white">
+                    <Wand2 className="h-4 w-4 text-brand-300" />
+                    Editor do video
+                  </div>
+                  <p className="mt-1 text-xs text-white/38">Ajuste tudo antes de enviar para o servidor.</p>
+                </div>
+                <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/55">
+                  {formatTime(duration)}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Select label="Template" options={templateOptions} value={selectedTemplateId}
+                  onChange={e => setSelectedTemplateId(e.target.value)} />
+                <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
+                <Select label="Trilha sonora" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-white/70">Duracao final</p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {DURATION_OPTIONS.map((seconds) => (
+                      <button
+                        key={seconds}
+                        type="button"
+                        onClick={() => setDuration(seconds)}
+                        className={`h-10 rounded-full border text-sm font-bold transition-all ${
+                          duration === seconds
+                            ? 'border-brand-300/70 bg-brand-500/25 text-white shadow-glow'
+                            : 'border-white/10 bg-white/[0.045] text-white/58 hover:border-white/20 hover:text-white'
+                        }`}
+                      >
+                        {seconds}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Sparkles className="h-4 w-4 text-brand-300" />
+                    Trecho do efeito
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[
+                      ['all', 'Tudo'],
+                      ['intro', 'Inicio'],
+                      ['center', 'Centro'],
+                      ['ending', 'Final'],
+                    ].map(([preset, label]) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setEffectRangePreset(preset as 'all' | 'intro' | 'center' | 'ending')}
+                        className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-brand-300/35 hover:text-white"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
+                    Inicio {formatTime(effectSegments[0]?.start || 0)}
+                    <input
+                      type="range"
+                      min={0}
+                      max={duration}
+                      step={0.1}
+                      value={effectSegments[0]?.start || 0}
+                      disabled={effect === 'clean'}
+                      onChange={(event) => updateEffectStart(Number(event.target.value))}
+                      className="w-full accent-violet-400 disabled:opacity-35"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
+                    Fim {formatTime(effectSegments[0]?.end || duration)}
+                    <input
+                      type="range"
+                      min={0}
+                      max={duration}
+                      step={0.1}
+                      value={effectSegments[0]?.end || duration}
+                      disabled={effect === 'clean'}
+                      onChange={(event) => updateEffectEnd(Number(event.target.value))}
+                      className="w-full accent-violet-400 disabled:opacity-35"
+                    />
+                  </label>
+                </div>
+                <p className="text-xs leading-relaxed text-white/38">
+                  {effect === 'clean' ? 'Escolha um efeito para marcar o trecho na timeline.' : effectDescription}
+                </p>
+              </div>
+
+              {musicPreviewUrl && (
+                <div className="mt-4 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
+                    <Volume2 className="h-4 w-4 text-brand-300" />
+                    Preview da trilha
+                  </div>
+                  <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />
+                </div>
+              )}
+
+              {(!canUseEffect || !canUseTemplate) && (
+                <div className="mt-4 flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  Alguma edicao escolhida esta bloqueada no seu plano.
+                </div>
+              )}
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
+                <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>Processar</Button>
+              </div>
             </div>
           </div>
+
+          <EditorTimeline
+            duration={duration}
+            sourceDuration={sourceDuration}
+            templateName={selectedTemplate?.name}
+            musicLabel={selectedMusicLabel}
+            effectSegments={effectSegments}
+          />
         </motion.div>
       )}
 

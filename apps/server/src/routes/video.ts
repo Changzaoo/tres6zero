@@ -17,6 +17,13 @@ const processSchema = z.object({
   overlayUrl: z.string().min(1).optional(),
   animationUrl: z.string().min(1).optional(),
   effect: z.string().optional(),
+  effectSegments: z.array(z.object({
+    effect: z.string().min(1),
+    start: z.number().min(0).max(45),
+    end: z.number().min(0).max(45),
+  }).refine((segment) => segment.end > segment.start, {
+    message: 'INVALID_EFFECT_SEGMENT_RANGE',
+  })).max(8).optional(),
   musicTheme: z.string().optional(),
   musicUrl: z.string().min(1).optional(),
   eventType: z.string().optional(),
@@ -53,7 +60,10 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
   try {
     const config = processSchema.parse(req.body);
     const profile = res.locals.user;
-    const feature = featureForEffect(config.effect);
+    const requiredEffectFeatures = [
+      featureForEffect(config.effect),
+      ...(config.effectSegments || []).map((segment) => featureForEffect(segment.effect)),
+    ];
 
     if (!isAllowedSupabaseUrl(config.inputUrl)) {
       rejectInvalidMediaUrl('INVALID_INPUT_URL');
@@ -71,10 +81,14 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
       rejectInvalidMediaUrl('INVALID_MUSIC_URL');
     }
 
-    if (profile?.role !== 'admin' && !hasPlanFeature(profile?.planId, feature)) {
+    const blockedFeature = profile?.role === 'admin'
+      ? null
+      : requiredEffectFeatures.find((feature) => !hasPlanFeature(profile?.planId, feature));
+
+    if (blockedFeature) {
       return res.status(403).json({
         error: 'PLAN_FEATURE_REQUIRED',
-        code: feature,
+        code: blockedFeature,
       });
     }
 

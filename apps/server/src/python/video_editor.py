@@ -50,18 +50,76 @@ def effect_filters(effect):
     return filters.get(effect, filters["clean"])
 
 
-def build_graph(effect, has_overlay, animated_overlay=False):
+def timeline_effect_filters(effect):
+    effect = chosen_effect(effect, None)
+    filters = {
+        "clean": ["eq=contrast=1.05:saturation=1.08:brightness=0.01"],
+        "slow_motion": ["eq=contrast=1.04:saturation=1.08"],
+        "boomerang": ["eq=contrast=1.08:saturation=1.12"],
+        "speed_ramp": ["eq=contrast=1.1:saturation=1.18"],
+        "cinematic": ["eq=contrast=1.12:saturation=0.95:brightness=-0.02", "unsharp=5:5:0.6"],
+        "neon": ["eq=contrast=1.18:saturation=1.55", "hue=s=1.15"],
+        "party": ["eq=contrast=1.12:saturation=1.35", "vignette=PI/5"],
+        "luxury": ["eq=contrast=1.08:saturation=1.05:gamma=0.95", "unsharp=3:3:0.35"],
+        "glitch_flash": ["eq=contrast=1.25:saturation=1.35"],
+        "wedding_soft": ["eq=contrast=0.98:saturation=1.05:brightness=0.03", "gblur=sigma=0.25"],
+        "corporate_sharp": ["eq=contrast=1.08:saturation=0.92", "unsharp=5:5:0.9"],
+    }
+    return filters.get(effect, filters["clean"])
+
+
+def with_enable(filter_spec, start, end):
+    return f"{filter_spec}:enable='between(t,{start:.3f},{end:.3f})'"
+
+
+def parse_effect_segments(raw, duration_seconds=None):
+    if not raw:
+        return []
+
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return []
+
+    max_time = float(duration_seconds or 45)
+    segments = []
+    for item in payload if isinstance(payload, list) else []:
+        try:
+            effect = str(item.get("effect") or "clean")
+            start = max(0.0, min(float(item.get("start", 0)), max_time))
+            end = max(0.0, min(float(item.get("end", max_time)), max_time))
+        except Exception:
+            continue
+
+        if end - start >= 0.05:
+            segments.append({"effect": effect, "start": start, "end": end})
+
+    return segments[:8]
+
+
+def segment_filters(effect_segments):
+    filters = []
+    for segment in effect_segments or []:
+        filters.extend([
+            with_enable(filter_spec, segment["start"], segment["end"])
+            for filter_spec in timeline_effect_filters(segment["effect"])
+        ])
+    return filters
+
+
+def build_graph(effect, has_overlay, animated_overlay=False, effect_segments=None):
     base_effect = chosen_effect(effect, None)
     base_filters = effect_filters(base_effect)
+    timed_filters = segment_filters(effect_segments)
 
     if base_effect == "boomerang":
         graph = (
             "[0:v]scale=trunc(iw/2)*2:trunc(ih/2)*2,split[v1][v2];"
             "[v2]reverse[v2r];"
-            "[v1][v2r]concat=n=2:v=1:a=0,fps=30,format=yuv420p[base]"
+            f"[v1][v2r]concat=n=2:v=1:a=0,fps=30,{','.join(timed_filters + ['format=yuv420p'])}[base]"
         )
     else:
-        graph = f"[0:v]{','.join(base_filters)},scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,format=yuv420p[base]"
+        graph = f"[0:v]{','.join(base_filters + timed_filters)},scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,format=yuv420p[base]"
 
     if has_overlay:
         overlay_options = "format=auto:eof_action=repeat"
@@ -97,13 +155,15 @@ def main():
     parser.add_argument("--event-type", default="")
     parser.add_argument("--ffmpeg", default="ffmpeg")
     parser.add_argument("--duration-seconds", type=float, default=0)
+    parser.add_argument("--effect-segments", default="")
     args = parser.parse_args()
 
     effect = chosen_effect(args.effect, args.event_type)
     duration_seconds = args.duration_seconds if args.duration_seconds and args.duration_seconds > 0 else None
+    effect_segments = parse_effect_segments(args.effect_segments, duration_seconds)
     overlay_ext = os.path.splitext(args.overlay.lower())[1] if args.overlay else ""
     animated_overlay = overlay_ext in [".webm", ".mp4", ".mov", ".gif"]
-    graph = build_graph(effect, bool(args.overlay), animated_overlay)
+    graph = build_graph(effect, bool(args.overlay), animated_overlay, effect_segments)
     cmd = [args.ffmpeg, "-y", "-i", args.input]
 
     if args.overlay:
@@ -136,7 +196,7 @@ def main():
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-movflags", "+faststart", args.output]
     run(cmd)
 
-    print(json.dumps({"effect": effect, "musicTheme": args.music_theme}))
+    print(json.dumps({"effect": effect, "musicTheme": args.music_theme, "effectSegments": effect_segments}))
 
 
 if __name__ == "__main__":

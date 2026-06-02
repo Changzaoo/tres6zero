@@ -17,6 +17,7 @@ export type ProcessingConfig = {
   overlayUrl?: string;
   animationUrl?: string;
   effect?: string;
+  effectSegments?: { effect: string; start: number; end: number }[];
   musicTheme?: string;
   musicUrl?: string;
   eventType?: string;
@@ -215,6 +216,7 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
     if (overlayTemp) args.push('--overlay', await rasterOverlayIfNeeded(overlayTemp.filePath));
     if (musicTemp) args.push('--music-file', musicTemp.filePath);
     if (config.durationSeconds) args.push('--duration-seconds', String(config.durationSeconds));
+    if (config.effectSegments?.length) args.push('--effect-segments', JSON.stringify(config.effectSegments));
 
     const editor = await runPythonEditor(args);
     const output = await readFile(outputPath);
