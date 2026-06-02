@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle2, KeyRound, MailCheck, ShieldCheck, UserSearch } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, KeyRound, LifeBuoy, ShieldCheck, UserSearch } from 'lucide-react';
 import {
   getPasswordRecoveryOptions,
   setRecoveredPassword,
@@ -31,7 +31,7 @@ const passwordSchema = z.object({
 
 type IdentifyData = z.infer<typeof identifySchema>;
 type PasswordData = z.infer<typeof passwordSchema>;
-type RecoveryStep = 'identify' | 'challenge' | 'password' | 'email';
+type RecoveryStep = 'identify' | 'challenge' | 'password' | 'support';
 
 function normalizeIdentifier(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<RecoveryStep>('identify');
   const [challenge, setChallenge] = useState<PasswordRecoveryOptionsResponse | null>(null);
-  const [selectedOption, setSelectedOption] = useState('');
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [resetToken, setResetToken] = useState('');
   const [verifying, setVerifying] = useState(false);
 
@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await getPasswordRecoveryOptions(normalizeIdentifier(data.identifier));
       setChallenge(response);
-      setSelectedOption('');
+      setSelectedOptions({});
       setResetToken('');
       setStep('challenge');
     } catch (error: any) {
@@ -69,14 +69,14 @@ export default function ForgotPasswordPage() {
   }
 
   async function onVerify() {
-    if (!challenge || !selectedOption) {
-      toast.error('Escolha uma das informacoes para continuar.');
+    if (!challenge || challenge.challenges.some((item) => !selectedOptions[item.id])) {
+      toast.error('Escolha uma opcao em todas as verificacoes.');
       return;
     }
 
     try {
       setVerifying(true);
-      const response = await verifyPasswordRecoveryOption(challenge.challengeId, selectedOption);
+      const response = await verifyPasswordRecoveryOption(challenge.challengeId, selectedOptions);
 
       if (response.mode === 'password' && response.resetToken) {
         setResetToken(response.resetToken);
@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      setStep('email');
+      setStep('support');
       toast.success('Verificacao concluida.');
     } catch (error: any) {
       toast.error(recoveryErrorMessage(error.code));
@@ -109,7 +109,7 @@ export default function ForgotPasswordPage() {
   function restart() {
     setStep('identify');
     setChallenge(null);
-    setSelectedOption('');
+    setSelectedOptions({});
     setResetToken('');
     identifyForm.reset();
     passwordForm.reset();
@@ -151,32 +151,41 @@ export default function ForgotPasswordPage() {
               <div className="flex items-start gap-3 rounded-2xl border border-brand-400/25 bg-brand-500/10 p-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-200" />
                 <div>
-                  <h2 className="text-sm font-bold text-white">Escolha a informacao reconhecida</h2>
+                  <h2 className="text-sm font-bold text-white">Confirme as informacoes reconhecidas</h2>
                   <p className="mt-1 text-xs leading-relaxed text-white/45">
-                    Apenas uma opcao combina com a conta. Os dados reais continuam censurados.
+                    Escolha uma opcao em cada verificacao. Os dados reais continuam censurados.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {challenge.options.map((option) => {
-                  const selected = selectedOption === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setSelectedOption(option.id)}
-                      className={`w-full rounded-2xl border p-3 text-left transition-all ${
-                        selected
-                          ? 'border-brand-300 bg-brand-500/18 shadow-[0_18px_48px_-30px_rgba(124,92,255,0.95)]'
-                          : 'border-white/10 bg-white/[0.045] hover:border-white/20 hover:bg-white/[0.075]'
-                      }`}
-                    >
-                      <span className="block text-xs font-medium uppercase tracking-[0.14em] text-white/35">{option.label}</span>
-                      <span className="mt-1 block text-base font-bold text-white">{option.value}</span>
-                    </button>
-                  );
-                })}
+              <div className="space-y-3">
+                {challenge.challenges.map((item, index) => (
+                  <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium uppercase tracking-[0.14em] text-white/35">Verificacao {index + 1}</span>
+                      <span className="truncate text-sm font-bold text-white">{item.label}</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {item.options.map((option) => {
+                        const selected = selectedOptions[item.id] === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setSelectedOptions((current) => ({ ...current, [item.id]: option.id }))}
+                            className={`min-h-11 rounded-xl border px-3 py-2 text-left text-sm font-bold transition-all ${
+                              selected
+                                ? 'border-brand-300 bg-brand-500/18 text-white shadow-[0_18px_48px_-30px_rgba(124,92,255,0.95)]'
+                                : 'border-white/10 bg-white/[0.045] text-white/72 hover:border-white/20 hover:bg-white/[0.075]'
+                            }`}
+                          >
+                            {option.value}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -223,15 +232,15 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          {step === 'email' && (
+          {step === 'support' && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-brand-300/25 bg-brand-500/15">
-                <MailCheck className="h-6 w-6 text-brand-200" />
+                <LifeBuoy className="h-6 w-6 text-brand-200" />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">Verificacao concluida</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/45">
-                  Se a conta existir, o reset oficial foi enviado para o e-mail cadastrado. Em dispositivo novo, o suporte pode confirmar a identidade sem revelar seus dados.
+                  Essa recuperacao precisa do suporte. Abra o atendimento no login para o admin confirmar o caso sem revelar seus dados.
                 </p>
               </div>
               <Button type="button" onClick={() => navigate('/login')} className="w-full justify-center" size="lg">

@@ -39,7 +39,7 @@ const recoveryOptionsSchema = z.object({
 
 const recoveryVerifySchema = z.object({
   challengeId: z.string().min(16).max(96),
-  optionId: z.string().min(12).max(96),
+  selections: z.record(z.string().min(12).max(96)).optional(),
 });
 
 const recoveredPasswordSchema = z.object({
@@ -82,15 +82,19 @@ type UserRole = 'admin' | 'user';
 
 type RecoveryOption = {
   id: string;
-  label: string;
   value: string;
+};
+
+type RecoveryChallengeItem = {
+  id: string;
+  label: string;
+  options: RecoveryOption[];
 };
 
 type RecoveryChallengeRecord = {
   uid: string;
   email: string;
-  correctOptionId: string;
-  trustedDeviceMatched: boolean;
+  correctOptionIds: Record<string, string>;
   attempts: number;
   expiresAt: string;
   resetTokenHash?: string;
@@ -248,6 +252,10 @@ function maskText(value: string) {
     .slice(0, 80);
 }
 
+function monthName(date: Date) {
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+}
+
 function maskEmail(email: string) {
   const [localPart, domainPart = ''] = email.trim().toLowerCase().split('@');
   const domainParts = domainPart.split('.').filter(Boolean);
@@ -387,13 +395,18 @@ async function recoveryFactsForUser(user: FirebaseUserRecord) {
   const recentDevice = devices[0];
   if (recentDevice?.name) {
     facts.push({ kind: 'device', label: 'Dispositivo reconhecido', value: maskText(recentDevice.name) });
+  } else {
+    facts.push({ kind: 'device', label: 'Dispositivo reconhecido', value: maskText('Sem dispositivo recente') });
   }
 
   if (recentDevice?.location && !/nao identificada|rede local/i.test(recentDevice.location)) {
     facts.push({ kind: 'location', label: 'Local de acesso recente', value: maskText(recentDevice.location) });
+  } else {
+    const createdAt = user.createdAt ? new Date(Number(user.createdAt)) : new Date();
+    facts.push({ kind: 'created', label: 'Mes de criacao da conta', value: maskText(monthName(createdAt)) });
   }
 
-  return facts;
+  return facts.slice(0, 5);
 }
 
 function recoveryDecoys(kind: string, realValue: string) {
@@ -431,31 +444,61 @@ function recoveryDecoys(kind: string, realValue: string) {
       'S******r, B****l',
       'F***********s, B****l',
     ],
+    created: [
+      maskText('janeiro de 2026'),
+      maskText('fevereiro de 2026'),
+      maskText('marco de 2026'),
+      maskText('abril de 2026'),
+      maskText('maio de 2026'),
+      maskText('junho de 2026'),
+      maskText('dezembro de 2025'),
+    ],
   };
 
   const pool = pools[kind] || pools.email;
   return pool.filter((value) => value !== realValue);
 }
 
-function buildRecoveryOptions(facts: { kind: string; label: string; value: string }[]) {
-  const availableFacts = facts.length > 0 ? facts : [{ kind: 'email', label: 'E-mail cadastrado', value: 'a*****5@******.com' }];
-  const realFact = availableFacts[crypto.randomInt(availableFacts.length)];
-  const correctOptionId = randomId(12);
-  const options: RecoveryOption[] = [
-    { id: correctOptionId, label: realFact.label, value: realFact.value },
+function fakeRecoveryFacts() {
+  return [
+    { kind: 'email', label: 'E-mail cadastrado', value: 'a*****5@******.com' },
+    { kind: 'name', label: 'Nome de usuario', value: 'V******s' },
+    { kind: 'plan', label: 'Plano do ultimo mes', value: maskText(BILLING_PLANS.starter.name) },
+    { kind: 'device', label: 'Dispositivo reconhecido', value: 'W******s - C****e' },
+    { kind: 'created', label: 'Mes de criacao da conta', value: maskText('junho de 2026') },
   ];
+}
 
-  recoveryDecoys(realFact.kind, realFact.value).slice(0, 8).forEach((value) => {
-    if (options.length < 5) {
-      options.push({ id: randomId(12), label: realFact.label, value });
+function buildRecoveryChallenges(facts: { kind: string; label: string; value: string }[]) {
+  const availableFacts = facts.length >= 5 ? facts.slice(0, 5) : fakeRecoveryFacts();
+  const correctOptionIds: Record<string, string> = {};
+  const challenges: RecoveryChallengeItem[] = availableFacts.map((fact) => {
+    const challengeId = randomId(10);
+    const correctOptionId = randomId(12);
+    correctOptionIds[challengeId] = correctOptionId;
+
+    const options: RecoveryOption[] = [
+      { id: correctOptionId, value: fact.value },
+    ];
+
+    recoveryDecoys(fact.kind, fact.value).slice(0, 8).forEach((value) => {
+      if (options.length < 5 && !options.some((option) => option.value === value)) {
+        options.push({ id: randomId(12), value });
+      }
+    });
+
+    while (options.length < 5) {
+      options.push({ id: randomId(12), value: maskEmail(`${randomId(2)}@six3.com`) });
     }
+
+    return {
+      id: challengeId,
+      label: fact.label,
+      options: shuffle(options).slice(0, 5),
+    };
   });
 
-  while (options.length < 5) {
-    options.push({ id: randomId(12), label: realFact.label, value: maskEmail(`${randomId(2)}@six3.com`) });
-  }
-
-  return { correctOptionId, options: shuffle(options).slice(0, 5) };
+  return { correctOptionIds, challenges };
 }
 
 function assertRecoveryChallengeActive(challenge: RecoveryChallengeRecord | null): asserts challenge is RecoveryChallengeRecord {
@@ -657,15 +700,13 @@ authRouter.post('/recovery/options', async (req, res, next) => {
 
     const { user } = await findRecoveryUser(identifier);
     const facts = user ? await recoveryFactsForUser(user) : [];
-    const { correctOptionId, options } = buildRecoveryOptions(facts);
+    const { correctOptionIds, challenges } = buildRecoveryChallenges(facts);
     const challengeId = randomId(24);
-    const trustedDeviceMatched = user ? await requestMatchesTrustedDevice(req, user) : false;
 
     await saveRecoveryChallenge(challengeId, {
       uid: user?.localId || '',
       email: user?.email || '',
-      correctOptionId,
-      trustedDeviceMatched,
+      correctOptionIds,
       attempts: 0,
       expiresAt: new Date(Date.now() + RECOVERY_TTL_MS).toISOString(),
     });
@@ -673,7 +714,7 @@ authRouter.post('/recovery/options', async (req, res, next) => {
     res.json({
       challengeId,
       expiresIn: Math.floor(RECOVERY_TTL_MS / 1000),
-      options,
+      challenges,
     });
   } catch (e) {
     next(e);
@@ -692,7 +733,12 @@ authRouter.post('/recovery/verify', async (req, res, next) => {
       throw err;
     }
 
-    if (data.optionId !== challenge.correctOptionId) {
+    const expectedSelections = Object.entries(challenge.correctOptionIds || {});
+    const selections = data.selections || {};
+    const allSelectionsMatch = expectedSelections.length >= 5
+      && expectedSelections.every(([challengeItemId, optionId]) => selections[challengeItemId] === optionId);
+
+    if (!allSelectionsMatch) {
       await updateRecoveryChallenge(data.challengeId, { attempts: challenge.attempts + 1 });
       const err = new Error('RECOVERY_OPTION_MISMATCH');
       (err as any).status = 400;
@@ -701,7 +747,7 @@ authRouter.post('/recovery/verify', async (req, res, next) => {
 
     const verifiedAt = new Date().toISOString();
 
-    if (challenge.uid && challenge.trustedDeviceMatched) {
+    if (challenge.uid) {
       const resetToken = randomId(32);
       await updateRecoveryChallenge(data.challengeId, {
         verifiedAt,
@@ -718,17 +764,8 @@ authRouter.post('/recovery/verify', async (req, res, next) => {
       return;
     }
 
-    if (challenge.email && z.string().email().safeParse(challenge.email).success) {
-      await firebaseAuthRequest('accounts:sendOobCode', {
-        requestType: 'PASSWORD_RESET',
-        email: challenge.email,
-      }).catch((error) => {
-        console.warn('[auth] recovery email skipped:', error instanceof Error ? error.message : error);
-      });
-    }
-
     await updateRecoveryChallenge(data.challengeId, { verifiedAt });
-    res.json({ ok: true, mode: 'email' });
+    res.json({ ok: true, mode: 'support' });
   } catch (e) {
     next(e);
   }

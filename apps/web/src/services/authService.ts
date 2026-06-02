@@ -22,19 +22,24 @@ export type AuthSession = {
 
 export type PasswordRecoveryOption = {
   id: string;
-  label: string;
   value: string;
+};
+
+export type PasswordRecoveryChallenge = {
+  id: string;
+  label: string;
+  options: PasswordRecoveryOption[];
 };
 
 export type PasswordRecoveryOptionsResponse = {
   challengeId: string;
   expiresIn: number;
-  options: PasswordRecoveryOption[];
+  challenges: PasswordRecoveryChallenge[];
 };
 
 export type PasswordRecoveryVerifyResponse = {
   ok: boolean;
-  mode: 'password' | 'email';
+  mode: 'password' | 'support';
   resetToken?: string;
   expiresIn?: number;
 };
@@ -367,10 +372,10 @@ export async function getPasswordRecoveryOptions(identifier: string) {
   });
 }
 
-export async function verifyPasswordRecoveryOption(challengeId: string, optionId: string) {
+export async function verifyPasswordRecoveryOption(challengeId: string, selections: Record<string, string>) {
   return request<PasswordRecoveryVerifyResponse>('/api/auth/recovery/verify', {
     method: 'POST',
-    body: JSON.stringify({ challengeId, optionId }),
+    body: JSON.stringify({ challengeId, selections }),
   });
 }
 
