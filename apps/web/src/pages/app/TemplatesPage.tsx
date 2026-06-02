@@ -13,6 +13,12 @@ import { hasFeature } from '@/config/plans';
 import { motion } from 'framer-motion';
 import type { AppMusic, AppTemplate } from '@/types';
 
+function templateAspectRatio(aspectRatio: AppTemplate['aspectRatio']) {
+  if (aspectRatio === '16:9') return '16 / 9';
+  if (aspectRatio === '1:1') return '1 / 1';
+  return '9 / 16';
+}
+
 export default function TemplatesPage() {
   const { user, isAdmin } = useAuth();
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
@@ -118,7 +124,7 @@ export default function TemplatesPage() {
     if (!isAdmin) return;
     setSeeding(true);
     try {
-      const uploaded = await seedGeneratedTemplates(216);
+      const uploaded = await seedGeneratedTemplates(720);
       setTemplates((current) => [...uploaded.map((template) => ({ ...template, source: 'generated' as const })), ...current]);
       toast.success('Catalogo transparente salvo no Supabase.');
     } catch (error) {
@@ -190,10 +196,10 @@ export default function TemplatesPage() {
             <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.02 }} className="cursor-pointer group">
               <div className="rounded-2xl overflow-hidden border border-white/[0.08] hover:border-brand-500/30 transition-all">
-                <div className="aspect-[9/16] max-h-56 flex items-center justify-center relative overflow-hidden"
-                  style={{ background: `linear-gradient(135deg, ${t.colors.primary}, ${t.colors.secondary})` }}>
+                <div className="max-h-56 flex items-center justify-center relative overflow-hidden"
+                  style={{ aspectRatio: templateAspectRatio(t.aspectRatio), background: `linear-gradient(135deg, ${t.colors.primary}, ${t.colors.secondary})` }}>
                   <BrandWordmark className="text-3xl drop-shadow-lg" />
-                  {t.overlayUrl && <img src={t.overlayUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                  {t.overlayUrl && <img src={t.overlayUrl} alt="" className="absolute inset-0 w-full h-full object-contain" />}
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-white text-xs font-medium bg-black/45 px-3 py-1.5 rounded-full">Usar template</span>
                   </div>

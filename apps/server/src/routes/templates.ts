@@ -11,8 +11,8 @@ import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase
 export const templatesRouter = Router();
 
 const seedSchema = z.object({
-  count: z.number().int().min(1).max(500).optional(),
-  offset: z.number().int().min(0).max(5000).optional(),
+  count: z.number().int().min(1).max(1000).optional(),
+  offset: z.number().int().min(0).max(10000).optional(),
   musicCount: z.number().int().min(0).max(120).optional(),
 });
 

@@ -122,7 +122,7 @@ export async function getGeneratedMusic() {
   return music;
 }
 
-export async function seedGeneratedTemplates(count = 360) {
+export async function seedGeneratedTemplates(count = 720) {
   const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/seed-transparent', {
     method: 'POST',
     body: JSON.stringify({ count }),
