@@ -112,6 +112,45 @@ function renderedVideoFile(blob: Blob) {
   return new File([blob], `six3-edited-${Date.now()}.${extension}`, { type: blob.type || 'video/webm' });
 }
 
+function getSupportedRecordingMimeType() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return '';
+  }
+
+  return [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+    'video/mp4;codecs=h264,aac',
+    'video/mp4',
+  ].find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+}
+
+async function requestCameraStream() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('CAMERA_API_UNAVAILABLE');
+  }
+
+  const video = {
+    facingMode: 'user',
+    width: { ideal: 1080 },
+    height: { ideal: 1920 },
+  };
+
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video,
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+  } catch (error) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    } catch {
+      throw error;
+    }
+  }
+}
+
 function getEffectPreviewStyle(effect: string): CSSProperties {
   return { filter: effectPreviewFilters[effect] || effectPreviewFilters.clean };
 }
@@ -361,6 +400,7 @@ export default function OperatorPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recordingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -451,13 +491,42 @@ export default function OperatorPage() {
     setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, duration));
   }, [duration]);
 
+  useEffect(() => {
+    if (step !== 'capture') return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    const playPreview = () => video.play().catch(() => undefined);
+    playPreview();
+
+    return () => {
+      if (video.srcObject === stream) {
+        video.pause();
+        video.srcObject = null;
+      }
+    };
+  }, [step]);
+
+  useEffect(() => () => {
+    if (recordingTimeoutRef.current) {
+      window.clearTimeout(recordingTimeoutRef.current);
+    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
   async function startCamera() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const stream = await requestCameraStream();
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
       setStep('capture');
-    } catch { toast.error('Permissao de camera negada. Use o upload manual.'); }
+    } catch {
+      toast.error('Nao foi possivel abrir a camera. Verifique a permissao do app ou use o upload manual.');
+    }
   }
 
   function startCountdown() {
@@ -471,25 +540,69 @@ export default function OperatorPage() {
   }
 
   function startRecording() {
-    if (!streamRef.current) return;
+    const stream = streamRef.current;
+    if (!stream || !stream.getVideoTracks().some((track) => track.readyState === 'live')) {
+      toast.error('Camera indisponivel. Abra a camera novamente.');
+      setStep('select');
+      return;
+    }
+
+    if (typeof MediaRecorder === 'undefined') {
+      toast.error('Este navegador nao suporta gravacao local. Use o upload manual.');
+      return;
+    }
+
     chunksRef.current = [];
-    const mr = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
+    const mimeType = getSupportedRecordingMimeType();
+    let mr: MediaRecorder;
+    try {
+      mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch {
+      mr = new MediaRecorder(stream);
+    }
+
     mediaRecorderRef.current = mr;
-    mr.ondataavailable = e => chunksRef.current.push(e.data);
+    mr.ondataavailable = e => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    mr.onerror = () => {
+      toast.error('Falha ao gravar. Tente novamente ou use o upload manual.');
+      setRecording(false);
+    };
     mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      if (recordingTimeoutRef.current) {
+        window.clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+      setRecording(false);
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+
+      if (chunksRef.current.length === 0) {
+        toast.error('A gravacao saiu vazia. Tente novamente ou use o upload manual.');
+        setStep('select');
+        return;
+      }
+
+      const blobType = mr.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm';
+      const blob = new Blob(chunksRef.current, { type: blobType });
       setVideoBlob(blob);
       const url = URL.createObjectURL(blob);
       setVideoUrl(url);
       setSourceDuration(duration);
       setEffectSegmentStart(0);
       setEffectSegmentEnd(duration);
-      streamRef.current?.getTracks().forEach(t => t.stop());
       setStep('preview');
     };
-    mr.start();
+
+    mr.start(1000);
     setRecording(true);
-    setTimeout(() => { mr.stop(); setRecording(false); }, duration * 1000);
+    recordingTimeoutRef.current = window.setTimeout(() => {
+      if (mr.state === 'recording') {
+        mr.requestData();
+        mr.stop();
+      }
+    }, duration * 1000);
   }
 
   function handlePreviewMetadata(event: SyntheticEvent<HTMLVideoElement>) {
@@ -637,12 +750,19 @@ export default function OperatorPage() {
   }
 
   function reset() {
+    if (recordingTimeoutRef.current) {
+      window.clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
     setVideoBlob(null);
     setVideoUrl('');
     setSavedVideoId('');
     setProgress(0);
     setProcessingLabel('Preparando video...');
-    setStep(selectedEventId ? 'capture' : 'select');
+    setStep('select');
   }
 
   const publicUrl = savedVideoId
@@ -804,7 +924,17 @@ export default function OperatorPage() {
                 {recording ? 'Gravando...' : 'Iniciar gravacao'}
               </Button>
             </div>
-            <Button variant="ghost" className="w-full justify-center" onClick={() => { streamRef.current?.getTracks().forEach(t => t.stop()); setStep('select'); }}>
+            <Button variant="ghost" className="w-full justify-center" onClick={() => {
+              if (recordingTimeoutRef.current) {
+                window.clearTimeout(recordingTimeoutRef.current);
+                recordingTimeoutRef.current = null;
+              }
+              mediaRecorderRef.current = null;
+              streamRef.current?.getTracks().forEach(t => t.stop());
+              streamRef.current = null;
+              setRecording(false);
+              setStep('select');
+            }}>
               Cancelar
             </Button>
           </div>
