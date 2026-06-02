@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal } from 'lucide-react';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -32,6 +32,7 @@ type EffectSegment = {
 
 const STANDALONE_EVENT_ID = 'standalone';
 const MIN_EFFECT_SEGMENT_SECONDS = 0.5;
+const MIN_TRIM_SECONDS = 0.5;
 
 const DURATION_OPTIONS = [5, 15, 25, 35, 45] as const;
 
@@ -66,6 +67,13 @@ function formatTime(seconds: number) {
   const safeSeconds = Math.max(0, seconds);
   const mins = Math.floor(safeSeconds / 60);
   const secs = Math.floor(safeSeconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+function formatPreciseTime(seconds: number) {
+  const safeSeconds = Math.max(0, seconds);
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = (safeSeconds % 60).toFixed(1).padStart(4, '0');
   return `${mins}:${secs}`;
 }
 
@@ -375,32 +383,45 @@ function TimelineRow({
 }
 
 function EditorTimeline({
-  duration,
   sourceDuration,
+  outputDuration,
+  trimStart,
+  trimEnd,
+  currentTime,
   templateName,
   musicLabel,
   effect,
   effectSegments,
 }: {
-  duration: number;
   sourceDuration: number;
+  outputDuration: number;
+  trimStart: number;
+  trimEnd: number;
+  currentTime: number;
   templateName?: string;
   musicLabel: string;
   effect: string;
   effectSegments: EffectSegment[];
 }) {
-  const markers = [0, duration / 2, duration].map((value) => clamp(value, 0, duration));
+  const timelineDuration = Math.max(sourceDuration || outputDuration, MIN_TRIM_SECONDS);
+  const outputStart = clamp(trimStart, 0, timelineDuration);
+  const outputEnd = clamp(outputStart + outputDuration, outputStart, timelineDuration);
+  const safeTrimEnd = clamp(trimEnd, outputStart, timelineDuration);
+  const playhead = clamp(currentTime, 0, timelineDuration);
+  const markers = [0, timelineDuration / 4, timelineDuration / 2, timelineDuration * 0.75, timelineDuration]
+    .map((value) => clamp(value, 0, timelineDuration));
 
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm font-bold text-white">
           <SlidersHorizontal className="h-4 w-4 text-brand-300" />
-          Timeline de edicao
+          Timeline real
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-white/35">
-          <span>Fonte {sourceDuration ? formatTime(sourceDuration) : '--:--'}</span>
-          <span>Final {formatTime(duration)}</span>
+          <span>Fonte {sourceDuration ? formatPreciseTime(sourceDuration) : '--:--'}</span>
+          <span>Corte {formatPreciseTime(outputStart)} - {formatPreciseTime(safeTrimEnd)}</span>
+          <span>Final {formatPreciseTime(outputDuration)}</span>
         </div>
       </div>
 
@@ -413,7 +434,7 @@ function EditorTimeline({
                 <span
                   key={marker}
                   className="absolute top-0 -translate-x-1/2 text-[11px] font-semibold text-white/35"
-                  style={{ left: `${(marker / Math.max(duration, 1)) * 100}%` }}
+                  style={{ left: `${(marker / timelineDuration) * 100}%` }}
                 >
                   {formatTime(marker)}
                 </span>
@@ -422,12 +443,15 @@ function EditorTimeline({
           </div>
 
           <TimelineRow icon={<Film className="h-4 w-4" />} label="Video">
-            <TimelineClip label="Video carregado" start={0} end={duration} duration={duration} className="border-blue-300/30 bg-blue-500/24" />
+            <TimelineClip label="Corte final" start={outputStart} end={outputEnd} duration={timelineDuration} className="border-blue-300/30 bg-blue-500/24" />
+            {safeTrimEnd > outputEnd + 0.05 && (
+              <TimelineClip label="Sobrou fora da saida" start={outputEnd} end={safeTrimEnd} duration={timelineDuration} className="border-white/10 bg-white/[0.05] text-white/45" />
+            )}
           </TimelineRow>
 
           <TimelineRow icon={<Layers className="h-4 w-4" />} label="Template">
             {templateName ? (
-              <TimelineClip label={templateName} start={0} end={duration} duration={duration} className="border-cyan-300/30 bg-cyan-500/24" />
+              <TimelineClip label={templateName} start={outputStart} end={outputEnd} duration={timelineDuration} className="border-cyan-300/30 bg-cyan-500/24" />
             ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem template</span>
             )}
@@ -438,13 +462,13 @@ function EditorTimeline({
               <TimelineClip
                 key={segment.id}
                 label={effectLabel(segment.effect)}
-                start={segment.start}
-                end={segment.end}
-                duration={duration}
+                start={outputStart + segment.start}
+                end={outputStart + segment.end}
+                duration={timelineDuration}
                 className="border-violet-300/35 bg-violet-500/28"
               />
             )) : effect === 'ai_auto' ? (
-              <TimelineClip label="Automacao local" start={0} end={duration} duration={duration} className="border-violet-300/35 bg-violet-500/28" />
+              <TimelineClip label="Automacao local" start={outputStart} end={outputEnd} duration={timelineDuration} className="border-violet-300/35 bg-violet-500/28" />
             ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
             )}
@@ -452,11 +476,22 @@ function EditorTimeline({
 
           <TimelineRow icon={<Music2 className="h-4 w-4" />} label="Trilha">
             {musicLabel !== 'Sem trilha' ? (
-              <TimelineClip label={musicLabel} start={0} end={duration} duration={duration} className="border-emerald-300/30 bg-emerald-500/24" />
+              <TimelineClip label={musicLabel} start={outputStart} end={outputEnd} duration={timelineDuration} className="border-emerald-300/30 bg-emerald-500/24" />
             ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem trilha sonora</span>
             )}
           </TimelineRow>
+
+          <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
+            <div />
+            <div className="relative h-0">
+              <span
+                className="absolute -top-[15.75rem] bottom-0 z-20 w-px bg-white/75 shadow-[0_0_18px_rgba(255,255,255,.55)]"
+                style={{ left: `${(playhead / timelineDuration) * 100}%` }}
+                title={`Posicao atual ${formatPreciseTime(playhead)}`}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -484,6 +519,9 @@ export default function OperatorPage() {
   const [duration, setDuration] = useState<number>(operatorPreferences.defaultDuration);
   const [sourceDuration, setSourceDuration] = useState(0);
   const [videoOrientation, setVideoOrientation] = useState<VideoOrientation | null>(null);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState<number>(operatorPreferences.defaultDuration);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
   const [effectSegmentStart, setEffectSegmentStart] = useState(0);
   const [effectSegmentEnd, setEffectSegmentEnd] = useState<number>(operatorPreferences.defaultDuration);
   const [generatingAiMusic, setGeneratingAiMusic] = useState(false);
@@ -590,24 +628,38 @@ export default function OperatorPage() {
   const musicPreviewUrl = selectedMusicUrl || selectedMusicTrack?.musicUrl;
   const processingMusicUrl = musicTheme === 'none' ? undefined : musicPreviewUrl;
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
+  const sourceTimelineDuration = Math.max(sourceDuration || duration, MIN_TRIM_SECONDS);
+  const safeTrimStart = clamp(trimStart, 0, Math.max(0, sourceTimelineDuration - MIN_TRIM_SECONDS));
+  const safeTrimEnd = clamp(trimEnd, safeTrimStart + MIN_TRIM_SECONDS, sourceTimelineDuration);
+  const outputDuration = Math.max(MIN_TRIM_SECONDS, safeTrimEnd - safeTrimStart);
   const effectDescription = aiAutoSelected
     ? `A IA local vai aplicar ${effectLabel(previewEffect)} para este contexto.`
     : effectMeta?.shortDescription || 'Acabamento aplicado pelo editor.';
   const effectSegments = useMemo<EffectSegment[]>(() => {
     if (effect === 'clean' || effect === 'ai_auto') return [];
 
-    const start = clamp(effectSegmentStart, 0, Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS));
-    const end = clamp(effectSegmentEnd, start + MIN_EFFECT_SEGMENT_SECONDS, duration);
+    const start = clamp(effectSegmentStart, 0, Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
+    const end = clamp(effectSegmentEnd, start + MIN_EFFECT_SEGMENT_SECONDS, outputDuration);
     return [{ id: 'main-effect', effect, start, end }];
-  }, [duration, effect, effectSegmentEnd, effectSegmentStart]);
-  const shouldProcessEffectAsSegment = effectSegments.length > 0
-    && (effectSegments[0].start > 0.05 || effectSegments[0].end < duration - 0.05);
-  const processingBaseEffect = shouldProcessEffectAsSegment ? 'clean' : effect;
+  }, [effect, effectSegmentEnd, effectSegmentStart, outputDuration]);
+  const processingBaseEffect = effectSegments.length > 0 ? 'clean' : effect;
+  const previewLocalTime = clamp(previewCurrentTime - safeTrimStart, 0, outputDuration);
+  const previewInsideOutput = previewCurrentTime >= safeTrimStart - 0.04 && previewCurrentTime <= safeTrimStart + outputDuration + 0.04;
+  const editorPreviewEffect = aiAutoSelected
+    ? previewEffect
+    : previewInsideOutput
+      ? effectSegments.find((segment) => previewLocalTime >= segment.start && previewLocalTime <= segment.end)?.effect || 'clean'
+      : 'clean';
 
   useEffect(() => {
-    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS)));
-    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, duration));
-  }, [duration]);
+    setTrimStart((current) => clamp(current, 0, Math.max(0, sourceTimelineDuration - MIN_TRIM_SECONDS)));
+    setTrimEnd((current) => clamp(current, MIN_TRIM_SECONDS, sourceTimelineDuration));
+  }, [sourceTimelineDuration]);
+
+  useEffect(() => {
+    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS)));
+    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, outputDuration));
+  }, [outputDuration]);
 
   useEffect(() => {
     if (!videoOrientation || !selectedTemplateId) return;
@@ -717,13 +769,19 @@ export default function OperatorPage() {
       const url = URL.createObjectURL(blob);
       setVideoUrl(url);
       setSourceDuration(duration);
+      setTrimStart(0);
+      setTrimEnd(duration);
+      setPreviewCurrentTime(0);
       setEffectSegmentStart(0);
       setEffectSegmentEnd(duration);
       setStep('preview');
       readVideoMetadata(url).then((metadata) => {
         const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
         if (nextOrientation) setVideoOrientation(nextOrientation);
-        if (Number.isFinite(metadata.duration) && metadata.duration > 0) setSourceDuration(metadata.duration);
+        if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
+          setSourceDuration(metadata.duration);
+          setTrimEnd(Math.min(metadata.duration, duration));
+        }
       }).catch(() => undefined);
     };
 
@@ -741,9 +799,22 @@ export default function OperatorPage() {
     const mediaDuration = event.currentTarget.duration;
     if (Number.isFinite(mediaDuration) && mediaDuration > 0) {
       setSourceDuration(mediaDuration);
+      setTrimStart(0);
+      setTrimEnd(Math.min(mediaDuration, duration));
+      setPreviewCurrentTime(0);
     }
     const nextOrientation = videoOrientationFromSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight);
     if (nextOrientation) setVideoOrientation(nextOrientation);
+  }
+
+  function handlePreviewTimeUpdate(event: SyntheticEvent<HTMLVideoElement>) {
+    const current = event.currentTarget.currentTime;
+    setPreviewCurrentTime(current);
+    if (current > safeTrimEnd + 0.04) {
+      event.currentTarget.pause();
+      event.currentTarget.currentTime = safeTrimEnd;
+      setPreviewCurrentTime(safeTrimEnd);
+    }
   }
 
   function handleLiveMetadata(event: SyntheticEvent<HTMLVideoElement>) {
@@ -751,34 +822,93 @@ export default function OperatorPage() {
     if (nextOrientation) setVideoOrientation(nextOrientation);
   }
 
+  function seekPreview(time: number) {
+    const nextTime = clamp(time, 0, sourceTimelineDuration);
+    setPreviewCurrentTime(nextTime);
+    if (previewRef.current && Number.isFinite(nextTime)) {
+      previewRef.current.currentTime = nextTime;
+    }
+  }
+
+  function setFinalDurationPreset(seconds: number) {
+    setDuration(seconds);
+    const nextEnd = clamp(safeTrimStart + seconds, safeTrimStart + MIN_TRIM_SECONDS, sourceTimelineDuration);
+    setTrimEnd(nextEnd);
+    setEffectSegmentStart(0);
+    setEffectSegmentEnd(Math.max(MIN_EFFECT_SEGMENT_SECONDS, nextEnd - safeTrimStart));
+  }
+
+  function updateTrimStart(value: number) {
+    const nextStart = clamp(value, 0, Math.max(0, safeTrimEnd - MIN_TRIM_SECONDS));
+    setTrimStart(nextStart);
+    seekPreview(nextStart);
+    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, safeTrimEnd - nextStart - MIN_EFFECT_SEGMENT_SECONDS)));
+    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, safeTrimEnd - nextStart)));
+  }
+
+  function updateTrimEnd(value: number) {
+    const nextEnd = clamp(value, safeTrimStart + MIN_TRIM_SECONDS, sourceTimelineDuration);
+    setTrimEnd(nextEnd);
+    if (previewCurrentTime > nextEnd) seekPreview(nextEnd);
+    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, nextEnd - safeTrimStart - MIN_EFFECT_SEGMENT_SECONDS)));
+    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, nextEnd - safeTrimStart)));
+  }
+
+  function markTrimAtCurrent(edge: 'start' | 'end') {
+    const current = clamp(previewCurrentTime, 0, sourceTimelineDuration);
+    if (edge === 'start') {
+      updateTrimStart(Math.min(current, safeTrimEnd - MIN_TRIM_SECONDS));
+      return;
+    }
+    updateTrimEnd(Math.max(current, safeTrimStart + MIN_TRIM_SECONDS));
+  }
+
+  function currentTimeInsideCut() {
+    return clamp(previewCurrentTime - safeTrimStart, 0, outputDuration);
+  }
+
   function updateEffectStart(value: number) {
-    const maxStart = Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS);
+    const maxStart = Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS);
     const nextStart = clamp(value, 0, maxStart);
     setEffectSegmentStart(nextStart);
     setEffectSegmentEnd((currentEnd) => Math.max(currentEnd, nextStart + MIN_EFFECT_SEGMENT_SECONDS));
+    seekPreview(safeTrimStart + nextStart);
   }
 
   function updateEffectEnd(value: number) {
-    const minEnd = Math.min(duration, effectSegmentStart + MIN_EFFECT_SEGMENT_SECONDS);
-    setEffectSegmentEnd(clamp(value, minEnd, duration));
+    const minEnd = Math.min(outputDuration, effectSegmentStart + MIN_EFFECT_SEGMENT_SECONDS);
+    const nextEnd = clamp(value, minEnd, outputDuration);
+    setEffectSegmentEnd(nextEnd);
+    seekPreview(safeTrimStart + nextEnd);
+  }
+
+  function markEffectAtCurrent(edge: 'start' | 'end') {
+    if (effect === 'clean' || effect === 'ai_auto') return;
+    const localTime = currentTimeInsideCut();
+    if (edge === 'start') {
+      updateEffectStart(Math.min(localTime, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
+      return;
+    }
+    updateEffectEnd(Math.max(localTime, effectSegmentStart + MIN_EFFECT_SEGMENT_SECONDS));
   }
 
   function setEffectRangePreset(preset: 'all' | 'intro' | 'center' | 'ending') {
     if (preset === 'all') {
       setEffectSegmentStart(0);
-      setEffectSegmentEnd(duration);
+      setEffectSegmentEnd(outputDuration);
       return;
     }
 
-    const segmentSize = clamp(duration * 0.34, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, duration));
+    const segmentSize = clamp(outputDuration * 0.34, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, outputDuration));
     const starts = {
       intro: 0,
-      center: Math.max(0, (duration - segmentSize) / 2),
-      ending: Math.max(0, duration - segmentSize),
+      center: Math.max(0, (outputDuration - segmentSize) / 2),
+      ending: Math.max(0, outputDuration - segmentSize),
     };
 
     setEffectSegmentStart(starts[preset]);
-    setEffectSegmentEnd(Math.min(duration, starts[preset] + segmentSize));
+    setEffectSegmentEnd(Math.min(outputDuration, starts[preset] + segmentSize));
+    seekPreview(safeTrimStart + starts[preset]);
   }
 
   function enableAiAutoEdit() {
@@ -790,7 +920,7 @@ export default function OperatorPage() {
     setEffect('ai_auto');
     setMusicTheme('none');
     setEffectSegmentStart(0);
-    setEffectSegmentEnd(duration);
+    setEffectSegmentEnd(outputDuration);
     toast.success('IA automatica ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
   }
 
@@ -808,7 +938,7 @@ export default function OperatorPage() {
         : 'Trilha original para video avulso de photo booth 360',
       selectedTemplate ? `template visual ${selectedTemplate.name}` : 'sem template definido',
       `efeito de video ${effect === 'ai_auto' ? aiDirection.effect : effect}`,
-      `duracao final ${duration} segundos`,
+      `duracao final ${outputDuration.toFixed(1)} segundos`,
       'energia moderna, memoravel, pronta para video curto e sem qualquer melodia conhecida',
     ];
 
@@ -823,7 +953,7 @@ export default function OperatorPage() {
         templateName: selectedTemplate?.name,
         effect: effect === 'ai_auto' ? aiDirection.effect : effect,
         mood: musicTheme !== 'none' && !selectedMusicUrl ? musicTheme : aiDirection.musicTheme,
-        durationSeconds: duration,
+        durationSeconds: Math.round(outputDuration),
         title: selectedEvent ? `${selectedEvent.name} SIX3` : 'SIX3 Auto Track',
         language: 'pt-BR',
       });
@@ -866,13 +996,19 @@ export default function OperatorPage() {
     setVideoUrl(url);
     setSourceDuration(0);
     setVideoOrientation(null);
+    setTrimStart(0);
+    setTrimEnd(duration);
+    setPreviewCurrentTime(0);
     setEffectSegmentStart(0);
     setEffectSegmentEnd(duration);
     setStep('preview');
     readVideoMetadata(url).then((metadata) => {
       const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
       if (nextOrientation) setVideoOrientation(nextOrientation);
-      if (Number.isFinite(metadata.duration) && metadata.duration > 0) setSourceDuration(metadata.duration);
+      if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
+        setSourceDuration(metadata.duration);
+        setTrimEnd(Math.min(metadata.duration, duration));
+      }
     }).catch(() => undefined);
   }
 
@@ -911,12 +1047,14 @@ export default function OperatorPage() {
       const templateAssets = templateRenderAssets(selectedTemplate);
       const renderedBlob = await renderVideoInBrowser({
         input: videoBlob,
-        durationSeconds: duration,
+        durationSeconds: outputDuration,
+        trimStartSeconds: safeTrimStart,
+        trimEndSeconds: safeTrimEnd,
         overlayUrl: templateAssets.overlayUrl,
         animationUrl: templateAssets.animationUrl,
         fallbackOverlayUrl: templateAssets.fallbackOverlayUrl,
         effect: browserEffect,
-        effectSegments: shouldProcessEffectAsSegment ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
+        effectSegments: effectSegments.length > 0 ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
           effect: segmentEffect,
           start,
           end,
@@ -946,7 +1084,7 @@ export default function OperatorPage() {
         effect,
         musicTheme: effect === 'ai_auto' && musicTheme === 'none' ? aiDirection.musicTheme : storedMusicTheme,
         musicUrl: processingMusicUrl,
-        duration,
+        duration: outputDuration,
       });
 
       setSavedVideoId(video.id);
@@ -970,6 +1108,9 @@ export default function OperatorPage() {
     setVideoBlob(null);
     setVideoUrl('');
     setVideoOrientation(null);
+    setTrimStart(0);
+    setTrimEnd(duration);
+    setPreviewCurrentTime(0);
     setSavedVideoId('');
     setProgress(0);
     setProcessingLabel('Preparando video...');
@@ -1191,12 +1332,14 @@ export default function OperatorPage() {
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-[minmax(300px,500px)_minmax(0,1fr)]">
-            <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Editor" className={videoPreviewFrameClass}>
+            <VideoPreviewFrame template={selectedTemplate} effect={editorPreviewEffect} label="Editor" className={videoPreviewFrameClass}>
               <video
                 ref={previewRef}
                 src={videoUrl}
                 controls
                 onLoadedMetadata={handlePreviewMetadata}
+                onTimeUpdate={handlePreviewTimeUpdate}
+                onSeeked={handlePreviewTimeUpdate}
                 className="h-full w-full object-contain"
               />
             </VideoPreviewFrame>
@@ -1211,7 +1354,7 @@ export default function OperatorPage() {
                   <p className="mt-1 text-xs text-white/38">Ajuste tudo antes de gerar o video final.</p>
                 </div>
                 <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/55">
-                  {formatTime(duration)}
+                  {formatPreciseTime(outputDuration)}
                 </div>
               </div>
 
@@ -1267,7 +1410,7 @@ export default function OperatorPage() {
                       <button
                         key={seconds}
                         type="button"
-                        onClick={() => setDuration(seconds)}
+                        onClick={() => setFinalDurationPreset(seconds)}
                         className={`h-10 rounded-full border text-sm font-bold transition-all ${
                           duration === seconds
                             ? 'border-brand-300/70 bg-brand-500/25 text-white shadow-glow'
@@ -1286,6 +1429,70 @@ export default function OperatorPage() {
                   {aiMusicStatus}
                 </div>
               )}
+
+              <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Scissors className="h-4 w-4 text-brand-300" />
+                    Corte do video
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1 text-xs font-bold text-white/48">
+                      Fonte {formatPreciseTime(sourceTimelineDuration)}
+                    </span>
+                    <span className="rounded-full border border-brand-300/30 bg-brand-500/14 px-3 py-1 text-xs font-bold text-brand-100">
+                      Final {formatPreciseTime(outputDuration)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
+                    Inicio {formatPreciseTime(safeTrimStart)}
+                    <input
+                      type="range"
+                      min={0}
+                      max={sourceTimelineDuration}
+                      step={0.1}
+                      value={safeTrimStart}
+                      onChange={(event) => updateTrimStart(Number(event.target.value))}
+                      className="w-full accent-blue-400"
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
+                    Fim {formatPreciseTime(safeTrimEnd)}
+                    <input
+                      type="range"
+                      min={0}
+                      max={sourceTimelineDuration}
+                      step={0.1}
+                      value={safeTrimEnd}
+                      onChange={(event) => updateTrimEnd(Number(event.target.value))}
+                      className="w-full accent-blue-400"
+                    />
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => markTrimAtCurrent('start')}
+                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-blue-300/35 hover:text-white"
+                  >
+                    Inicio agora
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => markTrimAtCurrent('end')}
+                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-blue-300/35 hover:text-white"
+                  >
+                    Fim agora
+                  </button>
+                  <span className="ml-auto text-xs font-semibold text-white/35">
+                    Posicao {formatPreciseTime(previewCurrentTime)}
+                  </span>
+                </div>
+              </div>
 
               <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1314,11 +1521,12 @@ export default function OperatorPage() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1.5 text-xs font-semibold text-white/52">
-                    Inicio {formatTime(effectSegments[0]?.start || 0)}
+                    Inicio {formatPreciseTime(effectSegments[0]?.start || 0)}
+                    <span className="ml-1 text-white/28">({formatPreciseTime(safeTrimStart + (effectSegments[0]?.start || 0))})</span>
                     <input
                       type="range"
                       min={0}
-                      max={duration}
+                      max={outputDuration}
                       step={0.1}
                       value={effectSegments[0]?.start || 0}
                       disabled={effect === 'clean' || effect === 'ai_auto'}
@@ -1327,18 +1535,37 @@ export default function OperatorPage() {
                     />
                   </label>
                   <label className="space-y-1.5 text-xs font-semibold text-white/52">
-                    Fim {formatTime(effectSegments[0]?.end || duration)}
+                    Fim {formatPreciseTime(effectSegments[0]?.end || outputDuration)}
+                    <span className="ml-1 text-white/28">({formatPreciseTime(safeTrimStart + (effectSegments[0]?.end || outputDuration))})</span>
                     <input
                       type="range"
                       min={0}
-                      max={duration}
+                      max={outputDuration}
                       step={0.1}
-                      value={effectSegments[0]?.end || duration}
+                      value={effectSegments[0]?.end || outputDuration}
                       disabled={effect === 'clean' || effect === 'ai_auto'}
                       onChange={(event) => updateEffectEnd(Number(event.target.value))}
                       className="w-full accent-violet-400 disabled:opacity-35"
                     />
                   </label>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={effect === 'clean' || effect === 'ai_auto'}
+                    onClick={() => markEffectAtCurrent('start')}
+                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-violet-300/35 hover:text-white disabled:opacity-35"
+                  >
+                    Efeito inicia agora
+                  </button>
+                  <button
+                    type="button"
+                    disabled={effect === 'clean' || effect === 'ai_auto'}
+                    onClick={() => markEffectAtCurrent('end')}
+                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-violet-300/35 hover:text-white disabled:opacity-35"
+                  >
+                    Efeito termina agora
+                  </button>
                 </div>
                 <p className="text-xs leading-relaxed text-white/38">
                   {effect === 'clean'
@@ -1374,8 +1601,11 @@ export default function OperatorPage() {
           </div>
 
           <EditorTimeline
-            duration={duration}
             sourceDuration={sourceDuration}
+            outputDuration={outputDuration}
+            trimStart={safeTrimStart}
+            trimEnd={safeTrimEnd}
+            currentTime={previewCurrentTime}
             templateName={selectedTemplate?.name}
             musicLabel={selectedMusicLabel}
             effect={effect}

@@ -12,6 +12,8 @@ type LoadedAsset<T extends HTMLImageElement | HTMLVideoElement> = {
 export type BrowserVideoRenderOptions = {
   input: Blob;
   durationSeconds: number;
+  trimStartSeconds?: number;
+  trimEndSeconds?: number;
   effect?: string;
   effectSegments?: RenderEffectSegment[];
   overlayUrl?: string;
@@ -76,6 +78,43 @@ function waitForEvent<T extends EventTarget>(target: T, eventName: string, timeo
 
     target.addEventListener(eventName, onEvent, { once: true });
     target.addEventListener('error', onError, { once: true });
+  });
+}
+
+function seekVideo(video: HTMLVideoElement, time: number) {
+  const safeTime = Math.max(0, time);
+  if (Math.abs(video.currentTime - safeTime) < 0.035) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 3500);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('error', onError);
+    };
+
+    const onSeeked = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error('VIDEO_SEEK_FAILED'));
+    };
+
+    video.addEventListener('seeked', onSeeked, { once: true });
+    video.addEventListener('error', onError, { once: true });
+
+    if ('fastSeek' in video && typeof video.fastSeek === 'function') {
+      video.fastSeek(safeTime);
+    } else {
+      video.currentTime = safeTime;
+    }
   });
 }
 
@@ -219,9 +258,37 @@ function canvasFilter(effect: string) {
   return filters[effect] || filters.clean;
 }
 
-function activeEffect(baseEffect: string, segments: RenderEffectSegment[] | undefined, elapsed: number) {
+function normalizeEffectSegments(segments: RenderEffectSegment[] | undefined, targetDuration: number) {
+  return (segments || [])
+    .map((segment) => {
+      const start = Math.max(0, Math.min(targetDuration, segment.start));
+      const end = Math.max(start, Math.min(targetDuration, segment.end));
+      return { ...segment, start, end };
+    })
+    .filter((segment) => segment.end - segment.start >= 0.05);
+}
+
+function activeEffectState(baseEffect: string, segments: RenderEffectSegment[] | undefined, elapsed: number, targetDuration: number) {
   const segment = segments?.find((item) => elapsed >= item.start && elapsed <= item.end);
-  return segment?.effect || baseEffect || 'clean';
+  if (segment) {
+    return {
+      effect: segment.effect,
+      localElapsed: Math.max(0, elapsed - segment.start),
+      duration: Math.max(0.1, segment.end - segment.start),
+      start: segment.start,
+      end: segment.end,
+      segmented: true,
+    };
+  }
+
+  return {
+    effect: baseEffect || 'clean',
+    localElapsed: elapsed,
+    duration: targetDuration,
+    start: 0,
+    end: targetDuration,
+    segmented: false,
+  };
 }
 
 function mapPlaybackRate(effect: string, elapsed: number, duration: number) {
@@ -238,23 +305,22 @@ function mapPlaybackRate(effect: string, elapsed: number, duration: number) {
   return 1;
 }
 
-function mapManualSourceTime(effect: string, elapsed: number, targetDuration: number, sourceDuration: number) {
-  const safeSourceDuration = Number.isFinite(sourceDuration) && sourceDuration > 0 ? sourceDuration : targetDuration;
-  const usableDuration = Math.max(0.2, Math.min(safeSourceDuration, targetDuration));
+function mapManualSourceTime(effect: string, elapsed: number, effectDuration: number, sourceStart: number, sourceEnd: number) {
+  const usableDuration = Math.max(0.2, Math.min(Math.max(0.2, sourceEnd - sourceStart), effectDuration));
 
   if (effect === 'boomerang') {
-    const halfCycle = Math.max(0.5, Math.min(usableDuration, targetDuration / 2));
+    const halfCycle = Math.max(0.5, Math.min(usableDuration, effectDuration / 2));
     const cyclePosition = elapsed % (halfCycle * 2);
-    return cyclePosition <= halfCycle ? cyclePosition : halfCycle - (cyclePosition - halfCycle);
+    const localTime = cyclePosition <= halfCycle ? cyclePosition : halfCycle - (cyclePosition - halfCycle);
+    return sourceStart + localTime;
   }
 
-  return Math.min(usableDuration - 0.04, elapsed % usableDuration);
+  return Math.min(sourceEnd - 0.04, sourceStart + (elapsed % usableDuration));
 }
 
-function isBoomerangReverseFrame(elapsed: number, targetDuration: number, sourceDuration: number) {
-  const safeSourceDuration = Number.isFinite(sourceDuration) && sourceDuration > 0 ? sourceDuration : targetDuration;
-  const usableDuration = Math.max(0.2, Math.min(safeSourceDuration, targetDuration));
-  const halfCycle = Math.max(0.5, Math.min(usableDuration, targetDuration / 2));
+function isBoomerangReverseFrame(elapsed: number, effectDuration: number, sourceStart: number, sourceEnd: number) {
+  const usableDuration = Math.max(0.2, Math.min(Math.max(0.2, sourceEnd - sourceStart), effectDuration));
+  const halfCycle = Math.max(0.5, Math.min(usableDuration, effectDuration / 2));
   return elapsed % (halfCycle * 2) > halfCycle;
 }
 
@@ -487,7 +553,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
   const sourceVideo = document.createElement('video');
   sourceVideo.src = inputUrl;
   sourceVideo.muted = true;
-  sourceVideo.loop = true;
+  sourceVideo.loop = false;
   sourceVideo.playsInline = true;
   sourceVideo.preload = 'auto';
 
@@ -518,18 +584,24 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     overlayVideo = loadedOverlayVideo;
 
     const outputStream = canvas.captureStream(TARGET_FPS);
-    cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, options.durationSeconds);
-
     const chunks: Blob[] = [];
     const recorder = new MediaRecorder(outputStream, {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: 2_800_000,
       audioBitsPerSecond: 128_000,
     });
-    const targetDuration = Math.max(1, Math.min(60, options.durationSeconds || 15));
     const sourceDuration = Number.isFinite(sourceVideo.duration) && sourceVideo.duration > 0
       ? sourceVideo.duration
-      : targetDuration;
+      : Math.max(1, Math.min(60, options.durationSeconds || 15));
+    const trimStart = Math.max(0, Math.min(sourceDuration - 0.05, options.trimStartSeconds || 0));
+    const trimEndCandidate = typeof options.trimEndSeconds === 'number' && Number.isFinite(options.trimEndSeconds)
+      ? options.trimEndSeconds
+      : trimStart + (options.durationSeconds || 15);
+    const trimEnd = Math.max(trimStart + 0.05, Math.min(sourceDuration, trimEndCandidate));
+    const availableDuration = Math.max(0.05, trimEnd - trimStart);
+    const targetDuration = Math.max(0.5, Math.min(60, options.durationSeconds || availableDuration, availableDuration));
+    const normalizedSegments = normalizeEffectSegments(options.effectSegments, targetDuration);
+    cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, targetDuration);
 
     const rendered = new Promise<Blob>((resolve, reject) => {
       recorder.ondataavailable = (event) => {
@@ -547,21 +619,25 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
       };
     });
 
-    sourceVideo.currentTime = 0;
+    await seekVideo(sourceVideo, trimStart);
     overlayVideo?.element.play().catch(() => undefined);
     await sourceVideo.play();
 
     const start = performance.now();
+    let previousEffect = options.effect || 'clean';
     recorder.start(1000);
 
     const drawFrame = () => {
       const elapsed = (performance.now() - start) / 1000;
-      const currentEffect = activeEffect(options.effect || 'clean', options.effectSegments, elapsed);
+      const effectState = activeEffectState(options.effect || 'clean', normalizedSegments, elapsed, targetDuration);
+      const currentEffect = effectState.effect;
+      const sourceEffectStart = trimStart + effectState.start;
+      const sourceEffectEnd = Math.min(trimEnd, trimStart + effectState.end);
       options.onProgress?.(Math.min(99, Math.round((elapsed / targetDuration) * 100)));
 
       if (currentEffect === 'boomerang') {
         sourceVideo.pause();
-        const mappedTime = mapManualSourceTime(currentEffect, elapsed, targetDuration, sourceDuration);
+        const mappedTime = mapManualSourceTime(currentEffect, effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd);
         if (Number.isFinite(mappedTime) && Math.abs(sourceVideo.currentTime - mappedTime) > 0.035) {
           if ('fastSeek' in sourceVideo && typeof sourceVideo.fastSeek === 'function') {
             sourceVideo.fastSeek(mappedTime);
@@ -570,18 +646,28 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
           }
         }
       } else {
-        const nextRate = mapPlaybackRate(currentEffect, elapsed, targetDuration);
+        if (previousEffect === 'boomerang') {
+          const resumedTime = Math.min(trimEnd - 0.03, trimStart + elapsed);
+          if (Number.isFinite(resumedTime) && Math.abs(sourceVideo.currentTime - resumedTime) > 0.08) {
+            sourceVideo.currentTime = resumedTime;
+          }
+        }
+
+        const nextRate = mapPlaybackRate(currentEffect, effectState.localElapsed, effectState.duration);
         if (Math.abs(sourceVideo.playbackRate - nextRate) > 0.02) {
           sourceVideo.playbackRate = nextRate;
         }
-        if (sourceVideo.paused) {
+        if (sourceVideo.currentTime >= trimEnd - 0.03) {
+          sourceVideo.pause();
+          sourceVideo.currentTime = Math.max(trimStart, trimEnd - 0.03);
+        } else if (sourceVideo.paused) {
           sourceVideo.play().catch(() => undefined);
         }
       }
 
       ctx.clearRect(0, 0, width, height);
       ctx.filter = canvasFilter(currentEffect);
-      if (currentEffect === 'boomerang' && isBoomerangReverseFrame(elapsed, targetDuration, sourceDuration)) {
+      if (currentEffect === 'boomerang' && isBoomerangReverseFrame(effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd)) {
         ctx.save();
         ctx.translate(width, 0);
         ctx.scale(-1, 1);
@@ -600,7 +686,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
         drawFullFrame(ctx, overlayVideo.element, width, height);
       }
 
-      drawEffectOverlay(ctx, currentEffect, elapsed, width, height);
+      drawEffectOverlay(ctx, currentEffect, effectState.localElapsed, width, height);
 
       if (elapsed >= targetDuration) {
         if (recorder.state !== 'inactive') recorder.stop();
@@ -610,6 +696,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
         return;
       }
 
+      previousEffect = currentEffect;
       window.requestAnimationFrame(drawFrame);
     };
 
