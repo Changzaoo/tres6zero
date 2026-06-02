@@ -36,19 +36,34 @@ export default function TemplatesPage() {
   );
 
   async function refresh() {
-    const t = await getTemplates();
-    setTemplates(t);
-    if (user) {
+    try {
+      const t = await getTemplates();
+      setTemplates(t);
+    } catch (error) {
+      console.warn('[templates] Catalog load failed:', error);
+      setTemplates([]);
+      toast.error('Nao foi possivel carregar o catalogo de templates.');
+    }
+
+    if (!user) return;
+
+    try {
       const tracks = await getUserMusic(user.uid);
       setMusic(tracks);
+    } catch (error) {
+      console.warn('[templates] Custom music unavailable:', error);
+      setMusic([]);
     }
   }
 
   useEffect(() => {
     (async () => {
-      await seedTemplates();
-      await refresh();
-      setLoading(false);
+      try {
+        await seedTemplates();
+        await refresh();
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 

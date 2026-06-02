@@ -45,8 +45,14 @@ export async function getTemplates(): Promise<AppTemplate[]> {
     console.warn('[templates] Generated catalog unavailable:', error);
   }
 
-  const snap = await getDocs(collection(db, COLL));
-  const stored = snap.docs.map(d => ({ id: d.id, ...d.data() } as AppTemplate));
+  let stored: AppTemplate[] = [];
+  try {
+    const snap = await getDocs(collection(db, COLL));
+    stored = snap.docs.map(d => ({ id: d.id, ...d.data() } as AppTemplate));
+  } catch (error) {
+    console.warn('[templates] Custom templates unavailable:', error);
+  }
+
   const byId = new Map<string, AppTemplate>();
   [...defaults, ...generated, ...stored].forEach((template) => byId.set(template.id, template));
   return Array.from(byId.values());
