@@ -222,9 +222,10 @@ async function runSeedJob(jobId: string) {
 
 templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) => {
   try {
-    const { count = 360, offset = 0 } = seedSchema.parse(req.body || {});
+    const { count = 360, offset = 0, animatedCount = 0 } = seedSchema.parse(req.body || {});
     const templates = await uploadProjectTemplates(count, offset);
-    res.json({ templates });
+    const animatedTemplates = animatedCount > 0 ? await uploadProjectAnimatedTemplates(animatedCount, offset) : [];
+    res.json({ templates: [...animatedTemplates, ...templates] });
   } catch (e) { next(e); }
 });
 

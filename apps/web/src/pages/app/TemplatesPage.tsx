@@ -322,7 +322,7 @@ export default function TemplatesPage() {
       const uploaded = await seedGeneratedTemplates(720);
       setTemplates((current) => mergeTemplates([...uploaded.map((template) => ({ ...template, source: 'generated' as const })), ...current]));
       setVisibleCount(INITIAL_TEMPLATE_COUNT);
-      toast.success('Catalogo transparente salvo no Supabase.');
+      toast.success('Catalogo transparente e animado salvo no Supabase.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao semear catalogo.');
     } finally {
