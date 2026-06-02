@@ -20,7 +20,7 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
 
   return (
     <div
-      className="hide-scrollbar -mx-4 overflow-x-auto px-4 pb-3 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0 md:pb-0"
+      className="hide-scrollbar -mx-4 overflow-x-auto px-4 pb-3 pt-4 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0 md:pb-0 md:pt-4"
       aria-label="Planos disponíveis"
     >
       <div className="flex snap-x snap-mandatory gap-3 sm:gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
