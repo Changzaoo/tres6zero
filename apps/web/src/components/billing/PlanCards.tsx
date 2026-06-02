@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Check, Crown, Info } from 'lucide-react';
+import { Check, Crown, Info, ShieldCheck } from 'lucide-react';
 import { PLANS, type PlanId } from '@/config/plans';
 import { Button } from '@/components/ui/Button';
 
@@ -7,6 +7,9 @@ type PlanCardsProps = {
   ctaLabel: string;
   onSelect: (planId: PlanId) => void;
   disabled?: boolean;
+  selectedPlanId?: PlanId | null;
+  selectedLabel?: string;
+  selectedDescription?: string | null;
 };
 
 const priceFormatter = new Intl.NumberFormat('pt-BR', {
@@ -14,7 +17,7 @@ const priceFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 });
 
-export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
+export function PlanCards({ ctaLabel, onSelect, disabled, selectedPlanId, selectedLabel = 'Selecionado', selectedDescription }: PlanCardsProps) {
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const lastPointerType = useRef<string | null>(null);
 
@@ -24,15 +27,28 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
       aria-label="Planos disponíveis"
     >
       <div className="flex snap-x snap-mandatory gap-3 sm:gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
-        {PLANS.map((plan) => (
+        {PLANS.map((plan) => {
+          const isSelected = selectedPlanId === plan.id;
+
+          return (
           <div
             key={plan.id}
-            className={`six3-glass six3-card-hover relative flex min-h-full w-[86vw] max-w-[23.5rem] shrink-0 snap-center flex-col overflow-visible p-4 sm:p-5 md:w-auto md:max-w-none lg:p-6 ${plan.highlight ? 'border-brand-400/50 shadow-glow' : ''}`}
+            className={`six3-glass six3-card-hover relative flex min-h-full w-[86vw] max-w-[23.5rem] shrink-0 snap-center flex-col overflow-visible p-4 sm:p-5 md:w-auto md:max-w-none lg:p-6 ${
+              isSelected
+                ? 'border-emerald-300/55 shadow-[0_0_0_1px_rgba(110,231,183,0.28),0_24px_90px_-50px_rgba(16,185,129,0.75)]'
+                : plan.highlight ? 'border-brand-400/50 shadow-glow' : ''
+            }`}
           >
-            {plan.highlight && (
+            {plan.highlight && !isSelected && (
               <div className="absolute -top-3 left-4 inline-flex max-w-[calc(100%-2rem)] items-center gap-1 rounded-full bg-gradient-brand px-3 py-1 text-xs font-semibold text-white shadow-glow sm:left-5">
                 <Crown className="h-3 w-3" />
                 Mais escolhido
+              </div>
+            )}
+            {isSelected && (
+              <div className="absolute -top-3 left-4 inline-flex max-w-[calc(100%-2rem)] items-center gap-1 rounded-full border border-emerald-300/25 bg-emerald-500/90 px-3 py-1 text-xs font-semibold text-white shadow-[0_14px_40px_-22px_rgba(16,185,129,1)] sm:left-5">
+                <ShieldCheck className="h-3 w-3" />
+                {selectedLabel}
               </div>
             )}
 
@@ -46,6 +62,11 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
                 </span>
                 <span className="pb-1 text-sm text-white/40">/mês</span>
               </div>
+              {isSelected && selectedDescription && (
+                <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-xs leading-relaxed text-emerald-50/82">
+                  {selectedDescription}
+                </div>
+              )}
             </div>
 
             <ul className="mt-5 flex-1 space-y-2.5">
@@ -117,14 +138,15 @@ export function PlanCards({ ctaLabel, onSelect, disabled }: PlanCardsProps) {
 
             <Button
               className="mt-6 w-full justify-center"
-              variant={plan.highlight ? 'primary' : 'secondary'}
+              variant={plan.highlight || isSelected ? 'primary' : 'secondary'}
               disabled={disabled}
               onClick={() => onSelect(plan.id)}
             >
-              {plan.id === 'unlimited' ? 'Liberar ilimitado' : ctaLabel}
+              {isSelected ? selectedLabel : disabled ? 'Acesso ativo' : plan.id === 'unlimited' ? 'Liberar ilimitado' : ctaLabel}
             </Button>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
