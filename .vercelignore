@@ -1,0 +1,14 @@
+.git
+.vercel
+.env
+.env.*
+node_modules
+apps/*/node_modules
+apps/server
+tmp
+uploads
+coverage
+dist
+build
+*.log
+*.tsbuildinfo
