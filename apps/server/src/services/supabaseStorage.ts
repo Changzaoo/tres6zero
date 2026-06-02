@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -9,13 +9,25 @@ import { pipeline } from 'node:stream/promises';
 
 const DEFAULT_SUPABASE_URL = 'https://xmuawzcpydmbcqackgoz.supabase.co';
 
+function env(name: string) {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : '';
+}
+
+function bucketName(name: string, fallback: string) {
+  return env(name) || fallback;
+}
+
+const defaultTemplatesBucket = bucketName('SUPABASE_TEMPLATES_BUCKET', 'templates');
+
 export const SUPABASE_BUCKETS = {
-  videos: 'videos',
-  legacyTemplates: 'templates',
-  projectTemplates: 'six3-project-templates',
-  projectMusic: 'six3-project-music',
-  userTemplates: 'six3-user-templates',
-  userMusic: 'six3-user-music',
+  videos: bucketName('SUPABASE_VIDEOS_BUCKET', 'videos'),
+  legacyTemplates: defaultTemplatesBucket,
+  projectTemplates: bucketName('SUPABASE_PROJECT_TEMPLATES_BUCKET', defaultTemplatesBucket),
+  projectMusic: bucketName('SUPABASE_PROJECT_MUSIC_BUCKET', defaultTemplatesBucket),
+  userTemplates: bucketName('SUPABASE_USER_TEMPLATES_BUCKET', defaultTemplatesBucket),
+  userMusic: bucketName('SUPABASE_USER_MUSIC_BUCKET', defaultTemplatesBucket),
+  profileAvatars: bucketName('SUPABASE_PROFILE_AVATARS_BUCKET', 'profile-photos'),
 } as const;
 
 export type SupabaseBucket = typeof SUPABASE_BUCKETS[keyof typeof SUPABASE_BUCKETS];
@@ -65,7 +77,7 @@ export async function ensurePublicBucket(bucket: SupabaseBucket) {
 
   const created = await storage.createBucket(bucket, {
     public: true,
-    fileSizeLimit: bucket.includes('music') ? '50MB' : '25MB',
+    fileSizeLimit: bucket === SUPABASE_BUCKETS.videos || bucket.includes('music') ? '50MB' : '25MB',
   });
 
   if (created.error) {
@@ -121,11 +133,12 @@ export async function uploadFileToSupabase(params: {
 }) {
   const ext = safeExt(params.fileName, params.fallbackExt);
   const objectPath = params.objectPath || `${params.prefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${ext}`;
+  const buffer = await readFile(params.filePath);
 
   const { data, error } = await getSupabase()
     .storage
     .from(params.bucket)
-    .upload(objectPath, createReadStream(params.filePath), {
+    .upload(objectPath, buffer, {
       contentType: params.contentType,
       upsert: params.upsert || false,
     });

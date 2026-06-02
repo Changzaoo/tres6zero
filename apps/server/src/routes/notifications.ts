@@ -155,14 +155,19 @@ notificationsRouter.post('/read-all', async (req, res, next) => {
     const snap = await getDb()
       .collection('notifications')
       .where('recipientUid', '==', user.localId)
-      .where('readAt', '==', null)
-      .where('archivedAt', '==', null)
       .get();
+    const unreadDocs = snap.docs.filter((doc) => {
+      const data = doc.data() || {};
+      return !data.readAt && !data.archivedAt;
+    });
+
     const batch = getDb().batch();
     const now = new Date().toISOString();
-    snap.docs.forEach((doc) => batch.update(doc.ref, { readAt: now, updatedAt: now, _ts: FieldValue.serverTimestamp() }));
-    await batch.commit();
-    res.json({ ok: true, count: snap.size });
+    unreadDocs.forEach((doc) => batch.update(doc.ref, { readAt: now, updatedAt: now, _ts: FieldValue.serverTimestamp() }));
+    if (unreadDocs.length) {
+      await batch.commit();
+    }
+    res.json({ ok: true, count: unreadDocs.length });
   } catch (error) {
     next(error);
   }

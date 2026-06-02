@@ -1,3 +1,5 @@
+import { videoEffects } from '@/features/effects/effects.config';
+
 export type PlanId = 'starter' | 'pro' | 'unlimited';
 
 export type PlanFeature =
@@ -53,20 +55,11 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanFeature[]> = {
   ],
 };
 
-export const VIDEO_EFFECTS = [
-  { value: 'clean', label: 'Clean', feature: 'basic_effects' },
-  { value: 'slow_motion', label: 'Slow motion', feature: 'basic_effects' },
-  { value: 'boomerang', label: 'Boomerang', feature: 'basic_effects' },
-  { value: 'speed_ramp', label: 'Speed ramp', feature: 'popular_effects' },
-  { value: 'cinematic', label: 'Cinematic', feature: 'popular_effects' },
-  { value: 'neon', label: 'Neon glow', feature: 'popular_effects' },
-  { value: 'party', label: 'Party pop', feature: 'popular_effects' },
-  { value: 'luxury', label: 'Luxury gold', feature: 'popular_effects' },
-  { value: 'glitch_flash', label: 'Glitch flash', feature: 'popular_effects' },
-  { value: 'wedding_soft', label: 'Wedding soft', feature: 'popular_effects' },
-  { value: 'corporate_sharp', label: 'Corporate sharp', feature: 'popular_effects' },
-  { value: 'ai_auto', label: 'IA auto edit', feature: 'ai_auto_edit' },
-] as const satisfies readonly { value: string; label: string; feature: PlanFeature }[];
+export const VIDEO_EFFECTS: readonly { value: string; label: string; feature: PlanFeature }[] = videoEffects.map((effect) => ({
+  value: effect.id,
+  label: effect.name,
+  feature: effect.requiredFeature,
+}));
 
 export function normalizePlanId(planId?: string | null): PlanId {
   return planId === 'pro' || planId === 'unlimited' ? planId : 'starter';

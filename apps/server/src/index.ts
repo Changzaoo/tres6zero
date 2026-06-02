@@ -77,6 +77,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/video', videoRouter);
+app.use('/api/videos', videoRouter);
 app.use('/api/templates', templatesRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/qr', qrRouter);

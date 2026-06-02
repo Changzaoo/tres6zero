@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers,
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
 import { getGeneratedTemplatesSeedJob, startGeneratedTemplatesSeedJob, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
-import { buildSunoPrompt, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
+import { buildSunoPrompt, describeSunoStatus, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
 import { checkMusicLibraryLicense, getMusicLibraries, importMusicLibraryTrack } from '@/services/musicLibraryService';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
@@ -629,7 +629,7 @@ export default function TemplatesPage() {
 
       setSunoStatus('Gerando musica original...');
       const result = await waitForSunoMusic(taskId, (status) => {
-        setSunoStatus(status === 'SUCCESS' ? 'Salvando no Supabase...' : `Suno: ${status}`);
+        setSunoStatus(describeSunoStatus(status));
       });
       const newTracks = result.music || [];
       if (!newTracks.length) throw new Error('SUNO_MUSIC_NOT_READY');

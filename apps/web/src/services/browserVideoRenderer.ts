@@ -521,7 +521,11 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, options.durationSeconds);
 
     const chunks: Blob[] = [];
-    const recorder = new MediaRecorder(outputStream, mimeType ? { mimeType } : undefined);
+    const recorder = new MediaRecorder(outputStream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: 2_800_000,
+      audioBitsPerSecond: 128_000,
+    });
     const targetDuration = Math.max(1, Math.min(60, options.durationSeconds || 15));
     const sourceDuration = Number.isFinite(sourceVideo.duration) && sourceVideo.duration > 0
       ? sourceVideo.duration

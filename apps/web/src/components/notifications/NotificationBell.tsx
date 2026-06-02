@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import {
   archiveNotification,
+  listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notificationService';
@@ -110,8 +111,18 @@ function NotificationItem({
 export function NotificationBell({ className = '' }: { className?: string }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { notifications, unreadCount, loading, markReadLocal, markAllReadLocal, archiveLocal } = useNotificationStore();
+  const { notifications, unreadCount, loading, setNotifications, markReadLocal, markAllReadLocal, archiveLocal } = useNotificationStore();
   const latestNotifications = useMemo(() => notifications.slice(0, 12), [notifications]);
+
+  function stopActionEvent(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  async function refreshNotifications() {
+    const result = await listNotifications({ limit: 60 });
+    setNotifications(result.notifications, result.unreadCount);
+  }
 
   async function openNotification(notification: AppNotification) {
     if (!notification.readAt) {
@@ -125,10 +136,18 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     }
   }
 
-  async function handleMarkAllRead() {
+  async function handleMarkAllRead(event: MouseEvent<HTMLButtonElement>) {
+    stopActionEvent(event);
+    if (unreadCount === 0) {
+      toast.info('Todas as notificacoes ja estao lidas.');
+      return;
+    }
+
     markAllReadLocal();
     try {
       await markAllNotificationsRead();
+      await refreshNotifications();
+      toast.success('Notificacoes marcadas como lidas.');
     } catch {
       toast.error('Nao foi possivel marcar notificacoes.');
     }
@@ -141,6 +160,11 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     } catch {
       toast.error('Nao foi possivel arquivar.');
     }
+  }
+
+  function handleClose(event: MouseEvent<HTMLButtonElement>) {
+    stopActionEvent(event);
+    setOpen(false);
   }
 
   return (
@@ -160,7 +184,10 @@ export function NotificationBell({ className = '' }: { className?: string }) {
       </button>
 
       {open && (
-        <div className="fixed inset-x-3 bottom-[calc(max(env(safe-area-inset-bottom),0.5rem)+5.8rem)] z-[80] mx-auto max-w-md rounded-[26px] border border-white/[0.1] bg-[#0e1016]/96 p-2 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:inset-x-auto lg:bottom-4 lg:left-[276px] lg:w-[390px] lg:max-w-none">
+        <div
+          className="fixed inset-x-3 bottom-[calc(max(env(safe-area-inset-bottom),0.5rem)+5.8rem)] z-[80] mx-auto max-w-md rounded-[26px] border border-white/[0.1] bg-[#0e1016]/96 p-2 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:inset-x-auto lg:bottom-4 lg:left-[276px] lg:w-[390px] lg:max-w-none"
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="flex items-center justify-between gap-3 px-2 py-2">
             <div>
               <h2 className="text-sm font-black text-white">Notificacoes</h2>
@@ -172,17 +199,18 @@ export function NotificationBell({ className = '' }: { className?: string }) {
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                disabled={unreadCount === 0}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/[0.075] hover:text-white disabled:opacity-30"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white/55 transition-colors hover:bg-white/[0.075] hover:text-white"
                 aria-label="Marcar todas como lidas"
+                title="Marcar todas como lidas"
               >
                 <CheckCheck className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/[0.075] hover:text-white"
+                onClick={handleClose}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white/55 transition-colors hover:bg-white/[0.075] hover:text-white"
                 aria-label="Fechar notificacoes"
+                title="Fechar notificacoes"
               >
                 <X className="h-4 w-4" />
               </button>

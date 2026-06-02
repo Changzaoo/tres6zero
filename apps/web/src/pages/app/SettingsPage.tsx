@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,6 +7,7 @@ import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseEr
 import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
 import { defaultOperatorPreferences, getOperatorPreferences, setOperatorPreferences, type OperatorPreferences } from '@/services/appPreferences';
 import { mergeNotificationPreferences, notificationCategories, updateNotificationPreferences } from '@/services/notificationService';
+import { uploadAvatarToServer } from '@/services/serverMediaService';
 import { useNotificationStore } from '@/store/notificationStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -169,6 +170,8 @@ export default function SettingsPage() {
   const [operatorPrefs, setOperatorPrefs] = useState<OperatorPreferences>(() => getOperatorPreferences());
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(() => mergeNotificationPreferences(user?.notificationPreferences));
   const [notificationSaving, setNotificationSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarProgress, setAvatarProgress] = useState(0);
   const setGlobalNotificationPrefs = useNotificationStore((state) => state.setPreferences);
   const devices = user?.trustedDevices || [];
 
@@ -190,6 +193,40 @@ export default function SettingsPage() {
       toast.success('Perfil atualizado!');
     } catch {
       toast.error('Erro ao salvar.');
+    }
+  }
+
+  async function handleAvatarUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !user || avatarUploading) return;
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      toast.error('Use PNG, JPG ou WebP.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    setAvatarProgress(0);
+    try {
+      const uploaded = await uploadAvatarToServer(file, setAvatarProgress);
+      const avatarUrl = uploaded.avatarUrl || uploaded.publicUrl;
+      if (!avatarUrl) throw new Error('AVATAR_UPLOAD_FAILED');
+
+      profileForm.setValue('avatarUrl', avatarUrl, { shouldDirty: true });
+      const values = profileForm.getValues();
+      const updatedUser = await updateUserProfile(user.uid, {
+        name: values.name || user.name,
+        companyName: values.companyName || '',
+        avatarUrl,
+      });
+      setUser(updatedUser);
+      toast.success('Foto de perfil atualizada.');
+    } catch {
+      toast.error('Erro ao enviar a foto.');
+    } finally {
+      setAvatarUploading(false);
+      setAvatarProgress(0);
     }
   }
 
@@ -301,7 +338,8 @@ export default function SettingsPage() {
               Perfil
             </h2>
             <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-[72px_1fr] sm:items-end">
+              <input type="hidden" {...profileForm.register('avatarUrl')} />
+              <div className="grid gap-3 sm:grid-cols-[72px_1fr] sm:items-center">
                 <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-gradient-brand text-2xl font-black text-white shadow-glow">
                   {profileForm.watch('avatarUrl') ? (
                     <img src={profileForm.watch('avatarUrl')} alt="" className="h-full w-full object-cover" />
@@ -309,12 +347,25 @@ export default function SettingsPage() {
                     user?.name?.charAt(0).toUpperCase() || 'U'
                   )}
                 </div>
-                <Input
-                  label="Foto de perfil"
-                  placeholder="https://..."
-                  icon={<Camera className="h-4 w-4" />}
-                  {...profileForm.register('avatarUrl')}
-                />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-white/70">Foto de perfil</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <label className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.065] px-4 text-sm font-bold text-white transition-all hover:border-white/16 hover:bg-white/[0.1] ${avatarUploading ? 'pointer-events-none opacity-60' : ''}`}>
+                      <Camera className="h-4 w-4" />
+                      {avatarUploading ? `Enviando ${avatarProgress}%` : 'Escolher foto'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        disabled={avatarUploading}
+                        onChange={handleAvatarUpload}
+                      />
+                    </label>
+                    <span className="text-xs leading-relaxed text-white/38">
+                      PNG, JPG ou WebP. A foto fica salva no Supabase.
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">

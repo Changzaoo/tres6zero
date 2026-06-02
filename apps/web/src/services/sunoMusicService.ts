@@ -75,13 +75,29 @@ export async function getSunoMusicGeneration(taskId: string) {
   return apiRequest<SunoGenerationResponse>(`/api/music/suno/${encodeURIComponent(taskId)}?t=${Date.now()}`);
 }
 
+export function describeSunoStatus(status: string) {
+  const normalized = status.toUpperCase();
+  const labels: Record<string, string> = {
+    PENDING: 'Suno preparando a musica...',
+    TEXT_SUCCESS: 'Ideia musical criada, gerando audio...',
+    FIRST_SUCCESS: 'Primeira faixa pronta, salvando...',
+    SUCCESS: 'Musica pronta, salvando...',
+    CREATE_TASK_FAILED: 'A Suno nao conseguiu criar a tarefa.',
+    GENERATE_AUDIO_FAILED: 'A Suno nao conseguiu gerar o audio.',
+    CALLBACK_EXCEPTION: 'A Suno falhou ao chamar o servidor.',
+    SENSITIVE_WORD_ERROR: 'A Suno bloqueou algum termo do prompt.',
+  };
+
+  return labels[normalized] || `Suno: ${status}`;
+}
+
 export async function waitForSunoMusic(
   taskId: string,
   onStatus?: (status: string) => void,
   options: { maxAttempts?: number; intervalMs?: number } = {}
 ) {
-  const maxAttempts = options.maxAttempts ?? 36;
-  const intervalMs = options.intervalMs ?? 5000;
+  const maxAttempts = options.maxAttempts ?? 90;
+  const intervalMs = options.intervalMs ?? 6000;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const result = await getSunoMusicGeneration(taskId);

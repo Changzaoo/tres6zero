@@ -142,9 +142,16 @@ function authError(message = 'AUTH_REQUIRED', status = 401): never {
 async function getUserFromIdToken(idToken: string) {
   const adminAuth = getFirebaseAdminAuth();
   if (adminAuth) {
-    const decoded = await adminAuth.verifyIdToken(idToken);
-    const record = await adminAuth.getUser(decoded.uid);
-    return toFirebaseUserRecord(record);
+    try {
+      const decoded = await adminAuth.verifyIdToken(idToken);
+      const record = await adminAuth.getUser(decoded.uid);
+      return toFirebaseUserRecord(record);
+    } catch (error) {
+      const err = new Error('AUTH_REQUIRED');
+      (err as any).status = 401;
+      (err as any).code = error instanceof Error ? (error as any).code || 'AUTH_REQUIRED' : 'AUTH_REQUIRED';
+      throw err;
+    }
   }
 
   const lookup = await firebaseAuthRequest<{ users: FirebaseUserRecord[] }>('accounts:lookup', { idToken });

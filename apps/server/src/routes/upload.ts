@@ -5,11 +5,11 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import { requireActiveSubscription, requirePlanFeature } from './auth';
-import { SUPABASE_BUCKETS, uploadFileToSupabase } from '../services/supabaseStorage';
+import { SUPABASE_BUCKETS, ensurePublicBucket, uploadFileToSupabase } from '../services/supabaseStorage';
 
 export const uploadRouter = Router();
 
-const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
+const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska'];
 const ALLOWED_IMAGE = ['image/png', 'image/jpeg', 'image/webp'];
 const ALLOWED_TEMPLATE = ['image/png', 'image/svg+xml', 'image/webp', 'video/webm'];
 const ALLOWED_MUSIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/aac', 'audio/mp4', 'audio/ogg', 'audio/webm'];
@@ -18,12 +18,26 @@ function envNumber(name: string, fallback: number) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-const MAX_VIDEO_MB = envNumber('MAX_VIDEO_UPLOAD_MB', 120);
+const MAX_VIDEO_MB = envNumber('MAX_VIDEO_UPLOAD_MB', 48);
 const MAX_IMAGE_MB = 10;
 const MAX_TEMPLATE_MB = 15;
 const MAX_MUSIC_MB = 50;
 
 const uploadRoot = path.join(os.tmpdir(), 'six3-uploads');
+
+function uploadError(message: string, status = 415) {
+  const err = new Error(message);
+  (err as any).status = status;
+  return err;
+}
+
+function baseMime(mimetype = '') {
+  return mimetype.toLowerCase().split(';')[0].trim();
+}
+
+function isAllowedByMime(mimetype: string, allowed: string[]) {
+  return allowed.includes(baseMime(mimetype));
+}
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
     try {
@@ -49,8 +63,8 @@ const videoUpload = multer({
   storage,
   limits: { fileSize: MAX_VIDEO_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_VIDEO.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Tipo de arquivo nao permitido. Use MP4, WebM ou MOV.'));
+    if (isAllowedByMime(file.mimetype, ALLOWED_VIDEO)) cb(null, true);
+    else cb(uploadError('Tipo de arquivo nao permitido. Use MP4, WebM ou MOV.'));
   },
 });
 
@@ -58,8 +72,8 @@ const imageUpload = multer({
   storage,
   limits: { fileSize: MAX_IMAGE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_IMAGE.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Tipo de imagem nao permitido. Use PNG, JPEG ou WebP.'));
+    if (isAllowedByMime(file.mimetype, ALLOWED_IMAGE)) cb(null, true);
+    else cb(uploadError('Tipo de imagem nao permitido. Use PNG, JPEG ou WebP.'));
   },
 });
 
@@ -67,8 +81,8 @@ const templateUpload = multer({
   storage,
   limits: { fileSize: MAX_TEMPLATE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_TEMPLATE.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Tipo de template nao permitido. Use PNG, SVG, WebP ou WebM transparente.'));
+    if (isAllowedByMime(file.mimetype, ALLOWED_TEMPLATE)) cb(null, true);
+    else cb(uploadError('Tipo de template nao permitido. Use PNG, SVG, WebP ou WebM transparente.'));
   },
 });
 
@@ -76,8 +90,8 @@ const musicUpload = multer({
   storage,
   limits: { fileSize: MAX_MUSIC_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MUSIC.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Tipo de musica nao permitido. Use MP3, WAV, AAC, OGG ou WebM.'));
+    if (isAllowedByMime(file.mimetype, ALLOWED_MUSIC)) cb(null, true);
+    else cb(uploadError('Tipo de musica nao permitido. Use MP3, WAV, AAC, OGG ou WebM.'));
   },
 });
 
@@ -88,6 +102,7 @@ uploadRouter.post('/video', requireActiveSubscription, videoUpload.single('file'
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || '.mp4';
     const userId = res.locals.user?.uid || 'unknown';
+    await ensurePublicBucket(SUPABASE_BUCKETS.videos);
     const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.videos,
       prefix: `raw/${userId}`,
@@ -120,6 +135,7 @@ uploadRouter.post('/image', requireActiveSubscription, imageUpload.single('file'
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || '.jpg';
     const userId = res.locals.user?.uid || 'unknown';
+    await ensurePublicBucket(SUPABASE_BUCKETS.legacyTemplates);
     const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.legacyTemplates,
       prefix: `events/${userId}`,
@@ -145,6 +161,39 @@ uploadRouter.post('/image', requireActiveSubscription, imageUpload.single('file'
   finally { await cleanupUpload(req.file); }
 });
 
+uploadRouter.post('/avatar', requireActiveSubscription, imageUpload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+
+    const fileId = randomUUID();
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const userId = res.locals.user?.uid || 'unknown';
+    await ensurePublicBucket(SUPABASE_BUCKETS.profileAvatars);
+    const uploaded = await uploadFileToSupabase({
+      bucket: SUPABASE_BUCKETS.profileAvatars,
+      prefix: `profiles/${userId}`,
+      fileName: req.file.originalname,
+      fallbackExt: ext,
+      filePath: req.file.path,
+      contentType: req.file.mimetype,
+    });
+
+    res.json({
+      id: fileId,
+      fileName: uploaded.path,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      originalName: req.file.originalname,
+      bucket: uploaded.bucket,
+      storagePath: uploaded.path,
+      avatarUrl: uploaded.publicUrl,
+      publicUrl: uploaded.publicUrl,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (e) { next(e); }
+  finally { await cleanupUpload(req.file); }
+});
+
 uploadRouter.post('/template', requirePlanFeature('custom_template_upload'), templateUpload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -152,6 +201,7 @@ uploadRouter.post('/template', requirePlanFeature('custom_template_upload'), tem
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || (req.file.mimetype === 'image/svg+xml' ? '.svg' : '.png');
     const userId = res.locals.user?.uid || 'unknown';
+    await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
     const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.userTemplates,
       prefix: `custom/${userId}`,
@@ -184,6 +234,7 @@ uploadRouter.post('/music', requirePlanFeature('custom_template_upload'), musicU
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || '.mp3';
     const userId = res.locals.user?.uid || 'unknown';
+    await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
     const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.userMusic,
       prefix: `custom/${userId}`,

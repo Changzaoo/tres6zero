@@ -240,7 +240,8 @@ export function extractSunoTracks(record: SunoRecordInfo) {
 }
 
 export function isSunoSuccess(record: SunoRecordInfo) {
-  return record.status === 'SUCCESS';
+  if (record.status === 'SUCCESS') return true;
+  return record.status === 'FIRST_SUCCESS' && extractSunoTracks(record).length > 0;
 }
 
 export function isSunoFailure(record: SunoRecordInfo) {

@@ -11,14 +11,17 @@ import { createVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
 import { uploadVideoToServer, getGeneratedMusic } from '@/services/serverMediaService';
-import { generateSunoMusic, waitForSunoMusic } from '@/services/sunoMusicService';
+import { describeSunoStatus, generateSunoMusic, waitForSunoMusic } from '@/services/sunoMusicService';
 import { canRenderVideoInBrowser, renderVideoInBrowser } from '@/services/browserVideoRenderer';
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
+import { EffectSelector } from '@/features/effects/EffectSelector';
+import { getVideoEffect } from '@/features/effects/effects.config';
 import { API_URL } from '@/config/api';
 import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
+type VideoOrientation = 'portrait' | 'landscape';
 
 type EffectSegment = {
   id: string;
@@ -55,36 +58,6 @@ const eventStatusLabel: Record<AppEvent['status'], string> = {
   archived: 'arquivado',
 };
 
-const effectPreviewText: Record<string, string> = {
-  clean: 'Contraste leve e cores mais vivas.',
-  slow_motion: 'Movimento suavizado para entradas e giros.',
-  boomerang: 'Vai e volta para clipes curtos e virais.',
-  speed_ramp: 'Acelera o giro para mais impacto.',
-  cinematic: 'Contraste, nitidez e acabamento de filme.',
-  neon: 'Cores intensas com brilho moderno.',
-  party: 'Saturacao alta e clima de festa.',
-  luxury: 'Tons mais quentes e acabamento premium.',
-  glitch_flash: 'Flash e falhas rapidas para impacto.',
-  wedding_soft: 'Visual suave para eventos delicados.',
-  corporate_sharp: 'Nitidez limpa para marcas e empresas.',
-  ai_auto: 'A automacao escolhe corte, efeito e clima no navegador.',
-};
-
-const effectPreviewFilters: Record<string, string> = {
-  clean: 'contrast(1.05) saturate(1.08) brightness(1.01)',
-  slow_motion: 'contrast(1.04) saturate(1.08)',
-  boomerang: 'contrast(1.08) saturate(1.12)',
-  speed_ramp: 'contrast(1.1) saturate(1.18)',
-  cinematic: 'contrast(1.12) saturate(0.95) brightness(0.94)',
-  neon: 'contrast(1.18) saturate(1.55) hue-rotate(8deg)',
-  party: 'contrast(1.12) saturate(1.35)',
-  luxury: 'contrast(1.08) saturate(1.05) sepia(0.12)',
-  glitch_flash: 'contrast(1.25) saturate(1.35)',
-  wedding_soft: 'contrast(0.98) saturate(1.05) brightness(1.05) blur(0.25px)',
-  corporate_sharp: 'contrast(1.08) saturate(0.92)',
-  ai_auto: 'contrast(1.1) saturate(1.12)',
-};
-
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -97,7 +70,47 @@ function formatTime(seconds: number) {
 }
 
 function effectLabel(effectId: string) {
-  return VIDEO_EFFECTS.find((item) => item.value === effectId)?.label || effectId;
+  return getVideoEffect(effectId)?.name || VIDEO_EFFECTS.find((item) => item.value === effectId)?.label || effectId;
+}
+
+function videoOrientationFromSize(width?: number, height?: number): VideoOrientation | null {
+  if (!width || !height || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return width > height ? 'landscape' : 'portrait';
+}
+
+function templateMatchesVideoOrientation(template: AppTemplate, orientation: VideoOrientation | null) {
+  if (!orientation) return true;
+  return orientation === 'portrait'
+    ? template.aspectRatio === '9:16'
+    : template.aspectRatio === '16:9';
+}
+
+function videoOrientationLabel(orientation: VideoOrientation) {
+  return orientation === 'portrait' ? 'retrato' : 'paisagem';
+}
+
+function templateOrientationPlural(orientation: VideoOrientation) {
+  return orientation === 'portrait' ? 'retratos' : 'paisagens';
+}
+
+function readVideoMetadata(url: string) {
+  return new Promise<{ duration: number; width: number; height: number }>((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadedmetadata = () => {
+      resolve({
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      });
+      video.removeAttribute('src');
+      video.load();
+    };
+    video.onerror = () => reject(new Error('VIDEO_METADATA_UNAVAILABLE'));
+    video.src = url;
+  });
 }
 
 function localAiDirection(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']) {
@@ -113,8 +126,9 @@ function localAiDirection(eventType?: AppEvent['type'], templateCategory?: AppTe
 }
 
 function renderedVideoFile(blob: Blob) {
-  const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
-  return new File([blob], `six3-edited-${Date.now()}.${extension}`, { type: blob.type || 'video/webm' });
+  const type = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm';
+  const extension = type === 'video/mp4' ? 'mp4' : 'webm';
+  return new File([blob], `six3-edited-${Date.now()}.${extension}`, { type });
 }
 
 function getSupportedRecordingMimeType() {
@@ -157,7 +171,7 @@ async function requestCameraStream() {
 }
 
 function getEffectPreviewStyle(effect: string): CSSProperties {
-  return { filter: effectPreviewFilters[effect] || effectPreviewFilters.clean };
+  return { filter: getVideoEffect(effect)?.previewStyle.previewFilter || getVideoEffect('clean')?.previewStyle.previewFilter };
 }
 
 function uniqueSources(sources: Array<string | undefined>) {
@@ -166,8 +180,23 @@ function uniqueSources(sources: Array<string | undefined>) {
 }
 
 function generatedTemplateBaseId(template?: AppTemplate) {
-  const id = template?.id.replace(/^animated-/, '');
-  return id && /^(generated|idea)-\d+$/.test(id) ? id : undefined;
+  const candidates = [
+    template?.id,
+    template?.overlayUrl,
+    template?.previewUrl,
+    template?.frameUrl,
+    template?.animationUrl,
+    template?.storagePath,
+    template?.animationStoragePath,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    const normalized = candidate.replace(/^animated-/, '');
+    const match = /(?:generated|idea)-\d+/.exec(normalized);
+    if (match) return match[0];
+  }
+
+  return undefined;
 }
 
 function generatedTemplateRenderUrl(template?: AppTemplate) {
@@ -175,12 +204,20 @@ function generatedTemplateRenderUrl(template?: AppTemplate) {
   return id ? `${API_URL}/api/templates/render/${encodeURIComponent(id)}.png` : undefined;
 }
 
+function generatedTemplateMotionUrl(template?: AppTemplate) {
+  const id = generatedTemplateBaseId(template);
+  const hasMotion = template?.id.startsWith('animated-')
+    || Boolean(template?.animationStoragePath)
+    || /animated-v1|render-motion|\.webm/i.test(template?.animationUrl || '');
+  return id && hasMotion ? `${API_URL}/api/templates/render-motion/${encodeURIComponent(id)}.webm` : undefined;
+}
+
 function templateImageSources(template?: AppTemplate) {
   return uniqueSources([
+    generatedTemplateRenderUrl(template),
     template?.overlayUrl,
     template?.frameUrl,
     template?.previewUrl,
-    generatedTemplateRenderUrl(template),
   ]);
 }
 
@@ -190,14 +227,14 @@ function templateRenderAssets(template?: AppTemplate) {
 
   return {
     overlayUrl: imageSources[0] || renderFallback,
-    animationUrl: template?.animationUrl,
+    animationUrl: generatedTemplateMotionUrl(template) || template?.animationUrl,
     fallbackOverlayUrl: renderFallback,
   };
 }
 
 function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
   const imageSources = useMemo(() => templateImageSources(template), [template]);
-  const motionSrc = template?.animationUrl;
+  const motionSrc = generatedTemplateMotionUrl(template) || template?.animationUrl;
   const [imageIndex, setImageIndex] = useState(0);
   const [motionFailed, setMotionFailed] = useState(false);
 
@@ -240,17 +277,7 @@ function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
 }
 
 function EffectPreviewLayer({ effect }: { effect: string }) {
-  const layers: Record<string, string> = {
-    neon: 'bg-[linear-gradient(135deg,rgba(14,165,233,0.16),rgba(139,92,246,0.18),rgba(236,72,153,0.1))] mix-blend-screen',
-    party: 'bg-[linear-gradient(135deg,rgba(34,197,94,0.12),rgba(59,130,246,0.14),rgba(236,72,153,0.12))] mix-blend-screen',
-    luxury: 'bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(255,255,255,0.04),rgba(88,28,135,0.08))] mix-blend-screen',
-    glitch_flash: 'bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_2px,transparent_2px,transparent_18px)] mix-blend-screen',
-    wedding_soft: 'bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(244,114,182,0.08),transparent)] mix-blend-screen',
-    cinematic: 'bg-[linear-gradient(180deg,rgba(0,0,0,0.24),transparent_18%,transparent_82%,rgba(0,0,0,0.28))]',
-    ai_auto: 'bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(139,92,246,0.16),rgba(255,255,255,0.04))] mix-blend-screen',
-  };
-
-  const className = layers[effect];
+  const className = getVideoEffect(effect)?.previewStyle.overlayClass;
   return className ? <div className={`absolute inset-0 pointer-events-none ${className}`} /> : null;
 }
 
@@ -456,6 +483,7 @@ export default function OperatorPage() {
   const [countdown, setCountdown] = useState(0);
   const [duration, setDuration] = useState<number>(operatorPreferences.defaultDuration);
   const [sourceDuration, setSourceDuration] = useState(0);
+  const [videoOrientation, setVideoOrientation] = useState<VideoOrientation | null>(null);
   const [effectSegmentStart, setEffectSegmentStart] = useState(0);
   const [effectSegmentEnd, setEffectSegmentEnd] = useState<number>(operatorPreferences.defaultDuration);
   const [generatingAiMusic, setGeneratingAiMusic] = useState(false);
@@ -488,7 +516,7 @@ export default function OperatorPage() {
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const isStandaloneVideo = !selectedEventId;
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
-  const effectMeta = VIDEO_EFFECTS.find(item => item.value === effect);
+  const effectMeta = getVideoEffect(effect);
   const aiAutoSelected = effect === 'ai_auto';
   const aiPreviewDirection = useMemo(
     () => localAiDirection(selectedEvent?.type, selectedTemplate?.category),
@@ -496,10 +524,28 @@ export default function OperatorPage() {
   );
   const previewEffect = aiAutoSelected ? aiPreviewDirection.effect : effect;
   const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
-  const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.feature, isAdmin);
+  const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.requiredFeature, isAdmin);
   const canUseTemplate = !selectedTemplate || isAdmin
     || selectedTemplate.category !== 'premium'
     || hasFeature(user?.planId, 'premium_templates', isAdmin);
+  const filteredTemplates = useMemo(
+    () => templates.filter((template) => templateMatchesVideoOrientation(template, videoOrientation)),
+    [templates, videoOrientation]
+  );
+  const templateAspectHint = videoOrientation
+    ? `Video em ${videoOrientationLabel(videoOrientation)}: mostrando apenas templates ${templateOrientationPlural(videoOrientation)}.`
+    : 'Carregue ou grave um video para filtrar os templates por retrato ou paisagem.';
+  const templatePreviewClass = selectedTemplate?.aspectRatio === '16:9'
+    ? 'mx-auto aspect-video max-w-[260px]'
+    : selectedTemplate?.aspectRatio === '1:1'
+      ? 'mx-auto aspect-square max-w-[220px]'
+      : 'mx-auto aspect-[9/16] max-w-[220px]';
+  const videoPreviewFrameClass = videoOrientation === 'landscape'
+    ? 'aspect-video max-h-[66vh]'
+    : 'aspect-[9/16] max-h-[66vh]';
+  const livePreviewFrameClass = videoOrientation === 'landscape'
+    ? 'aspect-video max-h-[68vh]'
+    : 'aspect-[9/16] max-h-[68vh]';
 
   const eventOptions = [
     { value: '', label: 'Sem evento - video avulso' },
@@ -507,17 +553,16 @@ export default function OperatorPage() {
   ];
 
   const templateOptions = [
-    { value: '', label: 'Sem overlay' },
-    ...templates.slice(0, 240).map(t => {
+    { value: '', label: videoOrientation ? `Sem overlay (${videoOrientationLabel(videoOrientation)})` : 'Sem overlay' },
+    ...filteredTemplates.slice(0, 240).map(t => {
       const locked = !isAdmin && t.category === 'premium' && !hasFeature(user?.planId, 'premium_templates', isAdmin);
       return { value: t.id, label: `${locked ? 'Bloqueado - ' : ''}${t.name}` };
     }),
   ];
 
-  const effectOptions = VIDEO_EFFECTS.map(item => {
-    const locked = !hasFeature(user?.planId, item.feature, isAdmin);
-    return { value: item.value, label: `${locked ? 'Bloqueado - ' : ''}${item.label}` };
-  });
+  const isEffectLocked = (item: { requiredFeature: Parameters<typeof hasFeature>[1] }) => (
+    !hasFeature(user?.planId, item.requiredFeature, isAdmin)
+  );
 
   const resolvedMusicOptions = [
     ...musicOptions,
@@ -547,7 +592,7 @@ export default function OperatorPage() {
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
   const effectDescription = aiAutoSelected
     ? `A IA local vai aplicar ${effectLabel(previewEffect)} para este contexto.`
-    : effectPreviewText[effect] || 'Acabamento aplicado pelo editor.';
+    : effectMeta?.shortDescription || 'Acabamento aplicado pelo editor.';
   const effectSegments = useMemo<EffectSegment[]>(() => {
     if (effect === 'clean' || effect === 'ai_auto') return [];
 
@@ -563,6 +608,12 @@ export default function OperatorPage() {
     setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS)));
     setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, duration));
   }, [duration]);
+
+  useEffect(() => {
+    if (!videoOrientation || !selectedTemplateId) return;
+    if (filteredTemplates.some((template) => template.id === selectedTemplateId)) return;
+    setSelectedTemplateId(filteredTemplates[0]?.id || '');
+  }, [filteredTemplates, selectedTemplateId, videoOrientation]);
 
   useEffect(() => {
     if (step !== 'capture') return;
@@ -596,6 +647,9 @@ export default function OperatorPage() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       const stream = await requestCameraStream();
       streamRef.current = stream;
+      const settings = stream.getVideoTracks()[0]?.getSettings?.();
+      const nextOrientation = videoOrientationFromSize(settings?.width, settings?.height);
+      if (nextOrientation) setVideoOrientation(nextOrientation);
       setStep('capture');
     } catch {
       toast.error('Nao foi possivel abrir a camera. Verifique a permissao do app ou use o upload manual.');
@@ -666,6 +720,11 @@ export default function OperatorPage() {
       setEffectSegmentStart(0);
       setEffectSegmentEnd(duration);
       setStep('preview');
+      readVideoMetadata(url).then((metadata) => {
+        const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
+        if (nextOrientation) setVideoOrientation(nextOrientation);
+        if (Number.isFinite(metadata.duration) && metadata.duration > 0) setSourceDuration(metadata.duration);
+      }).catch(() => undefined);
     };
 
     mr.start(1000);
@@ -683,6 +742,13 @@ export default function OperatorPage() {
     if (Number.isFinite(mediaDuration) && mediaDuration > 0) {
       setSourceDuration(mediaDuration);
     }
+    const nextOrientation = videoOrientationFromSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight);
+    if (nextOrientation) setVideoOrientation(nextOrientation);
+  }
+
+  function handleLiveMetadata(event: SyntheticEvent<HTMLVideoElement>) {
+    const nextOrientation = videoOrientationFromSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight);
+    if (nextOrientation) setVideoOrientation(nextOrientation);
   }
 
   function updateEffectStart(value: number) {
@@ -765,7 +831,7 @@ export default function OperatorPage() {
       const taskId = started.taskId || started.generation.taskId;
       setAiMusicStatus('Suno gerando trilha original...');
       const result = await waitForSunoMusic(taskId, (status) => {
-        setAiMusicStatus(status === 'SUCCESS' ? 'Salvando trilha...' : `Suno: ${status}`);
+        setAiMusicStatus(describeSunoStatus(status));
       });
       const tracks = result.music || [];
       const selectedTrack = tracks.find((track) => track.musicUrl) || tracks[0];
@@ -795,12 +861,19 @@ export default function OperatorPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    const url = URL.createObjectURL(file);
     setVideoBlob(file);
-    setVideoUrl(URL.createObjectURL(file));
+    setVideoUrl(url);
     setSourceDuration(0);
+    setVideoOrientation(null);
     setEffectSegmentStart(0);
     setEffectSegmentEnd(duration);
     setStep('preview');
+    readVideoMetadata(url).then((metadata) => {
+      const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
+      if (nextOrientation) setVideoOrientation(nextOrientation);
+      if (Number.isFinite(metadata.duration) && metadata.duration > 0) setSourceDuration(metadata.duration);
+    }).catch(() => undefined);
   }
 
   async function handleProcess() {
@@ -896,6 +969,7 @@ export default function OperatorPage() {
     streamRef.current = null;
     setVideoBlob(null);
     setVideoUrl('');
+    setVideoOrientation(null);
     setSavedVideoId('');
     setProgress(0);
     setProcessingLabel('Preparando video...');
@@ -970,7 +1044,17 @@ export default function OperatorPage() {
             </button>
             <Select label="Template transparente" options={templateOptions} value={selectedTemplateId}
               onChange={e => setSelectedTemplateId(e.target.value)} />
-            <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
+            <p className="text-xs leading-relaxed text-white/36">
+              {templateAspectHint}
+              {videoOrientation && ` ${filteredTemplates.length} disponiveis.`}
+            </p>
+            <EffectSelector
+              value={effect}
+              onChange={setEffect}
+              isEffectLocked={isEffectLocked}
+              compact
+              onApply={(selected) => toast.success(`${selected.name} aplicado ao editor.`)}
+            />
             <Select label="Trilha" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
             <Button
               variant="secondary"
@@ -995,12 +1079,12 @@ export default function OperatorPage() {
               </div>
             )}
             <div className="grid gap-4 border-t border-white/[0.08] pt-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Preview" className="mx-auto aspect-[9/16] max-w-[220px]" />
+              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Preview" className={templatePreviewClass} />
               <div className="min-w-0 space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <Sparkles className="h-4 w-4 text-brand-300" />
-                    {effectMeta?.label || 'Efeito'}
+                    {effectMeta?.name || 'Efeito'}
                   </div>
                   <p className="text-sm leading-relaxed text-white/50">{effectDescription}</p>
                   <p className="text-xs text-white/30">{selectedTemplate?.name || 'Sem template transparente'}</p>
@@ -1052,8 +1136,8 @@ export default function OperatorPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[minmax(320px,520px)_1fr] gap-4">
           <div className="space-y-4">
             <div className="relative">
-              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Ao vivo" className="aspect-[9/16] max-h-[68vh]">
-                <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Ao vivo" className={livePreviewFrameClass}>
+                <video ref={videoRef} autoPlay muted playsInline onLoadedMetadata={handleLiveMetadata} className="h-full w-full object-cover" />
               </VideoPreviewFrame>
               {countdown > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -1085,6 +1169,7 @@ export default function OperatorPage() {
               mediaRecorderRef.current = null;
               streamRef.current?.getTracks().forEach(t => t.stop());
               streamRef.current = null;
+              setVideoOrientation(null);
               setRecording(false);
               setStep('select');
             }}>
@@ -1095,7 +1180,7 @@ export default function OperatorPage() {
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 h-fit space-y-3">
             <p className="text-sm font-semibold text-white">Configuracao aplicada</p>
             <p className="text-sm text-white/50">{selectedTemplate?.name || 'Sem overlay'}</p>
-            <p className="text-sm text-white/50">{effectMeta?.label || effect}</p>
+            <p className="text-sm text-white/50">{effectMeta?.name || effect}</p>
             <p className="text-sm text-white/50 flex items-center gap-2"><Clock className="w-4 h-4" />{duration} segundos</p>
             <p className="text-sm text-white/50 flex items-center gap-2"><Music2 className="w-4 h-4" />{selectedMusicLabel}</p>
             {musicPreviewUrl && <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />}
@@ -1106,7 +1191,7 @@ export default function OperatorPage() {
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-[minmax(300px,500px)_minmax(0,1fr)]">
-            <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Editor" className="aspect-[9/16] max-h-[66vh]">
+            <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Editor" className={videoPreviewFrameClass}>
               <video
                 ref={previewRef}
                 src={videoUrl}
@@ -1151,7 +1236,18 @@ export default function OperatorPage() {
                 </button>
                 <Select label="Template" options={templateOptions} value={selectedTemplateId}
                   onChange={e => setSelectedTemplateId(e.target.value)} />
-                <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
+                <p className="text-xs leading-relaxed text-white/36 sm:col-span-2">
+                  {templateAspectHint}
+                  {videoOrientation && ` ${filteredTemplates.length} disponiveis.`}
+                </p>
+                <EffectSelector
+                  value={effect}
+                  onChange={setEffect}
+                  isEffectLocked={isEffectLocked}
+                  compact
+                  className="sm:col-span-2"
+                  onApply={(selected) => toast.success(`${selected.name} aplicado ao editor.`)}
+                />
                 <Select label="Trilha sonora" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
                 <Button
                   variant="secondary"

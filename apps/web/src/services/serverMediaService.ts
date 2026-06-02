@@ -12,6 +12,7 @@ export type MediaUploadResult = {
   storagePath: string;
   videoUrl?: string;
   imageUrl?: string;
+  avatarUrl?: string;
   templateUrl?: string;
   musicUrl?: string;
   publicUrl?: string;
@@ -104,6 +105,46 @@ function writeJsonCache<T>(path: string, value: T) {
   storageSet(cacheKey(path), JSON.stringify({ value, savedAt: Date.now() }));
 }
 
+function generatedTemplateBaseId(template: AppTemplate) {
+  const candidates = [
+    template.id,
+    template.overlayUrl,
+    template.previewUrl,
+    template.frameUrl,
+    template.animationUrl,
+    template.storagePath,
+    template.animationStoragePath,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    const normalized = candidate.replace(/^animated-/, '');
+    const match = /(?:generated|idea)-\d+/.exec(normalized);
+    if (match) return match[0];
+  }
+
+  return null;
+}
+
+function normalizeGeneratedTemplateAssetUrls(template: AppTemplate) {
+  const baseId = generatedTemplateBaseId(template);
+  if (!baseId) return template;
+
+  const overlayUrl = `${API_URL}/api/templates/render/${encodeURIComponent(baseId)}.png`;
+  const hasMotion = template.id.startsWith('animated-')
+    || Boolean(template.animationStoragePath)
+    || /animated-v1|render-motion|\.webm/i.test(template.animationUrl || '');
+
+  return {
+    ...template,
+    previewUrl: overlayUrl,
+    overlayUrl,
+    frameUrl: overlayUrl,
+    animationUrl: hasMotion
+      ? `${API_URL}/api/templates/render-motion/${encodeURIComponent(baseId)}.webm`
+      : undefined,
+  };
+}
+
 function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: number) => void): Promise<MediaUploadResult> {
   return new Promise((resolve, reject) => {
     const body = new FormData();
@@ -122,12 +163,17 @@ function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: num
     };
     xhr.onerror = () => reject(new Error('UPLOAD_FAILED'));
     xhr.onload = () => {
-      const payload = JSON.parse(xhr.responseText || '{}');
+      let payload: Record<string, unknown> = {};
+      try {
+        payload = JSON.parse(xhr.responseText || '{}');
+      } catch {
+        payload = {};
+      }
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(payload);
+        resolve(payload as MediaUploadResult);
         return;
       }
-      reject(new Error(payload?.error || payload?.code || 'UPLOAD_FAILED'));
+      reject(new Error(String(payload?.error || payload?.code || 'UPLOAD_FAILED')));
     };
     xhr.send(body);
   });
@@ -176,6 +222,10 @@ export function uploadImageToServer(file: File | Blob, onProgress?: (pct: number
   return uploadMultipart('/api/upload/image', file, onProgress);
 }
 
+export function uploadAvatarToServer(file: File | Blob, onProgress?: (pct: number) => void) {
+  return uploadMultipart('/api/upload/avatar', file, onProgress);
+}
+
 export function uploadTemplateToServer(file: File | Blob, onProgress?: (pct: number) => void) {
   return uploadMultipart('/api/upload/template', file, onProgress);
 }
@@ -185,8 +235,8 @@ export function uploadMusicToServer(file: File | Blob, onProgress?: (pct: number
 }
 
 export async function getGeneratedTemplates() {
-  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/generated?v=ideas-v1');
-  return templates;
+  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/generated?v=render-v2');
+  return templates.map(normalizeGeneratedTemplateAssetUrls);
 }
 
 export async function getGeneratedMusic() {

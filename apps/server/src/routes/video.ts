@@ -6,6 +6,7 @@ import { getSupabaseUrl } from '../services/supabaseStorage';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification } from '../services/notifications';
+import { VIDEO_EXPORT_FORMATS, enqueueMockEffectJob, isKnownVideoEffect, sanitizeEffectParameters } from '../services/videoEffects';
 
 export const videoRouter = Router();
 
@@ -59,6 +60,18 @@ const processSchema = z.object({
   }).optional(),
 });
 
+const applyEffectSchema = z.object({
+  videoId: z.string().min(1).max(120),
+  effectId: z.string().min(1).max(80),
+  effectName: z.string().max(80).optional(),
+  parameters: z.unknown().optional(),
+  exportFormat: z.enum(VIDEO_EXPORT_FORMATS),
+  finalDuration: z.number().int().refine((value) => allowedDurations.includes(value), {
+    message: 'INVALID_DURATION_SECONDS',
+  }).optional(),
+  userId: z.string().max(120).optional(),
+});
+
 function allowedSupabaseHost() {
   return new URL(getSupabaseUrl()).host;
 }
@@ -86,6 +99,7 @@ function rejectInvalidMediaUrl(code: string): never {
 type UserProfile = {
   uid: string;
   role: 'admin' | 'user';
+  planId?: string | null;
 };
 
 function getDb() {
@@ -257,6 +271,47 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
     }).catch((error) => console.warn('[notifications] video skipped:', error instanceof Error ? error.message : error));
 
     res.status(result.status === 'failed' ? 500 : 200).json(result);
+  } catch (e) { next(e); }
+});
+
+videoRouter.post('/apply-effect', requireActiveSubscription, async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const data = applyEffectSchema.parse(req.body || {});
+
+    if (!isKnownVideoEffect(data.effectId)) {
+      const err = new Error('UNKNOWN_VIDEO_EFFECT');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    await loadManageableVideo(data.videoId, user);
+
+    const requiredFeature = featureForEffect(data.effectId);
+    if (user.role !== 'admin' && !hasPlanFeature(user.planId, requiredFeature)) {
+      return res.status(403).json({
+        error: 'PLAN_FEATURE_REQUIRED',
+        code: requiredFeature,
+      });
+    }
+
+    const parameters = sanitizeEffectParameters(data.parameters);
+    const jobId = await enqueueMockEffectJob({
+      db: getDb(),
+      videoId: data.videoId,
+      userId: user.uid,
+      effectId: data.effectId,
+      effectName: data.effectName,
+      parameters,
+      exportFormat: data.exportFormat,
+      finalDuration: data.finalDuration,
+    });
+
+    res.status(202).json({
+      success: true,
+      jobId,
+      message: 'Efeito enviado para processamento',
+    });
   } catch (e) { next(e); }
 });
 

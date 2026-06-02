@@ -149,7 +149,7 @@ async function loadOwnedDoc(collectionName: 'templates' | 'music', id: string, u
 }
 
 function generatedTemplateIdFromParam(rawId: string) {
-  const id = rawId.replace(/\.png$/i, '').replace(/^animated-/, '');
+  const id = rawId.replace(/\.(png|webm)$/i, '').replace(/^animated-/, '');
   const match = /^(?:generated|idea)-(\d+)$/.exec(id);
   if (!match) return null;
 
@@ -157,6 +157,23 @@ function generatedTemplateIdFromParam(rawId: string) {
   if (!Number.isInteger(index) || index < 1 || index > GENERATED_TEMPLATE_CATALOG_SIZE) return null;
 
   return { id, offset: index - 1 };
+}
+
+function publicRequestBase(req: Request) {
+  const configured = process.env.PUBLIC_BACKEND_URL?.replace(/\/+$/, '');
+  if (configured) return configured;
+
+  const forwardedProtocol = req.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const protocol = forwardedProtocol || req.protocol || 'https';
+  return `${protocol}://${req.get('host')}`;
+}
+
+function generatedRenderUrl(req: Request, id: string) {
+  return `${publicRequestBase(req)}/api/templates/render/${encodeURIComponent(id)}.png`;
+}
+
+function generatedMotionUrl(req: Request, id: string) {
+  return `${publicRequestBase(req)}/api/templates/render-motion/${encodeURIComponent(id)}.webm`;
 }
 
 templatesRouter.get('/render/:id', async (req, res, next) => {
@@ -180,15 +197,38 @@ templatesRouter.get('/render/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-templatesRouter.get('/generated', requireActiveSubscription, (_req, res) => {
+templatesRouter.get('/render-motion/:id', async (req, res, next) => {
+  try {
+    const target = generatedTemplateIdFromParam(req.params.id);
+    if (!target) {
+      res.status(404).json({ error: 'GENERATED_TEMPLATE_NOT_FOUND' });
+      return;
+    }
+
+    const template = buildGeneratedAnimatedTemplates(1, target.offset, { includeSvg: true, includeDataUrl: false })[0];
+    if (!template || template.id !== `animated-${target.id}` || !template.svg) {
+      res.status(404).json({ error: 'GENERATED_TEMPLATE_NOT_FOUND' });
+      return;
+    }
+
+    const buffer = await renderAnimatedTemplateWebm(template, { fps: 8, frames: 16 });
+    res.setHeader('Content-Type', 'video/webm');
+    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000');
+    res.send(buffer);
+  } catch (e) { next(e); }
+});
+
+templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
   const templates = buildGeneratedTemplates(GENERATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
     ...template,
-    overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
+    previewUrl: generatedRenderUrl(req, template.id),
+    overlayUrl: generatedRenderUrl(req, template.id),
   }));
   const animatedTemplates = buildGeneratedAnimatedTemplates(240, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
     ...template,
-    overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
-    animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
+    previewUrl: generatedRenderUrl(req, template.id),
+    overlayUrl: generatedRenderUrl(req, template.id),
+    animationUrl: generatedMotionUrl(req, template.id),
   }));
 
   res.json({ templates: [...animatedTemplates, ...templates] });
