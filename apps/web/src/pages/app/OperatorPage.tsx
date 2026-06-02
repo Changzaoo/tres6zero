@@ -98,12 +98,13 @@ function effectLabel(effectId: string) {
   return VIDEO_EFFECTS.find((item) => item.value === effectId)?.label || effectId;
 }
 
-function localAiEffect(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']) {
-  if (eventType === 'wedding' || templateCategory === 'wedding') return 'wedding_soft';
-  if (eventType === 'corporate' || templateCategory === 'corporate') return 'corporate_sharp';
-  if (eventType === 'birthday' || eventType === 'club' || templateCategory === 'birthday' || templateCategory === 'party') return 'party';
-  if (templateCategory === 'premium') return 'luxury';
-  return 'cinematic';
+function localAiDirection(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']) {
+  if (eventType === 'wedding' || templateCategory === 'wedding') return { effect: 'wedding_soft', musicTheme: 'wedding' };
+  if (eventType === 'corporate' || templateCategory === 'corporate') return { effect: 'corporate_sharp', musicTheme: 'corporate' };
+  if (eventType === 'birthday' || templateCategory === 'birthday') return { effect: 'party', musicTheme: 'birthday' };
+  if (eventType === 'club' || templateCategory === 'party') return { effect: 'neon', musicTheme: 'party' };
+  if (templateCategory === 'premium') return { effect: 'luxury', musicTheme: 'luxury' };
+  return { effect: 'cinematic', musicTheme: 'viral' };
 }
 
 function renderedVideoFile(blob: Blob) {
@@ -571,12 +572,18 @@ export default function OperatorPage() {
         throw new Error('Seu navegador nao suporta o editor local. Atualize o navegador e tente novamente.');
       }
 
+      const aiDirection = localAiDirection(selectedEvent?.type, selectedTemplate?.category);
       const browserEffect = processingBaseEffect === 'ai_auto'
-        ? localAiEffect(selectedEvent?.type, selectedTemplate?.category)
+        ? aiDirection.effect
         : processingBaseEffect;
+      const rendererMusicTheme = processingMusicUrl
+        ? undefined
+        : effect === 'ai_auto'
+          ? aiDirection.musicTheme
+          : musicTheme;
 
       setProcessingLabel(effect === 'ai_auto'
-        ? 'Editando com automacao local e poupando o servidor...'
+        ? 'Editando com IA local: efeito, template e trilha...'
         : 'Editando video no navegador...');
 
       const renderedBlob = await renderVideoInBrowser({
@@ -584,6 +591,7 @@ export default function OperatorPage() {
         durationSeconds: duration,
         overlayUrl: selectedTemplate?.overlayUrl,
         animationUrl: selectedTemplate?.animationUrl,
+        fallbackOverlayUrl: selectedTemplate?.frameUrl || selectedTemplate?.previewUrl,
         effect: browserEffect,
         effectSegments: shouldProcessEffectAsSegment ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
           effect: segmentEffect,
@@ -591,6 +599,7 @@ export default function OperatorPage() {
           end,
         })) : undefined,
         musicUrl: processingMusicUrl,
+        musicTheme: rendererMusicTheme,
         onProgress: (pct) => setProgress(Math.min(70, 2 + Math.round(pct * 0.68))),
       });
 
@@ -612,7 +621,7 @@ export default function OperatorPage() {
         size: renderedBlob.size, format: renderedBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
         effect,
-        musicTheme: storedMusicTheme,
+        musicTheme: effect === 'ai_auto' && musicTheme === 'none' ? aiDirection.musicTheme : storedMusicTheme,
         musicUrl: processingMusicUrl,
         duration,
       });
@@ -853,7 +862,7 @@ export default function OperatorPage() {
                   <Sparkles className="h-5 w-5 shrink-0 text-brand-200" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
-                    <span className="block truncate text-xs text-white/42">OpenAI no backend decide acabamento, clima e trilha.</span>
+                    <span className="block truncate text-xs text-white/42">O editor local decide acabamento, clima e trilha sem servidor externo.</span>
                   </span>
                   {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
                 </button>

@@ -4,7 +4,7 @@ type RenderEffectSegment = {
   end: number;
 };
 
-type LoadedAsset<T extends HTMLImageElement | HTMLVideoElement | HTMLAudioElement> = {
+type LoadedAsset<T extends HTMLImageElement | HTMLVideoElement> = {
   element: T;
   objectUrl?: string;
 };
@@ -16,7 +16,9 @@ export type BrowserVideoRenderOptions = {
   effectSegments?: RenderEffectSegment[];
   overlayUrl?: string;
   animationUrl?: string;
+  fallbackOverlayUrl?: string;
   musicUrl?: string;
+  musicTheme?: string;
   onProgress?: (pct: number) => void;
 };
 
@@ -24,10 +26,7 @@ const TARGET_FPS = 30;
 const MAX_RENDER_SIDE = 720;
 const MIN_RENDER_SIDE = 360;
 
-type CaptureElement = HTMLMediaElement & {
-  captureStream?: () => MediaStream;
-  mozCaptureStream?: () => MediaStream;
-};
+type AudioContextConstructor = typeof AudioContext;
 
 export function canRenderVideoInBrowser() {
   return typeof window !== 'undefined'
@@ -46,9 +45,10 @@ function supportedMimeType() {
   return candidates.find((mime) => MediaRecorder.isTypeSupported(mime)) || '';
 }
 
-function captureMediaStream(element: HTMLMediaElement) {
-  const captureElement = element as CaptureElement;
-  return captureElement.captureStream?.() || captureElement.mozCaptureStream?.();
+function createAudioContext() {
+  const AudioContextCtor = window.AudioContext
+    || (window as unknown as { webkitAudioContext?: AudioContextConstructor }).webkitAudioContext;
+  return AudioContextCtor ? new AudioContextCtor() : undefined;
 }
 
 function waitForEvent<T extends EventTarget>(target: T, eventName: string, timeoutMs = 15000) {
@@ -113,6 +113,10 @@ async function loadImage(url?: string): Promise<LoadedAsset<HTMLImageElement> | 
   return { element: image, objectUrl: asset.objectUrl };
 }
 
+function looksLikeVideoUrl(url?: string) {
+  return /\.(webm|mp4|mov)(\?|$)/i.test(url || '');
+}
+
 async function loadOverlayVideo(url?: string): Promise<LoadedAsset<HTMLVideoElement> | undefined> {
   const asset = await toObjectUrl(url);
   if (!asset) return undefined;
@@ -128,17 +132,18 @@ async function loadOverlayVideo(url?: string): Promise<LoadedAsset<HTMLVideoElem
   return { element: video, objectUrl: asset.objectUrl };
 }
 
-async function loadMusic(url?: string): Promise<LoadedAsset<HTMLAudioElement> | undefined> {
-  const asset = await toObjectUrl(url);
-  if (!asset) return undefined;
+async function loadMusicBuffer(audioContext: AudioContext | undefined, url?: string) {
+  if (!audioContext || !url) return undefined;
 
-  const audio = document.createElement('audio');
-  audio.crossOrigin = 'anonymous';
-  audio.loop = true;
-  audio.preload = 'auto';
-  audio.src = asset.src;
-  await waitForEvent(audio, 'canplay', 12000).catch(() => undefined);
-  return { element: audio, objectUrl: asset.objectUrl };
+  try {
+    const response = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+    if (!response.ok) return undefined;
+
+    const arrayBuffer = await response.arrayBuffer();
+    return await audioContext.decodeAudioData(arrayBuffer.slice(0));
+  } catch {
+    return undefined;
+  }
 }
 
 function scaledCanvasSize(videoWidth: number, videoHeight: number) {
@@ -170,6 +175,19 @@ function drawCover(
   ctx.drawImage(source, drawX, drawY, drawWidth, drawHeight);
 }
 
+function drawFullFrame(
+  ctx: CanvasRenderingContext2D,
+  source: HTMLVideoElement | HTMLImageElement,
+  width: number,
+  height: number,
+) {
+  const sourceWidth = source instanceof HTMLVideoElement ? source.videoWidth : source.naturalWidth;
+  const sourceHeight = source instanceof HTMLVideoElement ? source.videoHeight : source.naturalHeight;
+  if (!sourceWidth || !sourceHeight) return;
+
+  ctx.drawImage(source, 0, 0, width, height);
+}
+
 function canvasFilter(effect: string) {
   const filters: Record<string, string> = {
     clean: 'contrast(1.05) saturate(1.08) brightness(1.01)',
@@ -192,6 +210,40 @@ function canvasFilter(effect: string) {
 function activeEffect(baseEffect: string, segments: RenderEffectSegment[] | undefined, elapsed: number) {
   const segment = segments?.find((item) => elapsed >= item.start && elapsed <= item.end);
   return segment?.effect || baseEffect || 'clean';
+}
+
+function mapPlaybackRate(effect: string, elapsed: number, duration: number) {
+  if (effect === 'slow_motion') return 0.52;
+
+  if (effect === 'speed_ramp') {
+    const progress = Math.min(1, Math.max(0, elapsed / Math.max(duration, 1)));
+    if (progress < 0.18) return 0.72;
+    if (progress < 0.58) return 1.85;
+    if (progress < 0.78) return 1.18;
+    return 0.82;
+  }
+
+  return 1;
+}
+
+function mapManualSourceTime(effect: string, elapsed: number, targetDuration: number, sourceDuration: number) {
+  const safeSourceDuration = Number.isFinite(sourceDuration) && sourceDuration > 0 ? sourceDuration : targetDuration;
+  const usableDuration = Math.max(0.2, Math.min(safeSourceDuration, targetDuration));
+
+  if (effect === 'boomerang') {
+    const halfCycle = Math.max(0.5, Math.min(usableDuration, targetDuration / 2));
+    const cyclePosition = elapsed % (halfCycle * 2);
+    return cyclePosition <= halfCycle ? cyclePosition : halfCycle - (cyclePosition - halfCycle);
+  }
+
+  return Math.min(usableDuration - 0.04, elapsed % usableDuration);
+}
+
+function isBoomerangReverseFrame(elapsed: number, targetDuration: number, sourceDuration: number) {
+  const safeSourceDuration = Number.isFinite(sourceDuration) && sourceDuration > 0 ? sourceDuration : targetDuration;
+  const usableDuration = Math.max(0.2, Math.min(safeSourceDuration, targetDuration));
+  const halfCycle = Math.max(0.5, Math.min(usableDuration, targetDuration / 2));
+  return elapsed % (halfCycle * 2) > halfCycle;
 }
 
 function drawEffectOverlay(ctx: CanvasRenderingContext2D, effect: string, elapsed: number, width: number, height: number) {
@@ -256,10 +308,157 @@ function drawEffectOverlay(ctx: CanvasRenderingContext2D, effect: string, elapse
     ctx.fillRect(6, 0, width, height);
   }
 
+  if (effect === 'boomerang') {
+    const sweep = (Math.sin(elapsed * 7) + 1) / 2;
+    const x = width * sweep;
+    const gradient = ctx.createLinearGradient(x - width * 0.24, 0, x + width * 0.24, height);
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  if (effect === 'speed_ramp') {
+    const pulse = Math.abs(Math.sin(elapsed * 10)) * 0.14;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = `rgba(59,130,246,${pulse})`;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  if (effect === 'slow_motion') {
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, width * 0.1, width / 2, height / 2, width * 0.72);
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0.08)');
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+
   ctx.restore();
 }
 
-function revokeAssets(assets: Array<LoadedAsset<HTMLImageElement | HTMLVideoElement | HTMLAudioElement> | undefined>, inputUrl: string) {
+function scheduleTone(
+  audioContext: AudioContext,
+  destination: AudioNode,
+  start: number,
+  duration: number,
+  frequency: number,
+  gainValue: number,
+  type: OscillatorType = 'sine',
+) {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(gainValue, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
+}
+
+function scheduleKick(audioContext: AudioContext, destination: AudioNode, start: number, gainValue = 0.12) {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(120, start);
+  oscillator.frequency.exponentialRampToValueAtTime(48, start + 0.16);
+  gain.gain.setValueAtTime(gainValue, start);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+  oscillator.connect(gain);
+  gain.connect(destination);
+  oscillator.start(start);
+  oscillator.stop(start + 0.2);
+}
+
+function scheduleSyntheticMusic(audioContext: AudioContext, destination: AudioNode, theme: string, duration: number) {
+  const start = audioContext.currentTime + 0.06;
+  const normalizedTheme = theme === 'none' ? 'ambient' : theme;
+  const tempo = normalizedTheme === 'wedding' || normalizedTheme === 'ambient' ? 84
+    : normalizedTheme === 'corporate' || normalizedTheme === 'luxury' ? 104
+      : 126;
+  const beat = 60 / tempo;
+  const scale = normalizedTheme === 'wedding'
+    ? [261.63, 329.63, 392, 523.25]
+    : normalizedTheme === 'luxury'
+      ? [220, 277.18, 329.63, 440]
+      : normalizedTheme === 'corporate'
+        ? [246.94, 329.63, 392, 493.88]
+        : [261.63, 329.63, 392, 523.25, 659.25];
+
+  const master = audioContext.createGain();
+  master.gain.setValueAtTime(0.72, start);
+  master.connect(destination);
+
+  for (let time = 0; time < duration + 1; time += beat) {
+    const absoluteTime = start + time;
+    const step = Math.round(time / beat);
+    const root = scale[step % scale.length];
+
+    if (normalizedTheme !== 'ambient' && normalizedTheme !== 'wedding' && step % 2 === 0) {
+      scheduleKick(audioContext, master, absoluteTime, normalizedTheme === 'corporate' ? 0.06 : 0.11);
+    }
+
+    if (step % 4 === 0) {
+      scheduleTone(audioContext, master, absoluteTime, beat * 3.6, root / 2, 0.035, normalizedTheme === 'luxury' ? 'triangle' : 'sine');
+      scheduleTone(audioContext, master, absoluteTime, beat * 3.6, root, 0.025, 'triangle');
+    }
+
+    if (normalizedTheme === 'party' || normalizedTheme === 'birthday' || normalizedTheme === 'viral') {
+      scheduleTone(audioContext, master, absoluteTime + beat * 0.5, beat * 0.22, scale[(step + 2) % scale.length], 0.035, 'square');
+      scheduleTone(audioContext, master, absoluteTime + beat * 0.75, beat * 0.18, scale[(step + 4) % scale.length], 0.028, 'sawtooth');
+    } else if (normalizedTheme === 'wedding' || normalizedTheme === 'ambient') {
+      scheduleTone(audioContext, master, absoluteTime, beat * 1.6, root * 2, 0.018, 'sine');
+    } else {
+      scheduleTone(audioContext, master, absoluteTime + beat * 0.5, beat * 0.35, root * 2, 0.022, 'triangle');
+    }
+  }
+}
+
+function attachAudioTrack(
+  outputStream: MediaStream,
+  audioContext: AudioContext | undefined,
+  musicBuffer: AudioBuffer | undefined,
+  musicTheme: string | undefined,
+  duration: number,
+) {
+  if (!audioContext) return undefined;
+  const destination = audioContext.createMediaStreamDestination();
+  const theme = musicTheme && musicTheme !== 'none' ? musicTheme : undefined;
+
+  if (musicBuffer) {
+    const source = audioContext.createBufferSource();
+    const gain = audioContext.createGain();
+    source.buffer = musicBuffer;
+    source.loop = true;
+    gain.gain.setValueAtTime(0.92, audioContext.currentTime);
+    source.connect(gain);
+    gain.connect(destination);
+    source.start(audioContext.currentTime);
+    window.setTimeout(() => {
+      try {
+        source.stop();
+      } catch {
+        // The source can already be stopped when rendering finishes early.
+      }
+    }, Math.max(1, duration + 0.3) * 1000);
+  } else if (theme) {
+    scheduleSyntheticMusic(audioContext, destination, theme, duration);
+  } else {
+    return undefined;
+  }
+
+  destination.stream.getAudioTracks().forEach((track) => outputStream.addTrack(track));
+  return () => {
+    destination.stream.getTracks().forEach((track) => track.stop());
+  };
+}
+
+function revokeAssets(assets: Array<LoadedAsset<HTMLImageElement | HTMLVideoElement> | undefined>, inputUrl: string) {
   assets.forEach((asset) => {
     if (asset?.objectUrl) URL.revokeObjectURL(asset.objectUrl);
   });
@@ -282,9 +481,12 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
 
   let overlayImage: LoadedAsset<HTMLImageElement> | undefined;
   let overlayVideo: LoadedAsset<HTMLVideoElement> | undefined;
-  let music: LoadedAsset<HTMLAudioElement> | undefined;
+  const needsAudio = Boolean(options.musicUrl || (options.musicTheme && options.musicTheme !== 'none'));
+  const audioContext = needsAudio ? createAudioContext() : undefined;
+  let cleanupAudio: (() => void) | undefined;
 
   try {
+    await audioContext?.resume().catch(() => undefined);
     await waitForEvent(sourceVideo, 'loadedmetadata', 15000);
     const { width, height } = scaledCanvasSize(sourceVideo.videoWidth, sourceVideo.videoHeight);
     const canvas = document.createElement('canvas');
@@ -293,22 +495,25 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('CANVAS_CONTEXT_UNAVAILABLE');
 
-    const [loadedOverlayImage, loadedOverlayVideo, loadedMusic] = await Promise.all([
-      loadImage(options.overlayUrl).catch(() => undefined),
-      loadOverlayVideo(options.animationUrl).catch(() => undefined),
-      loadMusic(options.musicUrl).catch(() => undefined),
+    const imageOverlayUrl = looksLikeVideoUrl(options.overlayUrl) ? options.fallbackOverlayUrl : (options.overlayUrl || options.fallbackOverlayUrl);
+    const motionOverlayUrl = options.animationUrl || (looksLikeVideoUrl(options.overlayUrl) ? options.overlayUrl : undefined);
+    const [loadedOverlayImage, loadedOverlayVideo, loadedMusicBuffer] = await Promise.all([
+      loadImage(imageOverlayUrl).catch(() => undefined),
+      loadOverlayVideo(motionOverlayUrl).catch(() => undefined),
+      loadMusicBuffer(audioContext, options.musicUrl).catch(() => undefined),
     ]);
     overlayImage = loadedOverlayImage;
     overlayVideo = loadedOverlayVideo;
-    music = loadedMusic;
 
     const outputStream = canvas.captureStream(TARGET_FPS);
-    const musicStream = music ? captureMediaStream(music.element) : undefined;
-    musicStream?.getAudioTracks().forEach((track) => outputStream.addTrack(track));
+    cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, options.durationSeconds);
 
     const chunks: Blob[] = [];
     const recorder = new MediaRecorder(outputStream, mimeType ? { mimeType } : undefined);
     const targetDuration = Math.max(1, Math.min(60, options.durationSeconds || 15));
+    const sourceDuration = Number.isFinite(sourceVideo.duration) && sourceVideo.duration > 0
+      ? sourceVideo.duration
+      : targetDuration;
 
     const rendered = new Promise<Blob>((resolve, reject) => {
       recorder.ondataavailable = (event) => {
@@ -327,9 +532,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     });
 
     sourceVideo.currentTime = 0;
-    sourceVideo.playbackRate = options.effect === 'slow_motion' ? 0.72 : options.effect === 'speed_ramp' ? 1.1 : 1;
     overlayVideo?.element.play().catch(() => undefined);
-    music?.element.play().catch(() => undefined);
     await sourceVideo.play();
 
     const start = performance.now();
@@ -340,17 +543,45 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
       const currentEffect = activeEffect(options.effect || 'clean', options.effectSegments, elapsed);
       options.onProgress?.(Math.min(99, Math.round((elapsed / targetDuration) * 100)));
 
+      if (currentEffect === 'boomerang') {
+        sourceVideo.pause();
+        const mappedTime = mapManualSourceTime(currentEffect, elapsed, targetDuration, sourceDuration);
+        if (Number.isFinite(mappedTime) && Math.abs(sourceVideo.currentTime - mappedTime) > 0.035) {
+          if ('fastSeek' in sourceVideo && typeof sourceVideo.fastSeek === 'function') {
+            sourceVideo.fastSeek(mappedTime);
+          } else {
+            sourceVideo.currentTime = mappedTime;
+          }
+        }
+      } else {
+        const nextRate = mapPlaybackRate(currentEffect, elapsed, targetDuration);
+        if (Math.abs(sourceVideo.playbackRate - nextRate) > 0.02) {
+          sourceVideo.playbackRate = nextRate;
+        }
+        if (sourceVideo.paused) {
+          sourceVideo.play().catch(() => undefined);
+        }
+      }
+
       ctx.clearRect(0, 0, width, height);
       ctx.filter = canvasFilter(currentEffect);
-      drawCover(ctx, sourceVideo, width, height);
+      if (currentEffect === 'boomerang' && isBoomerangReverseFrame(elapsed, targetDuration, sourceDuration)) {
+        ctx.save();
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+        drawCover(ctx, sourceVideo, width, height);
+        ctx.restore();
+      } else {
+        drawCover(ctx, sourceVideo, width, height);
+      }
       ctx.filter = 'none';
 
       if (overlayImage) {
-        drawCover(ctx, overlayImage.element, width, height);
+        drawFullFrame(ctx, overlayImage.element, width, height);
       }
 
       if (overlayVideo && overlayVideo.element.readyState >= 2) {
-        drawCover(ctx, overlayVideo.element, width, height);
+        drawFullFrame(ctx, overlayVideo.element, width, height);
       }
 
       drawEffectOverlay(ctx, currentEffect, elapsed, width, height);
@@ -359,7 +590,6 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
         if (recorder.state !== 'inactive') recorder.stop();
         sourceVideo.pause();
         overlayVideo?.element.pause();
-        music?.element.pause();
         options.onProgress?.(100);
         return;
       }
@@ -372,7 +602,8 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
   } finally {
     sourceVideo.pause();
     overlayVideo?.element.pause();
-    music?.element.pause();
-    revokeAssets([overlayImage, overlayVideo, music], inputUrl);
+    cleanupAudio?.();
+    audioContext?.close().catch(() => undefined);
+    revokeAssets([overlayImage, overlayVideo], inputUrl);
   }
 }
