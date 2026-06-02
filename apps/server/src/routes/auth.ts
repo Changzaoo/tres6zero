@@ -163,12 +163,16 @@ function getConfiguredAdminUid() {
 
 function roleFromUser(user: FirebaseUserRecord): UserRole {
   const adminUid = getConfiguredAdminUid();
+  const adminEmail = getConfiguredAdminEmail();
+  const userEmail = (user.email || '').trim().toLowerCase();
+
+  if (adminUid && adminEmail) {
+    return user.localId === adminUid && userEmail === adminEmail ? 'admin' : 'user';
+  }
+
   if (adminUid) {
     return user.localId === adminUid ? 'admin' : 'user';
   }
-
-  const adminEmail = getConfiguredAdminEmail();
-  const userEmail = (user.email || '').trim().toLowerCase();
 
   if (adminEmail && user.emailVerified === true && userEmail === adminEmail) {
     return 'admin';
