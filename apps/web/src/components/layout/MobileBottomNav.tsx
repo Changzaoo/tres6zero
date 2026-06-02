@@ -9,7 +9,6 @@ import {
   LifeBuoy,
   LayoutDashboard,
   Lock,
-  Menu,
   Settings,
   Shield,
   Users,
@@ -19,30 +18,40 @@ import { useAuth } from '@/hooks/useAuth';
 
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
-  { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
+  { to: '/app/videos', label: 'Videos', icon: Video, unlocked: true },
   { to: '/app/operator', label: 'Operar', icon: Camera, primary: true },
   { to: '/app/templates', label: 'Templates', icon: Layers },
-  { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
 ];
 
-const moreItems = [
+const accountItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
   { to: '/app/leads', label: 'Leads', icon: Users },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
+  { to: '/app/settings', label: 'Configuracoes', icon: Settings, unlocked: true },
   { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
-  { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
 ];
 
+function ProfileBubble({ avatarUrl, initial, size = 'sm' }: { avatarUrl?: string; initial: string; size?: 'sm' | 'md' }) {
+  const dimension = size === 'md' ? 'h-10 w-10 text-sm' : 'h-[22px] w-[22px] text-[10px]';
+  return (
+    <span className={`flex ${dimension} shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-brand font-black text-white ring-1 ring-white/15`}>
+      {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+    </span>
+  );
+}
+
 export function MobileBottomNav() {
-  const { isAdmin, hasActiveSubscription } = useAuth();
-  const [moreOpen, setMoreOpen] = useState(false);
+  const { user, isAdmin, hasActiveSubscription } = useAuth();
+  const [accountOpen, setAccountOpen] = useState(false);
   const location = useLocation();
   const items = isAdmin
-    ? [...moreItems, { to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true }]
-    : moreItems;
+    ? [...accountItems, { to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true }]
+    : accountItems;
+  const initial = user?.name?.charAt(0).toUpperCase() || 'U';
 
   useEffect(() => {
-    setMoreOpen(false);
+    setAccountOpen(false);
   }, [location.pathname]);
 
   function isLocked(unlocked?: boolean) {
@@ -51,15 +60,23 @@ export function MobileBottomNav() {
 
   return (
     <>
-      {moreOpen && (
+      {accountOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="Fechar mais opções"
+            aria-label="Fechar opcoes da conta"
             className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
-            onClick={() => setMoreOpen(false)}
+            onClick={() => setAccountOpen(false)}
           />
           <div className="absolute inset-x-3 bottom-[calc(max(env(safe-area-inset-bottom),0.5rem)+5.6rem)] mx-auto max-w-md rounded-[26px] border border-white/[0.1] bg-[#0e1016]/95 p-2 shadow-2xl shadow-black/55 backdrop-blur-2xl">
+            <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2">
+              <ProfileBubble avatarUrl={user?.avatarUrl} initial={initial} size="md" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-white">{user?.name || 'Conta'}</p>
+                <p className="truncate text-xs text-white/42">{user?.email || 'Perfil SIX3'}</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-1.5">
               {items.map(({ to, label, icon: Icon, unlocked }) => {
                 const locked = isLocked(unlocked);
@@ -87,7 +104,7 @@ export function MobileBottomNav() {
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-[#0e1016]/85 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur-2xl lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-6 items-end gap-1 rounded-[26px] border border-white/[0.08] bg-black/25 p-1.5 shadow-2xl shadow-black/45">
+        <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1 rounded-[26px] border border-white/[0.08] bg-black/25 p-1.5 shadow-2xl shadow-black/45">
           {mobileItems.map(({ to, label, icon: Icon, primary, unlocked }) => {
             const locked = isLocked(unlocked);
             return (
@@ -110,16 +127,17 @@ export function MobileBottomNav() {
               </NavLink>
             );
           })}
+
           <button
             type="button"
-            onClick={() => setMoreOpen((open) => !open)}
-            aria-expanded={moreOpen}
+            onClick={() => setAccountOpen((open) => !open)}
+            aria-expanded={accountOpen}
             className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold transition-all ${
-              moreOpen ? 'bg-white/[0.09] text-white' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/80'
+              accountOpen ? 'bg-white/[0.09] text-white' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/80'
             }`}
           >
-            <Menu className="h-[18px] w-[18px]" />
-            <span>Mais</span>
+            <ProfileBubble avatarUrl={user?.avatarUrl} initial={initial} />
+            <span>Conta</span>
           </button>
         </div>
       </nav>

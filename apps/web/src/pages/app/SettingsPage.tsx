@@ -1,24 +1,38 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseError, updateUserProfile } from '@/services/authService';
+import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
+import { defaultOperatorPreferences, getOperatorPreferences, setOperatorPreferences, type OperatorPreferences } from '@/services/appPreferences';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { toast } from '@/components/ui/Toast';
-import { Building, Globe2, KeyRound, LogOut, MapPin, MonitorSmartphone, ShieldCheck, Trash2, User, Wifi } from 'lucide-react';
+import { Building, Camera, Globe2, KeyRound, LogOut, MapPin, Monitor, MonitorSmartphone, Moon, Palette, ShieldCheck, Sun, Trash2, User, Wifi } from 'lucide-react';
 import type { TrustedDevice } from '@/types';
 
 interface ProfileFormData {
   name: string;
   companyName: string;
+  avatarUrl: string;
 }
 
 interface PasswordFormData {
   newPassword: string;
 }
+
+const durationOptions = [5, 15, 25, 35, 45] as const;
+
+const musicOptions = [
+  { value: 'none', label: 'Sem trilha' },
+  { value: 'ambient', label: 'Ambient' },
+  { value: 'party', label: 'Party' },
+  { value: 'luxury', label: 'Luxury' },
+  { value: 'wedding', label: 'Wedding' },
+  { value: 'corporate', label: 'Corporate' },
+] as const;
 
 function formatDate(value?: string) {
   if (!value) return 'Sem registro';
@@ -78,6 +92,33 @@ function DeviceRow({
   );
 }
 
+function SegmentedButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon?: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-10 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold transition-all ${
+        active
+          ? 'border-brand-300/65 bg-brand-500/20 text-white shadow-glow'
+          : 'border-white/10 bg-white/[0.045] text-white/58 hover:border-white/18 hover:text-white'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
@@ -85,10 +126,12 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const profileForm = useForm<ProfileFormData>();
   const passwordForm = useForm<PasswordFormData>();
+  const [theme, setTheme] = useState<ThemeMode>(() => getStoredThemeMode());
+  const [operatorPrefs, setOperatorPrefs] = useState<OperatorPreferences>(() => getOperatorPreferences());
   const devices = user?.trustedDevices || [];
 
   useEffect(() => {
-    if (user) profileForm.reset({ name: user.name, companyName: user.companyName || '' });
+    if (user) profileForm.reset({ name: user.name, companyName: user.companyName || '', avatarUrl: user.avatarUrl || '' });
   }, [profileForm, user]);
 
   async function onProfileSubmit(data: ProfileFormData) {
@@ -146,6 +189,18 @@ export default function SettingsPage() {
     }
   }
 
+  function handleThemeChange(nextTheme: ThemeMode) {
+    setTheme(nextTheme);
+    setThemeMode(nextTheme);
+    toast.success('Tema salvo.');
+  }
+
+  function updateOperatorPrefs(nextPrefs: OperatorPreferences) {
+    setOperatorPrefs(nextPrefs);
+    setOperatorPreferences(nextPrefs);
+    toast.success('Preferencias salvas.');
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -167,6 +222,22 @@ export default function SettingsPage() {
               Perfil
             </h2>
             <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-[72px_1fr] sm:items-end">
+                <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-gradient-brand text-2xl font-black text-white shadow-glow">
+                  {profileForm.watch('avatarUrl') ? (
+                    <img src={profileForm.watch('avatarUrl')} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    user?.name?.charAt(0).toUpperCase() || 'U'
+                  )}
+                </div>
+                <Input
+                  label="Foto de perfil"
+                  placeholder="https://..."
+                  icon={<Camera className="h-4 w-4" />}
+                  {...profileForm.register('avatarUrl')}
+                />
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input label="Nome" placeholder="Seu nome" {...profileForm.register('name')} />
                 <Input
@@ -190,6 +261,61 @@ export default function SettingsPage() {
 
               <Button type="submit" size="sm" loading={profileForm.formState.isSubmitting}>Salvar perfil</Button>
             </form>
+          </Card>
+
+          <Card padding="sm">
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
+              <Palette className="h-5 w-5 text-brand-400" />
+              Aparencia
+            </h2>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <SegmentedButton active={theme === 'dark'} label="Escuro" icon={<Moon className="h-4 w-4" />} onClick={() => handleThemeChange('dark')} />
+              <SegmentedButton active={theme === 'light'} label="Claro" icon={<Sun className="h-4 w-4" />} onClick={() => handleThemeChange('light')} />
+              <SegmentedButton active={theme === 'system'} label="Sistema" icon={<Monitor className="h-4 w-4" />} onClick={() => handleThemeChange('system')} />
+            </div>
+          </Card>
+
+          <Card padding="sm">
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
+              <Camera className="h-5 w-5 text-brand-400" />
+              Operacao
+            </h2>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-white/70">Duracao padrao</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {durationOptions.map((seconds) => (
+                    <SegmentedButton
+                      key={seconds}
+                      active={operatorPrefs.defaultDuration === seconds}
+                      label={`${seconds}s`}
+                      onClick={() => updateOperatorPrefs({ ...operatorPrefs, defaultDuration: seconds })}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-white/70">Trilha padrao</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {musicOptions.map((option) => (
+                    <SegmentedButton
+                      key={option.value}
+                      active={operatorPrefs.defaultMusicTheme === option.value}
+                      label={option.label}
+                      onClick={() => updateOperatorPrefs({ ...operatorPrefs, defaultMusicTheme: option.value })}
+                    />
+                  ))}
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => updateOperatorPrefs(defaultOperatorPreferences)}
+              >
+                Restaurar padrao
+              </Button>
+            </div>
           </Card>
 
           <Card padding="sm">

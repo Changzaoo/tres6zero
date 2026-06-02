@@ -2,7 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
-import { getFirebaseAdminAuth, toFirebaseUserRecord } from '../services/firebaseAdmin';
+import { getFirebaseAdminAuth, getFirebaseAdminFirestore, toFirebaseUserRecord } from '../services/firebaseAdmin';
 import {
   assertTrustedDevice,
   disconnectAllTrustedDevices,
@@ -33,6 +33,7 @@ const resetSchema = z.object({
 const profileSchema = z.object({
   name: z.string().min(2).optional(),
   companyName: z.string().optional(),
+  avatarUrl: z.string().url().or(z.literal('')).optional(),
 });
 
 const passwordSchema = z.object({
@@ -191,9 +192,24 @@ function roleFromUser(user: FirebaseUserRecord): UserRole {
   return 'user';
 }
 
+async function storedUserProfile(uid: string) {
+  const db = getFirebaseAdminFirestore();
+  if (!db) return {};
+
+  const snap = await db.collection('users').doc(uid).get();
+  if (!snap.exists) return {};
+
+  const data = snap.data() as { companyName?: string; avatarUrl?: string };
+  return {
+    companyName: typeof data.companyName === 'string' ? data.companyName : '',
+    avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : '',
+  };
+}
+
 async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') {
   const plan = planFromUser(user);
   const role = roleFromUser(user);
+  const storedProfile = await storedUserProfile(user.localId);
   let stripeAccess = null;
 
   if (role !== 'admin') {
@@ -216,6 +232,8 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
     entitlements: getPlanEntitlements(role === 'admin' ? 'unlimited' : access?.planId || plan.planId),
     currentPeriodEnd: role === 'admin' ? null : access?.currentPeriodEnd || null,
     renewalDay: role === 'admin' ? null : access?.renewalDay || null,
+    companyName: storedProfile.companyName || '',
+    avatarUrl: storedProfile.avatarUrl || '',
     createdAt: user.createdAt ? new Date(Number(user.createdAt)).toISOString() : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -325,12 +343,16 @@ authRouter.put('/profile', async (req, res, next) => {
     const user = await getAuthenticatedUser(req);
     if (!user) authError();
 
-    res.json({
-      user: {
-        ...(await userProfileForRequest(req, user)),
-        companyName: data.companyName,
-      },
-    });
+    const db = getFirebaseAdminFirestore();
+    if (db) {
+      await db.collection('users').doc(user.localId).set({
+        companyName: data.companyName || '',
+        avatarUrl: data.avatarUrl || '',
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }
+
+    res.json({ user: await userProfileForRequest(req, user) });
   } catch (e) {
     next(e);
   }

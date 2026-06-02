@@ -11,6 +11,7 @@ import { createVideo, updateVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
 import { uploadVideoToServer, processVideoOnServer, getGeneratedMusic } from '@/services/serverMediaService';
+import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
@@ -154,6 +155,7 @@ function VideoPreviewFrame({
 }
 
 export default function OperatorPage() {
+  const operatorPreferences = useMemo(() => getOperatorPreferences(), []);
   const { user, isAdmin } = useAuth();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
@@ -161,7 +163,7 @@ export default function OperatorPage() {
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [effect, setEffect] = useState('clean');
-  const [musicTheme, setMusicTheme] = useState('none');
+  const [musicTheme, setMusicTheme] = useState<string>(operatorPreferences.defaultMusicTheme);
   const [step, setStep] = useState<Step>('select');
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [videoUrl, setVideoUrl] = useState('');
@@ -170,7 +172,7 @@ export default function OperatorPage() {
   const [processingLabel, setProcessingLabel] = useState('Preparando video...');
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [duration, setDuration] = useState(15);
+  const [duration, setDuration] = useState<number>(operatorPreferences.defaultDuration);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
