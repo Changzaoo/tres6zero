@@ -42,7 +42,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const content = (
     <div className="h-full flex flex-col bg-surface-100/95 border-r border-white/[0.08] w-64 backdrop-blur-xl">
       <div className="p-5 border-b border-white/[0.08]">
-        <BrandLogo wordmarkClassName="text-2xl" showSubtitle subtitle="SaaS 360" />
+        <BrandLogo className="items-center" wordmarkClassName="text-5xl" />
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">

@@ -14,6 +14,7 @@ export function BrandWordmark({ className = '' }: { className?: string }) {
 }
 
 function imageSizeClass(wordmarkClassName: string) {
+  if (wordmarkClassName.includes('text-5xl')) return 'h-20';
   if (wordmarkClassName.includes('text-4xl')) return 'h-16';
   if (wordmarkClassName.includes('text-3xl')) return 'h-14';
   if (wordmarkClassName.includes('text-2xl')) return 'h-11';
