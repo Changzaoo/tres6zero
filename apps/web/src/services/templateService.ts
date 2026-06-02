@@ -1,22 +1,26 @@
-import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { apiRequest } from '@/services/authService';
 import { getGeneratedTemplates } from '@/services/serverMediaService';
 import type { AppTemplate } from '@/types';
-
-const COLL = 'templates';
 
 export async function seedTemplates() {
   return;
 }
 
 export async function createTemplate(data: Omit<AppTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<AppTemplate> {
-  const now = new Date().toISOString();
-  const template = { ...data, createdAt: now, updatedAt: now };
-  const ref = await addDoc(collection(db, COLL), template);
-  return { ...template, id: ref.id };
+  const { template } = await apiRequest<{ template: AppTemplate }>('/api/templates/custom', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return template;
 }
 
-export async function getTemplates(): Promise<AppTemplate[]> {
+async function getCustomTemplates(userId?: string): Promise<AppTemplate[]> {
+  if (!userId) return [];
+  const { templates } = await apiRequest<{ templates: AppTemplate[] }>('/api/templates/custom');
+  return templates.map((template) => ({ ...template, source: 'custom' as const }));
+}
+
+export async function getTemplates(userId?: string): Promise<AppTemplate[]> {
   const [generated, stored] = await Promise.all([
     getGeneratedTemplates()
       .then((templates) => templates.map((template) => ({ ...template, source: 'generated' as const })))
@@ -24,8 +28,7 @@ export async function getTemplates(): Promise<AppTemplate[]> {
         console.warn('[templates] Generated catalog unavailable:', error);
         return [] as AppTemplate[];
       }),
-    getDocs(collection(db, COLL))
-      .then((snap) => snap.docs.map(d => ({ id: d.id, ...d.data() } as AppTemplate)))
+    getCustomTemplates(userId)
       .catch((error) => {
         console.warn('[templates] Custom templates unavailable:', error);
         return [] as AppTemplate[];
@@ -40,5 +43,8 @@ export async function getTemplates(): Promise<AppTemplate[]> {
 }
 
 export async function updateTemplate(id: string, data: Partial<AppTemplate>) {
-  await updateDoc(doc(db, COLL, id), { ...data, updatedAt: new Date().toISOString() });
+  await apiRequest<{ template: AppTemplate }>(`/api/templates/custom/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }

@@ -1,13 +1,40 @@
 import { Router } from 'express';
+import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { processVideo, getAvailableEffects } from '../services/videoProcessor';
 import { featureForEffect, hasPlanFeature } from '../services/planEntitlements';
 import { getSupabaseUrl } from '../services/supabaseStorage';
 import { requireActiveSubscription } from './auth';
+import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 
 export const videoRouter = Router();
 
 const allowedDurations: readonly number[] = [5, 15, 25, 35, 45];
+const videoStatuses = ['uploaded', 'processing', 'processed', 'failed', 'published'] as const;
+
+const videoSchema = z.object({
+  eventId: z.string().min(1),
+  operatorId: z.string().min(1),
+  title: z.string().min(1),
+  storagePath: z.string().min(1),
+  videoUrl: z.string().min(1),
+  rawVideoUrl: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
+  status: z.enum(videoStatuses),
+  duration: z.number().optional(),
+  size: z.number().optional(),
+  format: z.string().optional(),
+  templateId: z.string().optional(),
+  effect: z.string().optional(),
+  musicTheme: z.string().optional(),
+  musicUrl: z.string().optional(),
+  views: z.number().int().min(0).default(0),
+  downloads: z.number().int().min(0).default(0),
+  shares: z.number().int().min(0).default(0),
+});
+
+const videoUpdateSchema = videoSchema.omit({ eventId: true, operatorId: true }).partial();
+const statSchema = z.object({ field: z.enum(['views', 'downloads', 'shares']) });
 
 const processSchema = z.object({
   videoId: z.string(),
@@ -56,6 +83,104 @@ function rejectInvalidMediaUrl(code: string): never {
   throw err;
 }
 
+type UserProfile = {
+  uid: string;
+  role: 'admin' | 'user';
+};
+
+function getDb() {
+  const db = getFirebaseAdminFirestore();
+  if (!db) {
+    const err = new Error('FIREBASE_ADMIN_FIRESTORE_NOT_CONFIGURED');
+    (err as any).status = 500;
+    throw err;
+  }
+  return db;
+}
+
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(stripUndefined) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, stripUndefined(item)])
+    ) as T;
+  }
+
+  return value;
+}
+
+function videoFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
+  if (!doc.exists) return null;
+  const { _ts, ...data } = doc.data() as Record<string, unknown>;
+  return { id: doc.id, ...data } as Record<string, unknown> & { id: string };
+}
+
+function sortByNewest<T extends Record<string, unknown>>(items: T[]) {
+  return items.sort((a, b) => Date.parse(String(b.createdAt || '')) - Date.parse(String(a.createdAt || '')));
+}
+
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value != null;
+}
+
+function canManageVideo(user: UserProfile, video: Record<string, unknown>) {
+  return user.role === 'admin' || video.ownerId === user.uid;
+}
+
+async function loadManageableVideo(id: string, user: UserProfile) {
+  const snap = await getDb().collection('videos').doc(id).get();
+  const video = videoFromDoc(snap);
+  if (!video) {
+    const err = new Error('VIDEO_NOT_FOUND');
+    (err as any).status = 404;
+    throw err;
+  }
+
+  if (!canManageVideo(user, video)) {
+    const err = new Error('FORBIDDEN');
+    (err as any).status = 403;
+    throw err;
+  }
+
+  return video;
+}
+
+videoRouter.get('/', requireActiveSubscription, async (_req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const collection = getDb().collection('videos');
+    const snap = user.role === 'admin'
+      ? await collection.get()
+      : await collection.where('ownerId', '==', user.uid).get();
+    const videos = sortByNewest(snap.docs.map(videoFromDoc).filter(isPresent));
+    res.json({ videos });
+  } catch (e) { next(e); }
+});
+
+videoRouter.post('/', requireActiveSubscription, async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const data = videoSchema.parse(req.body || {});
+    const now = new Date().toISOString();
+    const video = stripUndefined({
+      ...data,
+      ownerId: user.uid,
+      operatorId: user.uid,
+      createdAt: now,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    });
+    const ref = await getDb().collection('videos').add(video);
+    const { _ts, ...publicVideo } = video;
+    res.status(201).json({ video: { id: ref.id, ...publicVideo } });
+  } catch (e) { next(e); }
+});
+
 videoRouter.post('/process', requireActiveSubscription, async (req, res, next) => {
   try {
     const config = processSchema.parse(req.body);
@@ -102,4 +227,57 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
 
 videoRouter.get('/effects', (_req, res) => {
   res.json({ effects: getAvailableEffects() });
+});
+
+videoRouter.get('/event/:eventId', async (req, res, next) => {
+  try {
+    const snap = await getDb()
+      .collection('videos')
+      .where('eventId', '==', req.params.eventId)
+      .where('status', '==', 'published')
+      .get();
+    const videos = sortByNewest(snap.docs.map(videoFromDoc).filter(isPresent));
+    res.json({ videos });
+  } catch (e) { next(e); }
+});
+
+videoRouter.get('/:id', async (req, res, next) => {
+  try {
+    const snap = await getDb().collection('videos').doc(req.params.id).get();
+    const video = videoFromDoc(snap);
+    if (!video || (video as { status?: string }).status !== 'published') {
+      res.status(404).json({ video: null });
+      return;
+    }
+
+    res.json({ video });
+  } catch (e) { next(e); }
+});
+
+videoRouter.put('/:id', requireActiveSubscription, async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    await loadManageableVideo(req.params.id, user);
+    const data = stripUndefined(videoUpdateSchema.parse(req.body || {}));
+    await getDb().collection('videos').doc(req.params.id).update({
+      ...data,
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    });
+    const snap = await getDb().collection('videos').doc(req.params.id).get();
+    res.json({ video: videoFromDoc(snap) });
+  } catch (e) { next(e); }
+});
+
+videoRouter.post('/:id/stats', async (req, res, next) => {
+  try {
+    const { field } = statSchema.parse(req.body || {});
+    const ref = getDb().collection('videos').doc(req.params.id);
+    await ref.update({
+      [field]: FieldValue.increment(1),
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
 });

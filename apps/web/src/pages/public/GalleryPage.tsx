@@ -32,9 +32,9 @@ export default function GalleryPage() {
       setEvent(e);
       if (e && !e.passwordEnabled) {
         setUnlocked(true);
-        getEventVideos(e.id).then(setVideos);
+        getEventVideos(e.id).then(setVideos).catch(() => setVideos([]));
       }
-    }).finally(() => setLoading(false));
+    }).catch(() => setEvent(null)).finally(() => setLoading(false));
   }, [eventSlug]);
 
   const stats = useMemo(() => {
@@ -46,7 +46,7 @@ export default function GalleryPage() {
   function handleUnlock() {
     if (event && password === 'senha123') {
       setUnlocked(true);
-      getEventVideos(event.id).then(setVideos);
+      getEventVideos(event.id).then(setVideos).catch(() => setVideos([]));
     } else {
       setWrongPass(true);
     }

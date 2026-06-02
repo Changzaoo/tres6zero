@@ -352,7 +352,7 @@ export default function OperatorPage() {
     getUserEvents(user.uid).then(evs => {
       setEvents(evs.filter(e => e.status !== 'archived'));
     });
-    seedTemplates().then(() => getTemplates()).then((items) => {
+    seedTemplates().then(() => getTemplates(user.uid)).then((items) => {
       setTemplates(items.filter((item) => item.isActive));
       if (items[0]) setSelectedTemplateId(items[0].id);
     }).catch(() => undefined);

@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAllLeads, leadsToCSV, downloadCSV } from '@/services/leadService';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { toast } from '@/components/ui/Toast';
 import { motion } from 'framer-motion';
 import type { Lead } from '@/types';
 import { format } from 'date-fns';
@@ -16,7 +17,13 @@ export default function LeadsPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    getAllLeads().then(l => { setLeads(l); setFiltered(l); }).finally(() => setLoading(false));
+    getAllLeads()
+      .then(l => { setLeads(l); setFiltered(l); })
+      .catch((error) => {
+        console.warn('[leads] Load failed:', error);
+        toast.error('Nao foi possivel carregar os leads.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {

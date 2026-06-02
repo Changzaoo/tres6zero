@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents } from '@/services/eventService';
 import { getUserVideos } from '@/services/videoService';
 import { getAllLeads } from '@/services/leadService';
+import { toast } from '@/components/ui/Toast';
 import type { DashboardStats } from '@/types';
 
 const DashboardCharts = lazy(() => import('./DashboardCharts'));
@@ -35,11 +36,19 @@ export default function DashboardPage() {
 
     (async () => {
       try {
-        const [events, videos, leads] = await Promise.all([
+        const [eventsResult, videosResult, leadsResult] = await Promise.allSettled([
           getUserEvents(user.uid),
           getUserVideos(user.uid),
           getAllLeads(),
         ]);
+        const events = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
+        const videos = videosResult.status === 'fulfilled' ? videosResult.value : [];
+        const leads = leadsResult.status === 'fulfilled' ? leadsResult.value : [];
+
+        if (eventsResult.status === 'rejected' || videosResult.status === 'rejected' || leadsResult.status === 'rejected') {
+          toast.error('Alguns dados do dashboard nao foram carregados.');
+        }
+
         const totalShares = videos.reduce((s, v) => s + (v.shares || 0), 0);
         const totalDownloads = videos.reduce((s, v) => s + (v.downloads || 0), 0);
         const totalViews = videos.reduce((s, v) => s + (v.views || 0), 0);

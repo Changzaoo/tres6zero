@@ -1,4 +1,4 @@
-const VERSION = '2026-06-02.1';
+const VERSION = '2026-06-02.2';
 const SHELL_CACHE = `six3-shell-${VERSION}`;
 const STATIC_CACHE = `six3-static-${VERSION}`;
 const RUNTIME_CACHE = `six3-runtime-${VERSION}`;
@@ -49,6 +49,35 @@ function isMediaAsset(request, url) {
     || url.hostname.includes('storage.googleapis.com')
     || url.hostname.includes('gstatic.com')
     || url.origin === self.location.origin;
+}
+
+function corsHeaders(contentType = 'application/json') {
+  return {
+    'Content-Type': contentType,
+    'Access-Control-Allow-Origin': self.location.origin,
+  };
+}
+
+function offlineApiResponse() {
+  return new Response(
+    JSON.stringify({ error: 'OFFLINE_UNAVAILABLE', code: 'OFFLINE_UNAVAILABLE' }),
+    { status: 503, headers: corsHeaders() }
+  );
+}
+
+function offlineMediaResponse(request) {
+  if (request.destination === 'image') {
+    const png = Uint8Array.from([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+      0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137,
+      0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5,
+      0, 1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66,
+      96, 130,
+    ]);
+    return new Response(png, { headers: { 'Content-Type': 'image/png' } });
+  }
+
+  return new Response('', { status: 503 });
 }
 
 async function digest(value) {
@@ -105,7 +134,10 @@ async function staleWhileRevalidate(request, cacheName, maxEntries = 140) {
       trimCache(cacheName, maxEntries).catch(() => {});
     }
     return response;
-  }).catch(() => cached);
+  }).catch(() => {
+    if (cached) return cached;
+    return offlineMediaResponse(request);
+  });
 
   return cached || network;
 }
@@ -154,10 +186,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') {
     if (isApiRequest(url)) {
       event.respondWith(
-        fetch(request).catch(() => new Response(
-          JSON.stringify({ error: 'OFFLINE_UNAVAILABLE', code: 'OFFLINE_UNAVAILABLE' }),
-          { status: 503, headers: { 'Content-Type': 'application/json' } }
-        ))
+        fetch(request).catch(() => offlineApiResponse())
       );
     }
     return;
@@ -180,10 +209,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       scopedApiCacheRequest(request)
         .then((cacheRequest) => networkFirst(request, API_CACHE, cacheRequest, 120))
-        .catch(() => new Response(
-          JSON.stringify({ error: 'OFFLINE_UNAVAILABLE', code: 'OFFLINE_UNAVAILABLE' }),
-          { status: 503, headers: { 'Content-Type': 'application/json' } }
-        ))
+        .catch(() => offlineApiResponse())
     );
     return;
   }

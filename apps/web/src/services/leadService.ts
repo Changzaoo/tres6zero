@@ -1,25 +1,26 @@
-import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { API_URL } from '@/config/api';
+import { apiRequest } from '@/services/authService';
 import type { Lead } from '@/types';
 
-const COLL = 'leads';
-
 export async function createLead(data: Omit<Lead, 'id' | 'createdAt'>): Promise<Lead> {
-  const lead = { ...data, createdAt: new Date().toISOString() };
-  const ref = await addDoc(collection(db, COLL), { ...lead, _ts: serverTimestamp() });
-  return { ...lead, id: ref.id };
+  const response = await fetch(`${API_URL}/api/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error || payload?.code || 'LEAD_CREATE_FAILED');
+  return payload.lead;
 }
 
 export async function getEventLeads(eventId: string): Promise<Lead[]> {
-  const q = query(collection(db, COLL), where('eventId', '==', eventId), orderBy('createdAt', 'desc'));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Lead));
+  const { leads } = await apiRequest<{ leads: Lead[] }>(`/api/leads/event/${encodeURIComponent(eventId)}`);
+  return leads;
 }
 
 export async function getAllLeads(): Promise<Lead[]> {
-  const q = query(collection(db, COLL), orderBy('createdAt', 'desc'));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Lead));
+  const { leads } = await apiRequest<{ leads: Lead[] }>('/api/leads');
+  return leads;
 }
 
 export function leadsToCSV(leads: Lead[]): string {

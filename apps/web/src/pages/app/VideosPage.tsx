@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUserVideos } from '@/services/videoService';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { toast } from '@/components/ui/Toast';
 import type { AppVideo } from '@/types';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple';
@@ -32,7 +33,13 @@ export default function VideosPage() {
 
   useEffect(() => {
     if (!user) return;
-    getUserVideos(user.uid).then(setVideos).finally(() => setLoading(false));
+    getUserVideos(user.uid)
+      .then(setVideos)
+      .catch((error) => {
+        console.warn('[videos] Load failed:', error);
+        toast.error('Nao foi possivel carregar os videos.');
+      })
+      .finally(() => setLoading(false));
   }, [user]);
 
   if (loading) {

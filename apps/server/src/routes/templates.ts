@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import type { NextFunction, Request, Response } from 'express';
+import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { Buffer } from 'node:buffer';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
-import { requireAdmin, requireActiveSubscription } from './auth';
+import { requireAdmin, requireActiveSubscription, requirePlanFeature } from './auth';
 import { buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
 import { buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
 import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
+import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 
 export const templatesRouter = Router();
 
@@ -17,6 +19,52 @@ const seedSchema = z.object({
   musicCount: z.number().int().min(0).max(120).optional(),
   animatedCount: z.number().int().min(0).max(300).optional(),
 });
+
+const templateCategories = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium'] as const;
+const aspectRatios = ['9:16', '1:1', '16:9'] as const;
+
+const templateSchema = z.object({
+  name: z.string().min(1),
+  category: z.enum(templateCategories),
+  colors: z.object({
+    primary: z.string().min(1),
+    secondary: z.string().min(1),
+  }),
+  font: z.string().min(1),
+  designId: z.string().optional(),
+  layout: z.string().optional(),
+  variantKey: z.string().optional(),
+  variantName: z.string().optional(),
+  previewUrl: z.string().optional(),
+  overlayUrl: z.string().optional(),
+  animationUrl: z.string().optional(),
+  animationStoragePath: z.string().optional(),
+  frameUrl: z.string().optional(),
+  musicUrl: z.string().optional(),
+  storagePath: z.string().optional(),
+  aspectRatio: z.enum(aspectRatios),
+  effects: z.array(z.string()).default([]),
+  isActive: z.boolean().default(true),
+});
+
+const musicSchema = z.object({
+  name: z.string().min(1),
+  category: z.enum([...templateCategories, 'ambient'] as const),
+  theme: z.string().optional(),
+  bpm: z.number().optional(),
+  duration: z.number().optional(),
+  musicUrl: z.string().optional(),
+  storagePath: z.string().optional(),
+  source: z.literal('custom').optional(),
+  library: z.string().optional(),
+  licenseName: z.string().optional(),
+  licenseUrl: z.string().optional(),
+  attribution: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+const templateUpdateSchema = templateSchema.partial();
+const musicUpdateSchema = musicSchema.partial();
 
 type SeedJob = {
   id: string;
@@ -33,6 +81,69 @@ type SeedJob = {
 };
 
 const seedJobs = new Map<string, SeedJob>();
+
+type UserProfile = {
+  uid: string;
+  role: 'admin' | 'user';
+};
+
+function getDb() {
+  const db = getFirebaseAdminFirestore();
+  if (!db) {
+    const err = new Error('FIREBASE_ADMIN_FIRESTORE_NOT_CONFIGURED');
+    (err as any).status = 500;
+    throw err;
+  }
+  return db;
+}
+
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(stripUndefined) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, stripUndefined(item)])
+    ) as T;
+  }
+
+  return value;
+}
+
+function mediaFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
+  if (!doc.exists) return null;
+  const { _ts, ...data } = doc.data() as Record<string, unknown>;
+  return { id: doc.id, ...data } as Record<string, unknown> & { id: string };
+}
+
+function sortByNewest<T extends Record<string, unknown>>(items: T[]) {
+  return items.sort((a, b) => Date.parse(String(b.createdAt || '')) - Date.parse(String(a.createdAt || '')));
+}
+
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value != null;
+}
+
+async function loadOwnedDoc(collectionName: 'templates' | 'music', id: string, user: UserProfile) {
+  const snap = await getDb().collection(collectionName).doc(id).get();
+  const record = mediaFromDoc(snap);
+  if (!record) {
+    const err = new Error(`${collectionName.toUpperCase()}_NOT_FOUND`);
+    (err as any).status = 404;
+    throw err;
+  }
+
+  if (user.role !== 'admin' && record.ownerId !== user.uid) {
+    const err = new Error('FORBIDDEN');
+    (err as any).status = 403;
+    throw err;
+  }
+
+  return record;
+}
 
 templatesRouter.get('/generated', requireActiveSubscription, (_req, res) => {
   const templates = buildGeneratedTemplates(720, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
@@ -59,6 +170,100 @@ templatesRouter.get('/generated-music', requireActiveSubscription, (_req, res) =
   }));
 
   res.json({ music: [...publicLibraryMusic, ...generatedMusic] });
+});
+
+templatesRouter.get('/custom', requireActiveSubscription, async (_req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const collection = getDb().collection('templates');
+    const snap = user.role === 'admin'
+      ? await collection.where('source', '==', 'custom').get()
+      : await collection.where('ownerId', '==', user.uid).where('isActive', '==', true).get();
+    const templates = sortByNewest(snap.docs.map(mediaFromDoc).filter(isPresent));
+    res.json({ templates });
+  } catch (e) { next(e); }
+});
+
+templatesRouter.post('/custom', requirePlanFeature('custom_template_upload'), async (_req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const data = templateSchema.parse(_req.body || {});
+    const now = new Date().toISOString();
+    const template = stripUndefined({
+      ...data,
+      ownerId: user.uid,
+      source: 'custom',
+      isGlobal: false,
+      createdAt: now,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    });
+    const ref = await getDb().collection('templates').add(template);
+    const { _ts, ...publicTemplate } = template;
+    res.status(201).json({ template: { id: ref.id, ...publicTemplate } });
+  } catch (e) { next(e); }
+});
+
+templatesRouter.put('/custom/:id', requirePlanFeature('custom_template_upload'), async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    await loadOwnedDoc('templates', req.params.id, user);
+    const data = stripUndefined(templateUpdateSchema.parse(req.body || {}));
+    await getDb().collection('templates').doc(req.params.id).update({
+      ...data,
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    });
+    const snap = await getDb().collection('templates').doc(req.params.id).get();
+    res.json({ template: mediaFromDoc(snap) });
+  } catch (e) { next(e); }
+});
+
+templatesRouter.get('/custom-music', requireActiveSubscription, async (_req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const collection = getDb().collection('music');
+    const snap = user.role === 'admin'
+      ? await collection.where('source', '==', 'custom').get()
+      : await collection.where('ownerId', '==', user.uid).where('isActive', '==', true).get();
+    const music = sortByNewest(snap.docs.map(mediaFromDoc).filter(isPresent));
+    res.json({ music });
+  } catch (e) { next(e); }
+});
+
+templatesRouter.post('/custom-music', requirePlanFeature('custom_template_upload'), async (_req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const data = musicSchema.parse(_req.body || {});
+    const now = new Date().toISOString();
+    const music = stripUndefined({
+      ...data,
+      ownerId: user.uid,
+      source: 'custom',
+      isGlobal: false,
+      createdAt: now,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    });
+    const ref = await getDb().collection('music').add(music);
+    const { _ts, ...publicMusic } = music;
+    res.status(201).json({ music: { id: ref.id, ...publicMusic } });
+  } catch (e) { next(e); }
+});
+
+templatesRouter.put('/custom-music/:id', requirePlanFeature('custom_template_upload'), async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    await loadOwnedDoc('music', req.params.id, user);
+    const data = stripUndefined(musicUpdateSchema.parse(req.body || {}));
+    await getDb().collection('music').doc(req.params.id).update({
+      ...data,
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    });
+    const snap = await getDb().collection('music').doc(req.params.id).get();
+    res.json({ music: mediaFromDoc(snap) });
+  } catch (e) { next(e); }
 });
 
 function hasSeedSecret(req: Request) {

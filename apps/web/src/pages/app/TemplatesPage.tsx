@@ -73,7 +73,7 @@ function searchableTemplateText(template: AppTemplate) {
 
 async function loadCatalog(userId?: string) {
   const [templateResult, musicResult] = await Promise.allSettled([
-    getTemplates(),
+    getTemplates(userId),
     userId ? getUserMusic(userId) : Promise.resolve([] as AppMusic[]),
   ]);
 
