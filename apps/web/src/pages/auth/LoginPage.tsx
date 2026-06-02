@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
 import { LoginSupportChat } from '@/components/support/LoginSupportChat';
 
@@ -41,8 +41,9 @@ export default function LoginPage() {
     <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <BrandLogo className="items-center" wordmarkClassName="text-6xl" />
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandWordmark className="text-4xl" />
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/35">Plataforma de edição com IA</p>
         </div>
 
         <div className="six3-glass p-6">

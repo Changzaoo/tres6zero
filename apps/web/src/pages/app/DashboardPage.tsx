@@ -143,8 +143,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-white">Olá, {user?.name?.split(' ')[0]}</h1>
-        <p className="text-white/40 text-sm mt-0.5">Aqui está um resumo da sua plataforma</p>
+        <h1 className="text-2xl font-black tracking-[-0.02em] text-white">
+          Olá, <span className="six3-gradient-text">{user?.name?.split(' ')[0]}</span>
+        </h1>
+        <p className="mt-1 text-sm text-white/40">Aqui está um resumo da sua plataforma SIX3°</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

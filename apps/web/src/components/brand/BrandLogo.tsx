@@ -5,8 +5,8 @@ type BrandLogoProps = {
 
 export function BrandWordmark({ className = '' }: { className?: string }) {
   return (
-    <span className={`brand-wordmark inline-flex items-start font-black leading-none text-white ${className}`}>
-      SIX3<span className="brand-degree">{'\u00b0'}</span>
+    <span className={`brand-wordmark inline-flex items-baseline font-black leading-none text-white ${className}`}>
+      SIX3<span className="six3-degree-dot" aria-hidden="true" />
     </span>
   );
 }

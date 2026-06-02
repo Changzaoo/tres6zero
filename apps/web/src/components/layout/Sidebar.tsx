@@ -18,7 +18,7 @@ import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface SidebarProps {
@@ -52,8 +52,8 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const content = (
     <div className="flex h-full w-64 flex-col border-r border-white/[0.08] bg-[#0e1016]/90 backdrop-blur-2xl">
-      <div className="flex h-[84px] items-center justify-center border-b border-white/[0.08] px-4 py-0">
-        <BrandLogo className="items-center" wordmarkClassName="text-5xl" />
+      <div className="flex h-[68px] items-center border-b border-white/[0.08] px-5">
+        <BrandWordmark className="text-2xl" />
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
@@ -67,9 +67,9 @@ export function Sidebar({ onClose }: SidebarProps) {
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
                   isActive
-                    ? 'border border-brand-400/25 bg-brand-500/15 text-brand-100 shadow-[0_16px_44px_-30px_rgba(59,109,255,.8)]'
-                    : 'text-white/50 hover:bg-white/[0.055] hover:text-white/90'
-                } ${locked ? 'opacity-70' : ''}`
+                    ? 'border border-brand-400/30 bg-brand-500/[0.18] text-white shadow-[0_0_0_1px_rgba(59,109,255,.15)_inset,0_18px_44px_-28px_rgba(59,109,255,.75)]'
+                    : 'text-white/45 hover:bg-white/[0.055] hover:text-white/90'
+                } ${locked ? 'opacity-60' : ''}`
               }
             >
               <Icon className="h-[18px] w-[18px] shrink-0" />
@@ -84,8 +84,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             to="/app/admin"
             onClick={onClose}
             className={({ isActive }) =>
-              `mt-2 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
-                isActive ? 'border border-yellow-500/20 bg-yellow-500/15 text-yellow-300' : 'text-white/50 hover:bg-white/[0.055] hover:text-white/90'
+              `mt-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
+                isActive ? 'border border-yellow-500/25 bg-yellow-500/[0.14] text-yellow-200' : 'text-white/45 hover:bg-white/[0.055] hover:text-white/90'
               }`
             }
           >
@@ -95,27 +95,27 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </nav>
 
-      <div className="border-t border-white/[0.08] p-2">
-        <div className="mb-0.5 flex items-center gap-2 px-1.5 py-1">
-          <div className="flex shrink-0 items-center gap-1.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-brand text-[11px] font-bold text-white shadow-glow ring-1 ring-white/15">
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <NotificationBell />
+      <div className="border-t border-white/[0.08] p-3">
+        <div className="mb-1 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-brand text-sm font-black text-white shadow-glow ring-1 ring-white/15">
+            {user?.avatarUrl
+              ? <img src={user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+              : user?.name?.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] font-medium text-white/80">{user?.name}</p>
-            <p className="truncate text-[10px] text-white/40">
-              {hasActiveSubscription ? 'Assinatura ativa' : 'Aguardando pagamento'}
+            <p className="truncate text-xs font-bold text-white/90">{user?.name}</p>
+            <p className={`truncate font-mono text-[10px] ${hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35'}`}>
+              {hasActiveSubscription ? 'Ativo' : 'Sem assinatura'}
             </p>
           </div>
+          <NotificationBell />
         </div>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-2xl px-1.5 py-1.5 text-[11px] text-white/40 transition-all hover:bg-red-500/10 hover:text-red-400"
+          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-semibold text-white/35 transition-all hover:bg-red-500/10 hover:text-red-400"
         >
           <LogOut className="h-3.5 w-3.5" />
-          <span>Sair</span>
+          <span>Sair da conta</span>
         </button>
       </div>
     </div>

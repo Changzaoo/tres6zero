@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
 
 const identifySchema = z.object({
@@ -119,10 +119,12 @@ export default function ForgotPasswordPage() {
     <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-md">
-        <div className="mb-8 text-center">
-          <BrandLogo className="mb-4 items-center" wordmarkClassName="text-4xl" />
-          <h1 className="text-2xl font-bold text-white">Recuperar senha</h1>
-          <p className="mt-1 text-sm text-white/40">Confirme uma informacao censurada da sua conta</p>
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandWordmark className="text-4xl" />
+          <div>
+            <h1 className="text-xl font-black text-white">Recuperar senha</h1>
+            <p className="mt-1 text-sm text-white/40">Confirme uma informação da sua conta para continuar</p>
+          </div>
         </div>
 
         <div className="six3-glass p-5 sm:p-6">

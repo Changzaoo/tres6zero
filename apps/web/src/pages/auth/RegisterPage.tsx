@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
 
 const schema = z.object({
@@ -53,10 +53,12 @@ export default function RegisterPage() {
     <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <BrandLogo className="mb-4 items-center" wordmarkClassName="text-4xl" />
-          <h1 className="text-2xl font-bold text-white">Criar conta</h1>
-          <p className="text-sm text-white/40">Cadastre-se e escolha um plano para liberar a plataforma</p>
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandWordmark className="text-4xl" />
+          <div>
+            <h1 className="text-xl font-black text-white">Criar conta</h1>
+            <p className="mt-1 text-sm text-white/40">Cadastre-se e escolha um plano para liberar a plataforma</p>
+          </div>
         </div>
         <div className="six3-glass p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

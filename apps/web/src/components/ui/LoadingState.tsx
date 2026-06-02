@@ -1,4 +1,4 @@
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandWordmark } from '@/components/brand/BrandLogo';
 
 function Six3Loader({ className = 'h-10 w-10' }: { className?: string }) {
   return (
@@ -35,7 +35,7 @@ export function LoadingScreen() {
         <div className="relative h-28 w-28">
           <Six3Loader className="h-28 w-28" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <BrandLogo className="items-center" wordmarkClassName="text-xl" />
+            <BrandWordmark className="text-xl" />
           </div>
         </div>
         <p className="text-sm text-white/40">Carregando plataforma...</p>
