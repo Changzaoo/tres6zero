@@ -6,6 +6,7 @@ import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
 import { downloadToTempFile, uploadBufferToSupabase } from './supabaseStorage';
 import { BASIC_EFFECTS, POPULAR_EFFECTS, AI_EFFECTS } from './planEntitlements';
+import { getAIVideoDirection } from './openaiVideoDirector';
 
 export type ProcessingConfig = {
   videoId: string;
@@ -26,6 +27,8 @@ export type ProcessingResult = {
   storagePath?: string;
   thumbnailUrl?: string;
   effect?: string;
+  musicTheme?: string;
+  aiRationale?: string;
   error?: string;
   processedAt: string;
 };
@@ -70,6 +73,28 @@ function runPythonEditor(args: string[]) {
   });
 }
 
+function runBinary(command: string, args: string[]) {
+  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+
+      const err = new Error(stderr.trim() || `COMMAND_FAILED_${code}`);
+      (err as any).status = 500;
+      reject(err);
+    });
+  });
+}
+
 function parseEditorEffect(stdout: string, fallback?: string) {
   try {
     const payload = JSON.parse(stdout.trim());
@@ -88,6 +113,19 @@ async function rasterOverlayIfNeeded(filePath: string) {
 
   const outputPath = path.join(path.dirname(filePath), 'overlay.png');
   await sharp(buffer, { density: 180 }).png().toFile(outputPath);
+  return outputPath;
+}
+
+async function extractAnalysisFrame(inputPath: string, dir: string) {
+  const outputPath = path.join(dir, 'ai-frame.jpg');
+  await runBinary(ffmpegPath || 'ffmpeg', [
+    '-y',
+    '-i', inputPath,
+    '-vf', 'scale=512:-2',
+    '-frames:v', '1',
+    '-q:v', '3',
+    outputPath,
+  ]);
   return outputPath;
 }
 
@@ -113,12 +151,29 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
 
     const script = resolvePythonScript();
     const outputPath = path.join(inputTemp.dir, `${config.videoId}-processed.mp4`);
+    let selectedEffect = config.effect || 'clean';
+    let selectedMusicTheme = config.musicTheme || 'none';
+    let aiRationale: string | undefined;
+
+    if (config.effect === 'ai_auto') {
+      const framePath = await extractAnalysisFrame(inputTemp.filePath, inputTemp.dir);
+      const direction = await getAIVideoDirection({
+        framePath,
+        eventType: config.eventType,
+        requestedMusicTheme: config.musicTheme,
+        hasOverlay: Boolean(config.overlayUrl),
+      });
+      selectedEffect = direction.effect;
+      selectedMusicTheme = direction.musicTheme;
+      aiRationale = direction.rationale;
+    }
+
     const args = [
       script,
       '--input', inputTemp.filePath,
       '--output', outputPath,
-      '--effect', config.effect || 'clean',
-      '--music-theme', config.musicTheme || 'none',
+      '--effect', selectedEffect,
+      '--music-theme', selectedMusicTheme,
       '--event-type', config.eventType || '',
       '--ffmpeg', ffmpegPath || 'ffmpeg',
     ];
@@ -141,7 +196,9 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
       status: 'processed',
       outputUrl: uploaded.publicUrl,
       storagePath: uploaded.path,
-      effect: parseEditorEffect(editor.stdout, config.effect),
+      effect: parseEditorEffect(editor.stdout, selectedEffect),
+      musicTheme: selectedMusicTheme,
+      aiRationale,
       processedAt,
     };
   } catch (error) {

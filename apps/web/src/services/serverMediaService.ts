@@ -22,6 +22,8 @@ export type VideoProcessResult = {
   outputUrl?: string;
   storagePath?: string;
   effect?: string;
+  musicTheme?: string;
+  aiRationale?: string;
   error?: string;
   processedAt: string;
 };

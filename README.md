@@ -7,6 +7,7 @@ Sistema para operacao de experiencias 360: cadastro, assinatura, acesso por plan
 - Frontend: React + Vite + TypeScript + Tailwind
 - Backend: Node.js + Express + TypeScript no Render
 - Edicao de video: Python + FFmpeg + Sharp para overlays transparentes
+- IA de direcao de video: OpenAI Responses API no backend Render
 - Auth e dados operacionais: Firebase
 - Storage de midia: Supabase Storage (`videos` e `templates`)
 - Pagamento: Stripe Checkout com Pix
@@ -81,10 +82,13 @@ STRIPE_WEBHOOK_SECRET=...
 SUPABASE_URL=https://xmuawzcpydmbcqackgoz.supabase.co
 SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+OPENAI_API_KEY=...
+OPENAI_MODEL=chat-latest
 PYTHON_BIN=python3
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` e recomendado no Render para uploads server-side sem depender de policies publicas de insert. Nunca coloque essa chave na Vercel nem em `VITE_*`.
+`OPENAI_API_KEY` tambem deve ficar somente no Render. O frontend nunca chama a OpenAI diretamente.
 
 ## URLs uteis
 

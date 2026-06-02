@@ -29,6 +29,10 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: chat-latest
       - key: PYTHON_BIN
         value: python3
       - key: ALLOW_VERCEL_PREVIEWS

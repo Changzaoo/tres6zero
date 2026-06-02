@@ -189,11 +189,12 @@ export default function OperatorPage() {
         videoUrl: processed.outputUrl,
         status: 'published',
         effect: processed.effect || effect,
+        musicTheme: processed.musicTheme || musicTheme,
       });
 
       setProgress(100);
       setStep('done');
-      toast.success('Video processado e publicado!');
+      toast.success(processed.aiRationale || 'Video processado e publicado!');
     } catch (error) {
       if (createdVideoId) {
         updateVideo(createdVideoId, { status: 'failed' }).catch(() => undefined);
