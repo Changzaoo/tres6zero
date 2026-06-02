@@ -48,10 +48,16 @@ services:
       - key: PYTHON_BIN
         value: python3
       - key: MAX_VIDEO_UPLOAD_MB
-        value: "120"
+        value: "48"
+      - key: MEMORY_GUARD_RSS_MB
+        value: "420"
       - key: VIDEO_PROCESS_CONCURRENCY
         value: "1"
       - key: SERVER_VIDEO_PROCESSING_ENABLED
+        value: "false"
+      - key: SIX3_HEAVY_VIDEO_WORKER
+        value: "false"
+      - key: SIX3_HEAVY_ASSET_JOBS_ENABLED
         value: "false"
       - key: MUSIC_REMOTE_IMPORT_MAX_MB
         value: "50"

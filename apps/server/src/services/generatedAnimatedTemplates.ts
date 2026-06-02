@@ -2,8 +2,6 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import ffmpegPath from 'ffmpeg-static';
-import sharp from 'sharp';
 import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplatePng } from './generatedTemplates';
 
 type BaseTemplate = ReturnType<typeof buildGeneratedTemplates>[number];
@@ -386,6 +384,10 @@ export async function renderAnimatedTemplateWebm(template: BaseTemplate, options
   const outputPath = path.join(dir, 'overlay.webm');
 
   try {
+    const sharp = (await import('sharp')).default;
+    const ffmpegModule = await import('ffmpeg-static');
+    const ffmpegBinary = (ffmpegModule.default || 'ffmpeg') as string;
+
     const staticOverlay = await sharp(await renderTemplatePng(template.svg))
       .resize(width, height, { fit: 'fill' })
       .png({ compressionLevel: 3 })
@@ -410,7 +412,7 @@ export async function renderAnimatedTemplateWebm(template: BaseTemplate, options
         .toFile(framePath);
     }));
 
-    await runBinary(ffmpegPath || 'ffmpeg', [
+    await runBinary(ffmpegBinary, [
       '-y',
       '-framerate', String(fps),
       '-i', path.join(dir, 'frame-%03d.png'),

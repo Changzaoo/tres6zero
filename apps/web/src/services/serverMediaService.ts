@@ -130,18 +130,16 @@ function normalizeGeneratedTemplateAssetUrls(template: AppTemplate) {
   if (!baseId) return template;
 
   const overlayUrl = `${API_URL}/api/templates/render/${encodeURIComponent(baseId)}.png`;
-  const hasMotion = template.id.startsWith('animated-')
-    || Boolean(template.animationStoragePath)
-    || /animated-v1|render-motion|\.webm/i.test(template.animationUrl || '');
+  const animationUrl = template.animationUrl && !/render-motion/i.test(template.animationUrl)
+    ? template.animationUrl
+    : undefined;
 
   return {
     ...template,
     previewUrl: overlayUrl,
     overlayUrl,
     frameUrl: overlayUrl,
-    animationUrl: hasMotion
-      ? `${API_URL}/api/templates/render-motion/${encodeURIComponent(baseId)}.webm`
-      : undefined,
+    animationUrl,
   };
 }
 
@@ -163,7 +161,7 @@ function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: num
     };
     xhr.onerror = () => reject(new Error('UPLOAD_FAILED'));
     xhr.onload = () => {
-      let payload: Record<string, unknown> = {};
+      let payload: Record<string, unknown>;
       try {
         payload = JSON.parse(xhr.responseText || '{}');
       } catch {

@@ -172,8 +172,15 @@ function generatedRenderUrl(req: Request, id: string) {
   return `${publicRequestBase(req)}/api/templates/render/${encodeURIComponent(id)}.png`;
 }
 
-function generatedMotionUrl(req: Request, id: string) {
-  return `${publicRequestBase(req)}/api/templates/render-motion/${encodeURIComponent(id)}.webm`;
+function heavyAssetJobsEnabled() {
+  return process.env.SIX3_HEAVY_ASSET_JOBS_ENABLED === 'true';
+}
+
+function rejectHeavyAssetJob(res: Response) {
+  return res.status(409).json({
+    error: 'HEAVY_ASSET_JOB_DISABLED',
+    message: 'Geracao pesada de templates e musicas deve rodar fora do web service do Render.',
+  });
 }
 
 templatesRouter.get('/render/:id', async (req, res, next) => {
@@ -190,32 +197,17 @@ templatesRouter.get('/render/:id', async (req, res, next) => {
       return;
     }
 
-    const buffer = await renderTemplatePng(template.svg);
-    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000');
-    res.send(buffer);
+    res.send(template.svg);
   } catch (e) { next(e); }
 });
 
-templatesRouter.get('/render-motion/:id', async (req, res, next) => {
-  try {
-    const target = generatedTemplateIdFromParam(req.params.id);
-    if (!target) {
-      res.status(404).json({ error: 'GENERATED_TEMPLATE_NOT_FOUND' });
-      return;
-    }
-
-    const template = buildGeneratedAnimatedTemplates(1, target.offset, { includeSvg: true, includeDataUrl: false })[0];
-    if (!template || template.id !== `animated-${target.id}` || !template.svg) {
-      res.status(404).json({ error: 'GENERATED_TEMPLATE_NOT_FOUND' });
-      return;
-    }
-
-    const buffer = await renderAnimatedTemplateWebm(template, { fps: 8, frames: 16 });
-    res.setHeader('Content-Type', 'video/webm');
-    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000');
-    res.send(buffer);
-  } catch (e) { next(e); }
+templatesRouter.get('/render-motion/:id', (_req, res) => {
+  res.status(410).json({
+    error: 'SERVER_MOTION_RENDER_DISABLED',
+    message: 'Templates animados devem ser pre-gerados em worker ou executados no navegador.',
+  });
 });
 
 templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
@@ -228,7 +220,6 @@ templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
     ...template,
     previewUrl: generatedRenderUrl(req, template.id),
     overlayUrl: generatedRenderUrl(req, template.id),
-    animationUrl: generatedMotionUrl(req, template.id),
   }));
 
   res.json({ templates: [...animatedTemplates, ...templates] });
@@ -521,6 +512,15 @@ async function runSeedJob(jobId: string) {
   const job = seedJobs.get(jobId);
   if (!job) return;
 
+  if (!heavyAssetJobsEnabled()) {
+    updateSeedJob(jobId, {
+      status: 'failed',
+      error: 'HEAVY_ASSET_JOB_DISABLED',
+      finishedAt: new Date().toISOString(),
+    });
+    return;
+  }
+
   updateSeedJob(jobId, { status: 'running' });
 
   try {
@@ -559,6 +559,8 @@ async function runSeedJob(jobId: string) {
 
 templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) => {
   try {
+    if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
+
     const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, animatedCount = 240, musicCount = 0 } = seedSchema.parse(req.body || {});
     const templates = await uploadProjectTemplates(count, offset);
     const animatedTemplates = animatedCount > 0 ? await uploadProjectAnimatedTemplates(animatedCount, offset) : [];
@@ -569,6 +571,8 @@ templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) =
 
 templatesRouter.post('/seed-animated', requireSeedSecret, async (req, res, next) => {
   try {
+    if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
+
     const { count = 144, offset = 0 } = seedSchema.parse(req.body || {});
     const templates = await uploadProjectAnimatedTemplates(count, offset);
     res.json({ ok: true, templateCount: templates.length, templates });
@@ -577,6 +581,8 @@ templatesRouter.post('/seed-animated', requireSeedSecret, async (req, res, next)
 
 templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) => {
   try {
+    if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
+
     const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 72, animatedCount = 240 } = seedSchema.parse(req.body || {});
     await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
     await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
@@ -605,6 +611,8 @@ templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) =
 
 templatesRouter.post('/seed-assets-job', requireSeedSecret, async (req, res, next) => {
   try {
+    if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
+
     const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 0, animatedCount = 240 } = seedSchema.parse(req.body || {});
     const now = new Date().toISOString();
     const job: SeedJob = {
@@ -640,6 +648,8 @@ templatesRouter.get('/seed-assets-job/:id', requireSeedSecret, (req, res) => {
 
 templatesRouter.post('/seed-transparent-job', requireAdmin, async (req, res, next) => {
   try {
+    if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
+
     const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 72, animatedCount = 240 } = seedSchema.parse(req.body || {});
     const now = new Date().toISOString();
     const job: SeedJob = {

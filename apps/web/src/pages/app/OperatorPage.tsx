@@ -213,11 +213,8 @@ function generatedTemplateRenderUrl(template?: AppTemplate) {
 }
 
 function generatedTemplateMotionUrl(template?: AppTemplate) {
-  const id = generatedTemplateBaseId(template);
-  const hasMotion = template?.id.startsWith('animated-')
-    || Boolean(template?.animationStoragePath)
-    || /animated-v1|render-motion|\.webm/i.test(template?.animationUrl || '');
-  return id && hasMotion ? `${API_URL}/api/templates/render-motion/${encodeURIComponent(id)}.webm` : undefined;
+  const animationUrl = template?.animationUrl;
+  return animationUrl && !/render-motion/i.test(animationUrl) ? animationUrl : undefined;
 }
 
 function templateImageSources(template?: AppTemplate) {
@@ -235,14 +232,14 @@ function templateRenderAssets(template?: AppTemplate) {
 
   return {
     overlayUrl: imageSources[0] || renderFallback,
-    animationUrl: generatedTemplateMotionUrl(template) || template?.animationUrl,
+    animationUrl: generatedTemplateMotionUrl(template),
     fallbackOverlayUrl: renderFallback,
   };
 }
 
 function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
   const imageSources = useMemo(() => templateImageSources(template), [template]);
-  const motionSrc = generatedTemplateMotionUrl(template) || template?.animationUrl;
+  const motionSrc = generatedTemplateMotionUrl(template);
   const [imageIndex, setImageIndex] = useState(0);
   const [motionFailed, setMotionFailed] = useState(false);
 

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -53,6 +54,33 @@ function isAllowedOrigin(origin?: string) {
   }
 }
 
+function memoryGuardLimitMb() {
+  const configured = Number(process.env.MEMORY_GUARD_RSS_MB);
+  if (Number.isFinite(configured) && configured > 0) return configured;
+  return process.env.RENDER ? 420 : 0;
+}
+
+function memoryPressureGuard(_req: Request, res: Response, next: NextFunction) {
+  const limitMb = memoryGuardLimitMb();
+  if (!limitMb) {
+    next();
+    return;
+  }
+
+  const rssMb = process.memoryUsage().rss / 1024 / 1024;
+  if (rssMb < limitMb) {
+    next();
+    return;
+  }
+
+  res.setHeader('Retry-After', '30');
+  res.status(503).json({
+    error: 'SERVER_MEMORY_PRESSURE',
+    code: 'SERVER_MEMORY_PRESSURE',
+    message: 'Servidor protegendo a instancia. Tente novamente em alguns segundos.',
+  });
+}
+
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
@@ -71,6 +99,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false }));
+app.use('/api', memoryPressureGuard);
 
 app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);

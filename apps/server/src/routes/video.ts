@@ -147,7 +147,8 @@ function canManageVideo(user: UserProfile, video: Record<string, unknown>) {
 }
 
 function serverVideoProcessingEnabled() {
-  return process.env.SERVER_VIDEO_PROCESSING_ENABLED === 'true';
+  return process.env.SERVER_VIDEO_PROCESSING_ENABLED === 'true'
+    && process.env.SIX3_HEAVY_VIDEO_WORKER === 'true';
 }
 
 function getAvailableEffects() {
@@ -213,7 +214,7 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
       return res.status(409).json({
         videoId: String(req.body?.videoId || ''),
         status: 'failed',
-        error: 'SERVER_VIDEO_PROCESSING_DISABLED_USE_BROWSER_RENDERER',
+        error: 'SERVER_VIDEO_PROCESSING_DISABLED_BROWSER_ONLY',
         processedAt: new Date().toISOString(),
       });
     }

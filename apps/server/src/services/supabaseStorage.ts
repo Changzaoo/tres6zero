@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -63,6 +63,10 @@ export function getSupabase() {
 function safeExt(originalName: string, fallback: string) {
   const ext = path.extname(originalName).toLowerCase();
   return ext && ext.length <= 8 ? ext : fallback;
+}
+
+function encodeObjectPath(objectPath: string) {
+  return objectPath.split('/').map(encodeURIComponent).join('/');
 }
 
 export function publicUrl(bucket: SupabaseBucket, objectPath: string) {
@@ -133,26 +137,34 @@ export async function uploadFileToSupabase(params: {
 }) {
   const ext = safeExt(params.fileName, params.fallbackExt);
   const objectPath = params.objectPath || `${params.prefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${ext}`;
-  const buffer = await readFile(params.filePath);
+  const { url, key } = getSupabaseConfig();
+  const fileStat = await stat(params.filePath);
+  const endpoint = `${url.replace(/\/+$/, '')}/storage/v1/object/${encodeURIComponent(params.bucket)}/${encodeObjectPath(objectPath)}`;
 
-  const { data, error } = await getSupabase()
-    .storage
-    .from(params.bucket)
-    .upload(objectPath, buffer, {
-      contentType: params.contentType,
-      upsert: params.upsert || false,
-    });
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+      'content-type': params.contentType,
+      'content-length': String(fileStat.size),
+      'x-upsert': params.upsert ? 'true' : 'false',
+    },
+    body: createReadStream(params.filePath) as any,
+    duplex: 'half',
+  } as RequestInit & { duplex: 'half' });
 
-  if (error) {
-    const err = new Error(`SUPABASE_UPLOAD_FAILED: ${error.message}`);
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    const err = new Error(`SUPABASE_UPLOAD_FAILED: ${message || response.statusText}`);
     (err as any).status = 502;
     throw err;
   }
 
   return {
     bucket: params.bucket,
-    path: data.path,
-    publicUrl: publicUrl(params.bucket, data.path),
+    path: objectPath,
+    publicUrl: publicUrl(params.bucket, objectPath),
   };
 }
 

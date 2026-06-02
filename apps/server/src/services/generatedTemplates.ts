@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import sharp from 'sharp';
 
 const LEGACY_CATEGORIES = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium'] as const;
 const CATEGORIES = [...LEGACY_CATEGORIES, 'graduation', 'store', 'church'] as const;
@@ -1460,6 +1459,7 @@ export function generatedTemplatePath(template: { id: string; category: string; 
 }
 
 export async function renderTemplatePng(svg: string) {
+  const sharp = (await import('sharp')).default;
   return sharp(Buffer.from(svg))
     .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();

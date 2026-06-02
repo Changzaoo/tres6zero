@@ -164,7 +164,6 @@ export function LoginSupportChat() {
     }, 12000);
 
     return () => window.clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, visitorId]);
 
   async function handleSend(event: React.FormEvent) {
