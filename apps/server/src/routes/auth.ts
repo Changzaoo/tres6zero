@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore, toFirebaseUserRecord } from '../services/firebaseAdmin';
+import { createNotification, getNotificationPreferences } from '../services/notifications';
 import {
   assertTrustedDevice,
   disconnectAllTrustedDevices,
@@ -210,6 +211,7 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
   const plan = planFromUser(user);
   const role = roleFromUser(user);
   const storedProfile = await storedUserProfile(user.localId);
+  const notificationPreferences = await getNotificationPreferences(user.localId).catch(() => undefined);
   let stripeAccess = null;
 
   if (role !== 'admin') {
@@ -234,6 +236,7 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
     renewalDay: role === 'admin' ? null : access?.renewalDay || null,
     companyName: storedProfile.companyName || '',
     avatarUrl: storedProfile.avatarUrl || '',
+    notificationPreferences,
     createdAt: user.createdAt ? new Date(Number(user.createdAt)).toISOString() : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -281,6 +284,15 @@ authRouter.post('/register', async (req, res, next) => {
         returnSecureToken: false,
       });
     }
+
+    await createNotification({
+      recipientUid: auth.localId,
+      category: 'system',
+      title: 'Bem-vindo ao SIX3',
+      body: 'Sua conta foi criada. Escolha um plano para liberar a plataforma completa.',
+      link: '/app/billing',
+      priority: 'normal',
+    }).catch((error) => console.warn('[notifications] welcome skipped:', error instanceof Error ? error.message : error));
 
     res.status(201).json(await sessionFromAuthResponse(auth, req, data.name));
   } catch (e) {

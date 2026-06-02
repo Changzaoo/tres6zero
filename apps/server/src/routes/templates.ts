@@ -10,6 +10,7 @@ import { buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../
 import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
+import { createNotification } from '../services/notifications';
 
 export const templatesRouter = Router();
 
@@ -200,6 +201,15 @@ templatesRouter.post('/custom', requirePlanFeature('custom_template_upload'), as
     });
     const ref = await getDb().collection('templates').add(template);
     const { _ts, ...publicTemplate } = template;
+    await createNotification({
+      recipientUid: user.uid,
+      category: 'template',
+      title: 'Template enviado',
+      body: `${data.name} foi salvo na sua biblioteca.`,
+      link: '/app/templates',
+      priority: 'normal',
+      metadata: { templateId: ref.id },
+    }).catch((error) => console.warn('[notifications] template skipped:', error instanceof Error ? error.message : error));
     res.status(201).json({ template: { id: ref.id, ...publicTemplate } });
   } catch (e) { next(e); }
 });
@@ -247,6 +257,15 @@ templatesRouter.post('/custom-music', requirePlanFeature('custom_template_upload
     });
     const ref = await getDb().collection('music').add(music);
     const { _ts, ...publicMusic } = music;
+    await createNotification({
+      recipientUid: user.uid,
+      category: 'template',
+      title: 'Musica enviada',
+      body: `${data.name} foi salva nas suas trilhas.`,
+      link: '/app/templates',
+      priority: 'normal',
+      metadata: { musicId: ref.id },
+    }).catch((error) => console.warn('[notifications] music skipped:', error instanceof Error ? error.message : error));
     res.status(201).json({ music: { id: ref.id, ...publicMusic } });
   } catch (e) { next(e); }
 });

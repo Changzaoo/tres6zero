@@ -124,6 +124,7 @@ function canCacheApiResponse(path: string, options: RequestInit) {
     '/api/auth/',
     '/api/billing/',
     '/api/support/',
+    '/api/notifications/',
     '/api/upload/',
     '/api/video/process',
     '/api/events/admin/',

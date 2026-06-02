@@ -12,7 +12,6 @@ import {
   Shield,
   Lock,
   CreditCard,
-  Bell,
   LifeBuoy,
 } from 'lucide-react';
 import { logout } from '@/services/authService';
@@ -20,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 import { BrandLogo } from '@/components/brand/BrandLogo';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -101,13 +101,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-brand text-[11px] font-bold text-white shadow-glow ring-1 ring-white/15">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
-            <button
-              type="button"
-              aria-label="Notificações"
-              className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/45 transition-colors hover:bg-white/[0.09] hover:text-white"
-            >
-              <Bell className="h-3 w-3" />
-            </button>
+            <NotificationBell />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[11px] font-medium text-white/80">{user?.name}</p>

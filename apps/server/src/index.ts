@@ -14,6 +14,7 @@ import { authRouter } from './routes/auth';
 import { billingRouter, stripeWebhookHandler } from './routes/billing';
 import { supportRouter } from './routes/support';
 import { eventsRouter } from './routes/events';
+import { notificationsRouter } from './routes/notifications';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -81,6 +82,7 @@ app.use('/api/qr', qrRouter);
 app.use('/api/leads', leadRouter);
 app.use('/api/track', trackRouter);
 app.use('/api/support', supportRouter);
+app.use('/api/notifications', notificationsRouter);
 
 app.use(errorHandler);
 

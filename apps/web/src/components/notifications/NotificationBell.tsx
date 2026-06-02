@@ -1,0 +1,218 @@
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Bell,
+  Calendar,
+  CheckCheck,
+  CreditCard,
+  Info,
+  Layers,
+  LifeBuoy,
+  Shield,
+  Trash2,
+  Video,
+  X,
+} from 'lucide-react';
+import {
+  archiveNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/services/notificationService';
+import { useNotificationStore } from '@/store/notificationStore';
+import { toast } from '@/components/ui/Toast';
+import type { AppNotification, NotificationCategory } from '@/types';
+
+const categoryLabel: Record<NotificationCategory, string> = {
+  support: 'Suporte',
+  billing: 'Pagamento',
+  video: 'Video',
+  event: 'Evento',
+  template: 'Template',
+  system: 'Sistema',
+  admin: 'Admin',
+};
+
+const categoryIcon: Record<NotificationCategory, typeof Info> = {
+  support: LifeBuoy,
+  billing: CreditCard,
+  video: Video,
+  event: Calendar,
+  template: Layers,
+  system: Info,
+  admin: Shield,
+};
+
+function formatRelative(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function NotificationItem({
+  notification,
+  onOpen,
+  onArchive,
+}: {
+  notification: AppNotification;
+  onOpen: (notification: AppNotification) => void;
+  onArchive: (notification: AppNotification) => void;
+}) {
+  const Icon = categoryIcon[notification.category] || Info;
+  const unread = !notification.readAt;
+
+  return (
+    <div className={`group grid grid-cols-[auto_1fr_auto] gap-3 rounded-2xl border p-3 transition-all ${
+      unread
+        ? 'border-brand-400/22 bg-brand-500/10'
+        : 'border-white/[0.08] bg-white/[0.035] hover:bg-white/[0.055]'
+    }`}>
+      <button
+        type="button"
+        onClick={() => onOpen(notification)}
+        className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/68 transition-colors hover:text-white"
+        aria-label={`Abrir notificacao ${notification.title}`}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+
+      <button type="button" onClick={() => onOpen(notification)} className="min-w-0 text-left">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-bold text-white">{notification.title}</p>
+          {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-300" />}
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-white/48">{notification.body}</p>
+        <div className="mt-1 flex items-center gap-2 text-[11px] font-medium text-white/32">
+          <span>{categoryLabel[notification.category] || notification.category}</span>
+          <span>-</span>
+          <span>{formatRelative(notification.createdAt)}</span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onArchive(notification)}
+        aria-label="Arquivar notificacao"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-white/28 opacity-100 transition-all hover:bg-red-500/12 hover:text-red-200 sm:opacity-0 sm:group-hover:opacity-100"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+export function NotificationBell({ className = '' }: { className?: string }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const { notifications, unreadCount, loading, markReadLocal, markAllReadLocal, archiveLocal } = useNotificationStore();
+  const latestNotifications = useMemo(() => notifications.slice(0, 12), [notifications]);
+
+  async function openNotification(notification: AppNotification) {
+    if (!notification.readAt) {
+      markReadLocal(notification.id);
+      markNotificationRead(notification.id).catch(() => undefined);
+    }
+
+    setOpen(false);
+    if (notification.link) {
+      navigate(notification.link);
+    }
+  }
+
+  async function handleMarkAllRead() {
+    markAllReadLocal();
+    try {
+      await markAllNotificationsRead();
+    } catch {
+      toast.error('Nao foi possivel marcar notificacoes.');
+    }
+  }
+
+  async function handleArchive(notification: AppNotification) {
+    archiveLocal(notification.id);
+    try {
+      await archiveNotification(notification.id);
+    } catch {
+      toast.error('Nao foi possivel arquivar.');
+    }
+  }
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        aria-label="Notificacoes"
+        onClick={() => setOpen((current) => !current)}
+        className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/55 transition-colors hover:bg-white/[0.09] hover:text-white"
+      >
+        <Bell className="h-4 w-4" />
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[9px] font-black text-white ring-2 ring-[#0e1016]">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="fixed inset-x-3 bottom-[calc(max(env(safe-area-inset-bottom),0.5rem)+5.8rem)] z-[80] mx-auto max-w-md rounded-[26px] border border-white/[0.1] bg-[#0e1016]/96 p-2 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:inset-x-auto lg:bottom-4 lg:left-[276px] lg:w-[390px] lg:max-w-none">
+          <div className="flex items-center justify-between gap-3 px-2 py-2">
+            <div>
+              <h2 className="text-sm font-black text-white">Notificacoes</h2>
+              <p className="text-xs text-white/38">
+                {unreadCount > 0 ? `${unreadCount} nao lida(s)` : 'Tudo em dia'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                disabled={unreadCount === 0}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/[0.075] hover:text-white disabled:opacity-30"
+                aria-label="Marcar todas como lidas"
+              >
+                <CheckCheck className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/[0.075] hover:text-white"
+                aria-label="Fechar notificacoes"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-[min(62vh,440px)] space-y-2 overflow-y-auto px-1 pb-1">
+            {loading && latestNotifications.length === 0 ? (
+              <div className="space-y-2 p-1">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div key={index} className="h-20 rounded-2xl bg-white/[0.055] six3-shimmer" />
+                ))}
+              </div>
+            ) : latestNotifications.length === 0 ? (
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-8 text-center">
+                <Bell className="mx-auto mb-3 h-8 w-8 text-white/20" />
+                <p className="text-sm font-bold text-white/72">Sem notificacoes</p>
+                <p className="mt-1 text-xs text-white/38">Avisos importantes vao aparecer aqui.</p>
+              </div>
+            ) : latestNotifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onOpen={openNotification}
+                onArchive={handleArchive}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

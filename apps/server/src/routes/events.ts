@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { requireActiveSubscription, requireAdmin } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
+import { createNotification } from '../services/notifications';
 
 export const eventsRouter = Router();
 
@@ -198,6 +199,15 @@ eventsRouter.post('/', requireActiveSubscription, async (req, res, next) => {
     });
     const ref = await getDb().collection('events').add(event);
     const { _ts, ...publicEvent } = event;
+    await createNotification({
+      recipientUid: user.uid,
+      category: 'event',
+      title: 'Evento criado',
+      body: `${data.name} esta pronto para receber videos e leads.`,
+      link: '/app/events',
+      priority: 'normal',
+      metadata: { eventId: ref.id },
+    }).catch((error) => console.warn('[notifications] event create skipped:', error instanceof Error ? error.message : error));
     res.status(201).json({ event: { id: ref.id, ...publicEvent } });
   } catch (error) {
     next(error);
@@ -215,7 +225,19 @@ eventsRouter.put('/:id', requireActiveSubscription, async (req, res, next) => {
       _ts: FieldValue.serverTimestamp(),
     });
     const snap = await getDb().collection('events').doc(req.params.id).get();
-    res.json({ event: eventFromDoc(snap) });
+    const updatedEvent = eventFromDoc(snap);
+    if (updatedEvent) {
+      await createNotification({
+        recipientUid: updatedEvent.ownerId,
+        category: 'event',
+        title: 'Evento atualizado',
+        body: `${updatedEvent.name} recebeu novas alteracoes.`,
+        link: '/app/events',
+        priority: 'low',
+        metadata: { eventId: req.params.id },
+      }).catch((error) => console.warn('[notifications] event update skipped:', error instanceof Error ? error.message : error));
+    }
+    res.json({ event: updatedEvent });
   } catch (error) {
     next(error);
   }
@@ -224,8 +246,17 @@ eventsRouter.put('/:id', requireActiveSubscription, async (req, res, next) => {
 eventsRouter.delete('/:id', requireActiveSubscription, async (req, res, next) => {
   try {
     const user = res.locals.user as UserProfile;
-    await loadManageableEvent(req.params.id, user);
+    const event = await loadManageableEvent(req.params.id, user);
     await getDb().collection('events').doc(req.params.id).delete();
+    await createNotification({
+      recipientUid: event.ownerId,
+      category: 'event',
+      title: 'Evento removido',
+      body: `${event.name} foi removido da sua conta.`,
+      link: '/app/events',
+      priority: 'low',
+      metadata: { eventId: req.params.id },
+    }).catch((error) => console.warn('[notifications] event delete skipped:', error instanceof Error ? error.message : error));
     res.json({ ok: true });
   } catch (error) {
     next(error);
@@ -250,6 +281,15 @@ eventsRouter.post('/:id/duplicate', requireActiveSubscription, async (req, res, 
     });
     const ref = await getDb().collection('events').add(event);
     const { _ts, ...publicEvent } = event;
+    await createNotification({
+      recipientUid: user.uid,
+      category: 'event',
+      title: 'Evento duplicado',
+      body: `${event.name} foi criado como rascunho.`,
+      link: '/app/events',
+      priority: 'normal',
+      metadata: { eventId: ref.id, originalEventId: req.params.id },
+    }).catch((error) => console.warn('[notifications] event duplicate skipped:', error instanceof Error ? error.message : error));
     res.status(201).json({ event: { id: ref.id, ...publicEvent } });
   } catch (error) {
     next(error);

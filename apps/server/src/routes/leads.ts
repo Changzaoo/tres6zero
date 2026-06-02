@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
+import { createNotification } from '../services/notifications';
 
 export const leadRouter = Router();
 
@@ -117,6 +118,20 @@ leadRouter.post('/', async (req, res, next) => {
       createdAt: now,
       _ts: FieldValue.serverTimestamp(),
     });
+
+    const eventSnap = await getDb().collection('events').doc(data.eventId).get();
+    const ownerUid = eventSnap.exists ? eventSnap.data()?.ownerId : null;
+    if (typeof ownerUid === 'string') {
+      await createNotification({
+        recipientUid: ownerUid,
+        category: 'event',
+        title: 'Novo lead capturado',
+        body: `${data.name} deixou contato na galeria.`,
+        link: '/app/leads',
+        priority: 'normal',
+        metadata: { leadId: ref.id, eventId: data.eventId, videoId: data.videoId },
+      }).catch((error) => console.warn('[notifications] lead skipped:', error instanceof Error ? error.message : error));
+    }
 
     res.status(201).json({ lead: { id: ref.id, ...data, email: data.email || '', createdAt: now } });
   } catch (e) { next(e); }

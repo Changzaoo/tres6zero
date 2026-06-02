@@ -1,4 +1,4 @@
-const VERSION = '2026-06-02.2';
+const VERSION = '2026-06-02.3';
 const SHELL_CACHE = `six3-shell-${VERSION}`;
 const STATIC_CACHE = `six3-static-${VERSION}`;
 const RUNTIME_CACHE = `six3-runtime-${VERSION}`;
@@ -36,6 +36,7 @@ function isCacheableApiRequest(request, url) {
     '/api/auth/',
     '/api/billing/',
     '/api/support/',
+    '/api/notifications/',
     '/api/upload/',
     '/api/video/process',
     '/api/events/admin/',

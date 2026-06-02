@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { getAuthenticatedUser, requireAdmin } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
+import { createAdminNotification, createNotification } from '../services/notifications';
 
 export const supportRouter = Router();
 
@@ -172,6 +173,15 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
       createdAt,
     });
 
+    await createAdminNotification({
+      category: 'support',
+      title: 'Novo suporte anonimo',
+      body: `${userName}: ${preview(data.message)}`,
+      link: '/app/admin',
+      priority: 'high',
+      metadata: { conversationId: conversationRef.id, source: 'login' },
+    }).catch((error) => console.warn('[notifications] support admin skipped:', error instanceof Error ? error.message : error));
+
     res.status(201).json({ conversation: { id: conversationRef.id, ...conversation } });
   } catch (error) {
     next(error);
@@ -216,6 +226,15 @@ supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, nex
       unreadForAdmin: FieldValue.increment(1),
       updatedAt: createdAt,
     });
+
+    await createAdminNotification({
+      category: 'support',
+      title: 'Nova mensagem de suporte',
+      body: `${conversation.userName || 'Anonimo'}: ${preview(data.message)}`,
+      link: '/app/admin',
+      priority: 'high',
+      metadata: { conversationId: req.params.id, source: 'login' },
+    }).catch((error) => console.warn('[notifications] support admin skipped:', error instanceof Error ? error.message : error));
 
     res.status(201).json({
       message: messageFromDoc(await messageRef.get()),
@@ -277,6 +296,15 @@ supportRouter.post('/conversations', async (req, res, next) => {
       createdAt,
     });
 
+    await createAdminNotification({
+      category: 'support',
+      title: 'Novo chamado de suporte',
+      body: `${userName}: ${preview(data.message)}`,
+      link: '/app/admin',
+      priority: 'high',
+      metadata: { conversationId: conversationRef.id, ownerUid: user.localId },
+    }).catch((error) => console.warn('[notifications] support admin skipped:', error instanceof Error ? error.message : error));
+
     res.status(201).json({ conversation: { id: conversationRef.id, ...conversation } });
   } catch (error) {
     next(error);
@@ -323,6 +351,15 @@ supportRouter.post('/conversations/:id/messages', async (req, res, next) => {
       unreadForAdmin: FieldValue.increment(1),
       updatedAt: createdAt,
     });
+
+    await createAdminNotification({
+      category: 'support',
+      title: 'Resposta do usuario no suporte',
+      body: `${userName}: ${preview(data.message)}`,
+      link: '/app/admin',
+      priority: 'normal',
+      metadata: { conversationId: req.params.id, ownerUid: user.localId },
+    }).catch((error) => console.warn('[notifications] support admin skipped:', error instanceof Error ? error.message : error));
 
     res.status(201).json({
       message: messageFromDoc(await messageRef.get()),
@@ -377,6 +414,17 @@ supportRouter.post('/admin/conversations/:id/messages', requireAdmin, async (req
       unreadForUser: FieldValue.increment(1),
       updatedAt: createdAt,
     });
+
+    const conversation = conversationFromDoc(await ref.get());
+    await createNotification({
+      recipientUid: conversation.ownerUid,
+      category: 'support',
+      title: 'Suporte respondeu',
+      body: preview(data.message),
+      link: '/app/support',
+      priority: 'high',
+      metadata: { conversationId: req.params.id },
+    }).catch((error) => console.warn('[notifications] support user skipped:', error instanceof Error ? error.message : error));
 
     res.status(201).json({
       message: messageFromDoc(await messageRef.get()),

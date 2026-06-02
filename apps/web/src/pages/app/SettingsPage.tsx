@@ -6,12 +6,14 @@ import { useAuthStore } from '@/store/authStore';
 import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseError, updateUserProfile } from '@/services/authService';
 import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
 import { defaultOperatorPreferences, getOperatorPreferences, setOperatorPreferences, type OperatorPreferences } from '@/services/appPreferences';
+import { mergeNotificationPreferences, notificationCategories, updateNotificationPreferences } from '@/services/notificationService';
+import { useNotificationStore } from '@/store/notificationStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { toast } from '@/components/ui/Toast';
-import { Building, Camera, Globe2, KeyRound, LogOut, MapPin, Monitor, MonitorSmartphone, Moon, Palette, ShieldCheck, Sun, Trash2, User, Wifi } from 'lucide-react';
-import type { TrustedDevice } from '@/types';
+import { BellRing, Building, Camera, Clock3, Globe2, KeyRound, LogOut, MapPin, Monitor, MonitorSmartphone, Moon, Palette, ShieldCheck, Sun, Trash2, User, Volume2, Wifi } from 'lucide-react';
+import type { NotificationPreferences, TrustedDevice } from '@/types';
 
 interface ProfileFormData {
   name: string;
@@ -121,6 +123,41 @@ function SegmentedButton({
   );
 }
 
+function ToggleRow({
+  title,
+  description,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition-all hover:bg-white/[0.065] disabled:cursor-not-allowed disabled:opacity-55"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-white">{title}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-white/42">{description}</span>
+      </span>
+      <span className={`relative h-7 w-12 shrink-0 rounded-full border transition-all ${
+        checked ? 'border-brand-300/50 bg-brand-500/70' : 'border-white/12 bg-white/[0.055]'
+      }`}>
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-lg transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`} />
+      </span>
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
@@ -130,11 +167,20 @@ export default function SettingsPage() {
   const passwordForm = useForm<PasswordFormData>();
   const [theme, setTheme] = useState<ThemeMode>(() => getStoredThemeMode());
   const [operatorPrefs, setOperatorPrefs] = useState<OperatorPreferences>(() => getOperatorPreferences());
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(() => mergeNotificationPreferences(user?.notificationPreferences));
+  const [notificationSaving, setNotificationSaving] = useState(false);
+  const setGlobalNotificationPrefs = useNotificationStore((state) => state.setPreferences);
   const devices = user?.trustedDevices || [];
 
   useEffect(() => {
     if (user) profileForm.reset({ name: user.name, companyName: user.companyName || '', avatarUrl: user.avatarUrl || '' });
   }, [profileForm, user]);
+
+  useEffect(() => {
+    const nextPreferences = mergeNotificationPreferences(user?.notificationPreferences);
+    setNotificationPrefs(nextPreferences);
+    setGlobalNotificationPrefs(nextPreferences);
+  }, [setGlobalNotificationPrefs, user?.notificationPreferences]);
 
   async function onProfileSubmit(data: ProfileFormData) {
     if (!user) return;
@@ -201,6 +247,37 @@ export default function SettingsPage() {
     setOperatorPrefs(nextPrefs);
     setOperatorPreferences(nextPrefs);
     toast.success('Preferencias salvas.');
+  }
+
+  async function saveNotificationPrefs(nextPrefs: NotificationPreferences) {
+    const normalized = mergeNotificationPreferences(nextPrefs);
+    setNotificationPrefs(normalized);
+    setGlobalNotificationPrefs(normalized);
+    setNotificationSaving(true);
+
+    try {
+      const { preferences } = await updateNotificationPreferences(normalized);
+      setNotificationPrefs(preferences);
+      setGlobalNotificationPrefs(preferences);
+      if (user) setUser({ ...user, notificationPreferences: preferences });
+      toast.success('Notificacoes salvas.');
+    } catch {
+      toast.error('Erro ao salvar notificacoes.');
+    } finally {
+      setNotificationSaving(false);
+    }
+  }
+
+  async function handleBrowserToggle(checked: boolean) {
+    if (checked && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        toast.error('Permissao de notificacao negada pelo navegador.');
+        checked = false;
+      }
+    }
+
+    await saveNotificationPrefs({ ...notificationPrefs, browser: checked });
   }
 
   return (
@@ -274,6 +351,97 @@ export default function SettingsPage() {
               <SegmentedButton active={theme === 'dark'} label="Escuro" icon={<Moon className="h-4 w-4" />} onClick={() => handleThemeChange('dark')} />
               <SegmentedButton active={theme === 'light'} label="Claro" icon={<Sun className="h-4 w-4" />} onClick={() => handleThemeChange('light')} />
               <SegmentedButton active={theme === 'system'} label="Sistema" icon={<Monitor className="h-4 w-4" />} onClick={() => handleThemeChange('system')} />
+            </div>
+          </Card>
+
+          <Card padding="sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-white">
+                <BellRing className="h-5 w-5 text-brand-400" />
+                Notificacoes
+              </h2>
+              {notificationSaving && <span className="text-xs font-bold text-white/35">Salvando...</span>}
+            </div>
+
+            <div className="space-y-3">
+              <ToggleRow
+                title="Central de notificacoes"
+                description="Mantem avisos dentro do app, no sino da plataforma."
+                checked={notificationPrefs.inApp}
+                onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, inApp: checked, browser: checked ? notificationPrefs.browser : false })}
+              />
+              <ToggleRow
+                title="Notificacoes do navegador"
+                description="'Push' local quando o app estiver aberto ou instalado."
+                checked={notificationPrefs.browser}
+                onChange={handleBrowserToggle}
+                disabled={!notificationPrefs.inApp || (typeof window !== 'undefined' && !('Notification' in window))}
+              />
+              <ToggleRow
+                title="Som discreto"
+                description="Toca um alerta curto para novas notificacoes."
+                checked={notificationPrefs.sound}
+                onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, sound: checked })}
+              />
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <ToggleRow
+                  title="Horario silencioso"
+                  description="Pausa som e notificacoes do navegador nesse periodo."
+                  checked={notificationPrefs.quietHours.enabled}
+                  onChange={(checked) => saveNotificationPrefs({
+                    ...notificationPrefs,
+                    quietHours: { ...notificationPrefs.quietHours, enabled: checked },
+                  })}
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <label className="space-y-1.5">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-white/55">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      Inicio
+                    </span>
+                    <input
+                      type="time"
+                      value={notificationPrefs.quietHours.start}
+                      onChange={(event) => saveNotificationPrefs({
+                        ...notificationPrefs,
+                        quietHours: { ...notificationPrefs.quietHours, start: event.target.value },
+                      })}
+                      className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.055] px-3 text-sm font-bold text-white outline-none focus:border-brand-400/60"
+                    />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-white/55">
+                      <Volume2 className="h-3.5 w-3.5" />
+                      Fim
+                    </span>
+                    <input
+                      type="time"
+                      value={notificationPrefs.quietHours.end}
+                      onChange={(event) => saveNotificationPrefs({
+                        ...notificationPrefs,
+                        quietHours: { ...notificationPrefs.quietHours, end: event.target.value },
+                      })}
+                      className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.055] px-3 text-sm font-bold text-white outline-none focus:border-brand-400/60"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {notificationCategories.map((category) => (
+                  <ToggleRow
+                    key={category.value}
+                    title={category.label}
+                    description={category.description}
+                    checked={notificationPrefs.categories[category.value]}
+                    onChange={(checked) => saveNotificationPrefs({
+                      ...notificationPrefs,
+                      categories: { ...notificationPrefs.categories, [category.value]: checked },
+                    })}
+                  />
+                ))}
+              </div>
             </div>
           </Card>
 

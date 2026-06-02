@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { logout } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
@@ -89,6 +90,7 @@ export function MobileBottomNav() {
                 <p className="truncate text-sm font-bold text-white">{user?.name || 'Conta'}</p>
                 <p className="truncate text-xs text-white/42">{user?.email || 'Perfil SIX3'}</p>
               </div>
+              <NotificationBell />
               <button
                 type="button"
                 onClick={handleLogout}

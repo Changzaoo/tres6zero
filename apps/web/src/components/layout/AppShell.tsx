@@ -3,6 +3,8 @@ import { MouseAura } from '@/components/landing/MouseAura';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileBottomNav } from './MobileBottomNav';
+import { useAuth } from '@/hooks/useAuth';
+import { useNotificationPolling } from '@/hooks/useNotificationPolling';
 
 const PAGE_TITLES: Record<string, string> = {
   '/app/dashboard': 'Dashboard',
@@ -21,7 +23,9 @@ const PAGE_TITLES: Record<string, string> = {
 
 export function AppShell() {
   const location = useLocation();
+  const { user } = useAuth();
   const title = PAGE_TITLES[location.pathname] || 'SIX3°';
+  useNotificationPolling(user);
 
   return (
     <div className="six3-grid-bg flex h-screen overflow-hidden bg-surface">

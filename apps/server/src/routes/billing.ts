@@ -8,6 +8,7 @@ import {
   getStripe,
   listActivePaidCustomers,
 } from '../services/stripeBilling';
+import { createNotification } from '../services/notifications';
 
 export const billingRouter = Router();
 
@@ -30,7 +31,22 @@ async function activateFromCheckoutSession(session: CheckoutSession) {
     throw new Error('INVALID_CHECKOUT_SESSION');
   }
 
-  return activateMonthlyAccess(customerId, plan.id, session.id);
+  const access = await activateMonthlyAccess(customerId, plan.id, session.id);
+  const firebaseUid = session.metadata?.firebase_uid;
+
+  if (firebaseUid) {
+    await createNotification({
+      recipientUid: firebaseUid,
+      category: 'billing',
+      title: 'Pagamento confirmado',
+      body: `Seu plano ${plan.name} esta ativo ate ${access.currentPeriodEnd ? new Date(access.currentPeriodEnd).toLocaleDateString('pt-BR') : 'o proximo ciclo'}.`,
+      link: '/app/billing',
+      priority: 'high',
+      metadata: { checkoutSessionId: session.id, planId: plan.id },
+    }).catch((error) => console.warn('[notifications] billing skipped:', error instanceof Error ? error.message : error));
+  }
+
+  return access;
 }
 
 billingRouter.post('/checkout', async (req, res, next) => {

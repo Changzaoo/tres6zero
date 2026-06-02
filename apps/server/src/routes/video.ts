@@ -6,6 +6,7 @@ import { featureForEffect, hasPlanFeature } from '../services/planEntitlements';
 import { getSupabaseUrl } from '../services/supabaseStorage';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
+import { createNotification } from '../services/notifications';
 
 export const videoRouter = Router();
 
@@ -221,6 +222,19 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
       ...config,
       userId: profile?.uid,
     });
+
+    await createNotification({
+      recipientUid: profile?.uid || '',
+      category: 'video',
+      title: result.status === 'processed' ? 'Video pronto' : 'Processamento falhou',
+      body: result.status === 'processed'
+        ? 'Seu video foi processado e publicado com sucesso.'
+        : result.error || 'Nao foi possivel processar o video agora.',
+      link: result.status === 'processed' ? `/v/${config.videoId}` : '/app/gravar',
+      priority: result.status === 'processed' ? 'normal' : 'high',
+      metadata: { videoId: config.videoId, status: result.status },
+    }).catch((error) => console.warn('[notifications] video skipped:', error instanceof Error ? error.message : error));
+
     res.status(result.status === 'failed' ? 500 : 200).json(result);
   } catch (e) { next(e); }
 });

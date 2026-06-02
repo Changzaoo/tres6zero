@@ -17,6 +17,7 @@ export interface UserProfile {
   trustedDevices?: TrustedDevice[];
   companyName?: string;
   avatarUrl?: string;
+  notificationPreferences?: NotificationPreferences;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +33,36 @@ export interface TrustedDevice {
   createdAt: string;
   lastSeenAt: string;
   isCurrent: boolean;
+}
+
+export type NotificationCategory = 'support' | 'billing' | 'video' | 'event' | 'template' | 'system' | 'admin';
+export type NotificationPriority = 'low' | 'normal' | 'high';
+
+export interface NotificationPreferences {
+  inApp: boolean;
+  browser: boolean;
+  sound: boolean;
+  quietHours: {
+    enabled: boolean;
+    start: string;
+    end: string;
+  };
+  categories: Record<NotificationCategory, boolean>;
+}
+
+export interface AppNotification {
+  id: string;
+  recipientUid: string;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  link?: string;
+  priority: NotificationPriority;
+  metadata?: Record<string, unknown>;
+  readAt?: string | null;
+  archivedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SupportConversation {
