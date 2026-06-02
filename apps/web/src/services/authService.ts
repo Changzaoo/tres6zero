@@ -183,6 +183,10 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (payload?.code === 'DEVICE_DISCONNECTED' || payload?.error === 'DEVICE_DISCONNECTED') {
+      clearAuthSession();
+    }
+
     const error = new Error(payload?.error || payload?.code || 'Erro ao autenticar.') as ApiError;
     error.code = payload?.code || payload?.error;
     error.status = response.status;
@@ -261,6 +265,18 @@ export async function updateUserProfile(_uid: string, data: Partial<UserProfile>
   return user;
 }
 
+export async function disconnectDevice(deviceId: string) {
+  return request<{ ok: true; currentDisconnected: boolean; user: UserProfile }>(`/api/auth/devices/${encodeURIComponent(deviceId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function disconnectAllDevices() {
+  return request<{ ok: true; currentDisconnected: boolean }>('/api/auth/devices', {
+    method: 'DELETE',
+  });
+}
+
 export async function getAdminSession() {
   return request<{ ok: true; user: UserProfile }>('/api/auth/admin/session');
 }
@@ -276,8 +292,7 @@ const FIREBASE_ERRORS: Record<string, string> = {
   AUTH_REQUIRED: 'Faça login para continuar.',
   PAYMENT_REQUIRED: 'Assinatura necessária para liberar este recurso.',
   DEVICE_ID_REQUIRED: 'Nao foi possivel identificar este dispositivo.',
-  DEVICE_LIMIT_REACHED: 'Essa conta ja esta vinculada aos dois primeiros dispositivos.',
-  DEVICE_SECURITY_NOT_CONFIGURED: 'Seguranca por dispositivo nao configurada no servidor.',
+  DEVICE_DISCONNECTED: 'Este dispositivo foi desconectado da conta.',
 };
 
 export function parseFirebaseError(code?: string): string {

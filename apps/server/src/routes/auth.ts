@@ -3,7 +3,15 @@ import { z } from 'zod';
 import { getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 import { getFirebaseAdminAuth, toFirebaseUserRecord } from '../services/firebaseAdmin';
-import { assertTrustedDevice, ensureTrustedDeviceSecurityConfigured, getRequestDeviceHash, publicTrustedDevices } from '../services/trustedDevices';
+import {
+  assertTrustedDevice,
+  disconnectAllTrustedDevices,
+  disconnectTrustedDevice,
+  ensureTrustedDeviceSecurityConfigured,
+  getRequestDeviceHash,
+  publicTrustedDevices,
+  registerTrustedDevice,
+} from '../services/trustedDevices';
 
 export const authRouter = Router();
 
@@ -30,6 +38,8 @@ const profileSchema = z.object({
 const passwordSchema = z.object({
   newPassword: z.string().min(8),
 });
+
+const deviceIdSchema = z.string().regex(/^[a-f0-9]{64}$/);
 
 type FirebaseAuthResponse = {
   idToken: string;
@@ -214,7 +224,7 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
 async function userProfileForRequest(req: Request, user: FirebaseUserRecord, fallbackName?: string) {
   return {
     ...(await userProfile(user, fallbackName)),
-    trustedDevices: publicTrustedDevices(user, getRequestDeviceHash(req)),
+    trustedDevices: await publicTrustedDevices(user, getRequestDeviceHash(req)),
   };
 }
 
@@ -225,15 +235,13 @@ async function sessionFromAuthResponse(auth: FirebaseAuthResponse, req: Request,
     displayName: auth.displayName || fallbackName,
   };
 
-  const updatedDevice = await assertTrustedDevice(req, initialUser);
-
-  const user = updatedDevice ? await getUserFromIdToken(auth.idToken) || initialUser : initialUser;
+  await registerTrustedDevice(req, initialUser);
 
   return {
     token: auth.idToken,
     refreshToken: auth.refreshToken,
     expiresIn: Number(auth.expiresIn || 3600),
-    user: await userProfileForRequest(req, user, fallbackName),
+    user: await userProfileForRequest(req, initialUser, fallbackName),
   };
 }
 
@@ -343,6 +351,38 @@ authRouter.put('/password', async (req, res, next) => {
     });
 
     res.json(await sessionFromAuthResponse(auth, req));
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.delete('/devices/:deviceId', async (req, res, next) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    const deviceId = deviceIdSchema.parse(req.params.deviceId);
+    const currentDeviceHash = getRequestDeviceHash(req);
+
+    await disconnectTrustedDevice(user.localId, deviceId);
+
+    res.json({
+      ok: true,
+      currentDisconnected: deviceId === currentDeviceHash,
+      user: await userProfileForRequest(req, user),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.delete('/devices', async (req, res, next) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    await disconnectAllTrustedDevices(user.localId);
+
+    res.json({
+      ok: true,
+      currentDisconnected: true,
+    });
   } catch (e) {
     next(e);
   }

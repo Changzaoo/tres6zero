@@ -24,6 +24,11 @@ export interface UserProfile {
 export interface TrustedDevice {
   id: string;
   name: string;
+  ip?: string;
+  location?: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
   createdAt: string;
   lastSeenAt: string;
   isCurrent: boolean;

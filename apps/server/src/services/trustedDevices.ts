@@ -1,24 +1,34 @@
 import crypto from 'crypto';
 import { Request } from 'express';
-import { getFirebaseAdminAuth } from './firebaseAdmin';
-
-export const TRUSTED_DEVICES_CLAIM = 'six3TrustedDevices';
-export const MAX_TRUSTED_DEVICES = 2;
+import { FieldValue } from 'firebase-admin/firestore';
+import { getFirebaseAdminFirestore } from './firebaseAdmin';
 
 const DEVICE_ID_HEADER = 'x-six3-device-id';
 const DEVICE_NAME_HEADER = 'x-six3-device-name';
 const DEVICE_LAST_SEEN_UPDATE_MS = 5 * 60 * 1000;
 
-export type TrustedDevice = {
-  h: string;
-  name: string;
-  createdAt: string;
-  lastSeenAt: string;
-};
-
 type ClaimSource = {
   localId: string;
-  customAttributes?: string;
+};
+
+type DeviceRecord = {
+  name: string;
+  ip: string;
+  location: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  userAgent?: string;
+  createdAt: string;
+  lastSeenAt: string;
+  revokedAt?: string | null;
+};
+
+type GeoLocation = {
+  location: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
 };
 
 function authError(message: string, status: number): never {
@@ -26,14 +36,6 @@ function authError(message: string, status: number): never {
   (err as any).status = status;
   (err as any).code = message;
   throw err;
-}
-
-function parseCustomClaims(user: ClaimSource) {
-  try {
-    return user.customAttributes ? JSON.parse(user.customAttributes) as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
 }
 
 function sanitizeDeviceName(value: unknown) {
@@ -59,7 +61,7 @@ export function getRequestDevice(req: Request) {
 }
 
 export function hashDeviceId(deviceId: string) {
-  const pepper = process.env.DEVICE_HASH_SECRET || process.env.SESSION_SECRET || 'six3-device-lock';
+  const pepper = process.env.DEVICE_HASH_SECRET || process.env.SESSION_SECRET || 'six3-device-registry';
   return crypto.createHash('sha256').update(`${pepper}:${deviceId}`).digest('hex');
 }
 
@@ -67,97 +69,203 @@ export function getRequestDeviceHash(req: Request) {
   return hashDeviceId(getRequestDevice(req).deviceId);
 }
 
-export function getTrustedDevices(user: ClaimSource): TrustedDevice[] {
-  const claims = parseCustomClaims(user);
-  const raw = claims[TRUSTED_DEVICES_CLAIM];
-
-  if (!Array.isArray(raw)) return [];
-
-  return raw
-    .filter((item): item is TrustedDevice => (
-      Boolean(item) &&
-      typeof item === 'object' &&
-      typeof (item as TrustedDevice).h === 'string' &&
-      typeof (item as TrustedDevice).createdAt === 'string' &&
-      typeof (item as TrustedDevice).lastSeenAt === 'string'
-    ))
-    .slice(0, MAX_TRUSTED_DEVICES)
-    .map((item) => ({
-      h: item.h,
-      name: sanitizeDeviceName(item.name),
-      createdAt: item.createdAt,
-      lastSeenAt: item.lastSeenAt,
-    }));
+function getDeviceCollection(uid: string) {
+  const db = getFirebaseAdminFirestore();
+  return db?.collection('users').doc(uid).collection('devices') || null;
 }
 
-function shouldRefreshLastSeen(device: TrustedDevice, now: Date) {
-  const lastSeenAt = new Date(device.lastSeenAt).getTime();
-  return Number.isNaN(lastSeenAt) || now.getTime() - lastSeenAt > DEVICE_LAST_SEEN_UPDATE_MS;
+function clientIp(req: Request) {
+  const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const ip = forwarded || req.ip || req.socket.remoteAddress || '';
+  return ip.replace(/^::ffff:/, '') || 'desconhecido';
 }
 
-async function saveTrustedDevices(uid: string, devices: TrustedDevice[]) {
-  const adminAuth = getFirebaseAdminAuth();
-  if (!adminAuth) {
-    authError('DEVICE_SECURITY_NOT_CONFIGURED', 500);
+function isPublicIp(ip: string) {
+  return Boolean(ip)
+    && ip !== 'desconhecido'
+    && ip !== '::1'
+    && ip !== '127.0.0.1'
+    && !ip.startsWith('10.')
+    && !ip.startsWith('192.168.')
+    && !/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip);
+}
+
+function decodeHeader(value?: string) {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
   }
+}
 
-  const record = await adminAuth.getUser(uid);
-  await adminAuth.setCustomUserClaims(uid, {
-    ...(record.customClaims || {}),
-    [TRUSTED_DEVICES_CLAIM]: devices.slice(0, MAX_TRUSTED_DEVICES),
-  });
+function locationFromHeaders(req: Request): GeoLocation | null {
+  const country = req.get('x-vercel-ip-country') || req.get('cf-ipcountry') || null;
+  const city = decodeHeader(req.get('x-vercel-ip-city'));
+  const region = decodeHeader(req.get('x-vercel-ip-country-region'));
+  const parts = [city, region, country].filter(Boolean);
+
+  return parts.length > 0 ? {
+    city,
+    region,
+    country,
+    location: parts.join(', '),
+  } : null;
+}
+
+async function locationFromIp(ip: string): Promise<GeoLocation | null> {
+  if (!isPublicIp(ip)) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1200);
+
+  try {
+    const response = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({})) as {
+      city?: string;
+      region?: string;
+      country_name?: string;
+      country_code?: string;
+    };
+
+    if (!response.ok) return null;
+
+    const country = payload.country_name || payload.country_code || null;
+    const city = payload.city || null;
+    const region = payload.region || null;
+    const parts = [city, region, country].filter(Boolean);
+
+    return parts.length > 0 ? {
+      city,
+      region,
+      country,
+      location: parts.join(', '),
+    } : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function resolveLocation(req: Request, ip: string) {
+  return locationFromHeaders(req)
+    || await locationFromIp(ip)
+    || { location: isPublicIp(ip) ? 'Localizacao nao identificada' : 'Rede local' };
+}
+
+function shouldRefreshLastSeen(device: DeviceRecord | undefined, now: Date, ip: string, name: string) {
+  if (!device) return true;
+  const lastSeenAt = new Date(device.lastSeenAt).getTime();
+  return Number.isNaN(lastSeenAt)
+    || now.getTime() - lastSeenAt > DEVICE_LAST_SEEN_UPDATE_MS
+    || device.ip !== ip
+    || device.name !== name;
 }
 
 export function ensureTrustedDeviceSecurityConfigured() {
-  if (process.env.DEVICE_LIMIT_ENABLED === 'false') return;
-  if (!getFirebaseAdminAuth()) {
-    authError('DEVICE_SECURITY_NOT_CONFIGURED', 500);
-  }
+  // Device security is now a session registry, not a login gate.
 }
 
-export async function assertTrustedDevice(req: Request, user: ClaimSource) {
-  if (process.env.DEVICE_LIMIT_ENABLED === 'false') return false;
+export async function recordTrustedDevice(req: Request, user: ClaimSource, options: { allowReconnect?: boolean } = {}) {
+  const collection = getDeviceCollection(user.localId);
+  if (!collection) return false;
 
   const { deviceId, deviceName } = getRequestDevice(req);
   const deviceHash = hashDeviceId(deviceId);
-  const devices = getTrustedDevices(user);
+  const ref = collection.doc(deviceHash);
+  const snap = await ref.get();
+  const current = snap.exists ? snap.data() as DeviceRecord : undefined;
   const now = new Date();
-  const current = devices.find((device) => device.h === deviceHash);
 
-  if (current) {
-    if (shouldRefreshLastSeen(current, now) || current.name !== deviceName) {
-      await saveTrustedDevices(user.localId, devices.map((device) => (
-        device.h === deviceHash
-          ? { ...device, name: deviceName, lastSeenAt: now.toISOString() }
-          : device
-      )));
-      return true;
-    }
+  if (current?.revokedAt && !options.allowReconnect) {
+    authError('DEVICE_DISCONNECTED', 401);
+  }
+
+  if (!shouldRefreshLastSeen(current, now, clientIp(req), deviceName) && !current?.revokedAt) {
     return false;
   }
 
-  if (devices.length >= MAX_TRUSTED_DEVICES) {
-    authError('DEVICE_LIMIT_REACHED', 403);
-  }
+  const ip = clientIp(req);
+  const geo = await resolveLocation(req, ip);
+  const timestamp = now.toISOString();
 
-  await saveTrustedDevices(user.localId, [
-    ...devices,
-    {
-      h: deviceHash,
-      name: deviceName,
-      createdAt: now.toISOString(),
-      lastSeenAt: now.toISOString(),
-    },
-  ]);
+  await ref.set({
+    name: deviceName,
+    ip,
+    location: geo.location,
+    city: geo.city || null,
+    region: geo.region || null,
+    country: geo.country || null,
+    userAgent: (req.get('user-agent') || '').slice(0, 240),
+    createdAt: current?.createdAt || timestamp,
+    lastSeenAt: timestamp,
+    revokedAt: FieldValue.delete(),
+    _ts: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
   return true;
 }
 
-export function publicTrustedDevices(user: ClaimSource, currentDeviceHash?: string) {
-  return getTrustedDevices(user).map((device, index) => ({
-    id: `${index + 1}-${device.h.slice(0, 10)}`,
-    name: device.name,
-    createdAt: device.createdAt,
-    lastSeenAt: device.lastSeenAt,
-    isCurrent: Boolean(currentDeviceHash && device.h === currentDeviceHash),
-  }));
+export async function assertTrustedDevice(req: Request, user: ClaimSource) {
+  await recordTrustedDevice(req, user, { allowReconnect: false });
+  return false;
+}
+
+export async function registerTrustedDevice(req: Request, user: ClaimSource) {
+  await recordTrustedDevice(req, user, { allowReconnect: true });
+}
+
+export async function disconnectTrustedDevice(uid: string, deviceId: string) {
+  const collection = getDeviceCollection(uid);
+  if (!collection) return;
+
+  await collection.doc(deviceId).set({
+    revokedAt: new Date().toISOString(),
+    _ts: FieldValue.serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function disconnectAllTrustedDevices(uid: string) {
+  const collection = getDeviceCollection(uid);
+  if (!collection) return;
+
+  const snap = await collection.limit(100).get();
+  const batch = getFirebaseAdminFirestore()?.batch();
+  if (!batch) return;
+
+  const revokedAt = new Date().toISOString();
+  snap.docs.forEach((doc) => {
+    batch.set(doc.ref, {
+      revokedAt,
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+
+  await batch.commit();
+}
+
+export async function publicTrustedDevices(user: ClaimSource, currentDeviceHash?: string) {
+  const collection = getDeviceCollection(user.localId);
+  if (!collection) return [];
+
+  const snap = await collection.orderBy('lastSeenAt', 'desc').limit(50).get();
+
+  return snap.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() as DeviceRecord }))
+    .filter((device) => !device.revokedAt)
+    .map((device) => ({
+      id: device.id,
+      name: device.name,
+      ip: device.ip || 'desconhecido',
+      location: device.location || 'Localizacao nao identificada',
+      city: device.city || null,
+      region: device.region || null,
+      country: device.country || null,
+      createdAt: device.createdAt,
+      lastSeenAt: device.lastSeenAt,
+      isCurrent: Boolean(currentDeviceHash && device.id === currentDeviceHash),
+    }));
 }
