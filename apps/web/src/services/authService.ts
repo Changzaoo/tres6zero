@@ -3,6 +3,9 @@ import type { UserProfile } from '@/types';
 
 const TOKEN_KEY = 'six3.authToken';
 const REFRESH_TOKEN_KEY = 'six3.refreshToken';
+const TOKEN_COOKIE_KEY = 'six3_auth_token';
+const REFRESH_COOKIE_KEY = 'six3_refresh_token';
+const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 60;
 
 export type AuthSession = {
   token: string;
@@ -13,20 +16,132 @@ export type AuthSession = {
 
 type ApiError = Error & { code?: string; status?: number };
 
-function authHeaders() {
-  const token = getAuthToken();
+function isBrowser() {
+  return typeof window !== 'undefined' && typeof document !== 'undefined';
+}
+
+function storageGet(key: string) {
+  if (!isBrowser()) return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key: string, value: string) {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Local cookies below keep the session recoverable if storage is blocked.
+  }
+}
+
+function storageRemove(key: string) {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function cookieOptions(maxAge: number) {
+  const secure = isBrowser() && window.location.protocol === 'https:' ? '; Secure' : '';
+  return `; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+}
+
+function setCookie(name: string, value: string, maxAge: number) {
+  if (!isBrowser()) return;
+  document.cookie = `${name}=${encodeURIComponent(value)}${cookieOptions(maxAge)}`;
+}
+
+function getCookie(name: string) {
+  if (!isBrowser()) return null;
+  const match = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+}
+
+function deleteCookie(name: string) {
+  if (!isBrowser()) return;
+  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
+function persistAuthTokens(token: string, refreshToken?: string, expiresIn = 3600) {
+  storageSet(TOKEN_KEY, token);
+  setCookie(TOKEN_COOKIE_KEY, token, Math.max(60, expiresIn));
+
+  if (refreshToken) {
+    storageSet(REFRESH_TOKEN_KEY, refreshToken);
+    setCookie(REFRESH_COOKIE_KEY, refreshToken, REFRESH_COOKIE_MAX_AGE);
+  }
+}
+
+export function getAuthToken() {
+  return storageGet(TOKEN_KEY) || getCookie(TOKEN_COOKIE_KEY);
+}
+
+function getRefreshToken() {
+  return storageGet(REFRESH_TOKEN_KEY) || getCookie(REFRESH_COOKIE_KEY);
+}
+
+function authHeaders(token = getAuthToken()) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  headers.set('Content-Type', 'application/json');
-  Object.entries(authHeaders()).forEach(([key, value]) => headers.set(key, value));
+async function refreshAuthToken() {
+  const refreshToken = getRefreshToken();
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+  if (!refreshToken || !apiKey) return null;
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
   });
+
+  const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload?.id_token) {
+    clearAuthSession();
+    return null;
+  }
+
+  const token = String(payload.id_token);
+  const nextRefreshToken = payload.refresh_token ? String(payload.refresh_token) : refreshToken;
+  const expiresIn = Number(payload.expires_in || 3600);
+  persistAuthTokens(token, nextRefreshToken, expiresIn);
+  return token;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  async function send(token = getAuthToken()) {
+    const headers = new Headers(options.headers);
+    headers.set('Content-Type', 'application/json');
+    Object.entries(authHeaders(token)).forEach(([key, value]) => headers.set(key, value));
+
+    return fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  }
+
+  let response = await send();
+
+  if (response.status === 401 && getRefreshToken()) {
+    const refreshedToken = await refreshAuthToken();
+    if (refreshedToken) {
+      response = await send(refreshedToken);
+    }
+  }
+
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -39,18 +154,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return payload as T;
 }
 
-export function getAuthToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
 export function setAuthSession(session: AuthSession) {
-  localStorage.setItem(TOKEN_KEY, session.token);
-  if (session.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
+  persistAuthTokens(session.token, session.refreshToken, session.expiresIn || 3600);
 }
 
 export function clearAuthSession() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  storageRemove(TOKEN_KEY);
+  storageRemove(REFRESH_TOKEN_KEY);
+  deleteCookie(TOKEN_COOKIE_KEY);
+  deleteCookie(REFRESH_COOKIE_KEY);
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthSession> {
@@ -83,7 +195,11 @@ export async function resetPassword(email: string) {
 }
 
 export async function getCurrentUser(): Promise<UserProfile | null> {
-  if (!getAuthToken()) return null;
+  if (!getAuthToken()) {
+    const refreshedToken = await refreshAuthToken();
+    if (!refreshedToken) return null;
+  }
+
   const { user } = await request<{ user: UserProfile }>('/api/auth/me');
   return user;
 }
