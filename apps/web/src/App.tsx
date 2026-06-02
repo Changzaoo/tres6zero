@@ -70,6 +70,7 @@ export default function App() {
         <Route path="/plans" element={<PricingPage />} />
         <Route path="/g/:eventSlug" element={<GalleryPage />} />
         <Route path="/g/:eventSlug/:videoId" element={<VideoPage />} />
+        <Route path="/v/:videoId" element={<VideoPage />} />
 
         {/* Auth */}
         <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />

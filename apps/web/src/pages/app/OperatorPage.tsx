@@ -16,6 +16,8 @@ import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
 
+const STANDALONE_EVENT_ID = 'standalone';
+
 const DURATION_OPTIONS = [5, 15, 25, 35, 45] as const;
 
 const durationOptions = DURATION_OPTIONS.map((seconds) => ({
@@ -31,6 +33,13 @@ const musicOptions = [
   { value: 'wedding', label: 'Wedding soft' },
   { value: 'corporate', label: 'Corporate clean' },
 ];
+
+const eventStatusLabel: Record<AppEvent['status'], string> = {
+  draft: 'rascunho',
+  active: 'ativo',
+  closed: 'encerrado',
+  archived: 'arquivado',
+};
 
 const effectPreviewText: Record<string, string> = {
   clean: 'Contraste leve e cores mais vivas.',
@@ -172,7 +181,7 @@ export default function OperatorPage() {
   useEffect(() => {
     if (!user) return;
     getUserEvents(user.uid).then(evs => {
-      setEvents(evs.filter(e => e.status === 'active'));
+      setEvents(evs.filter(e => e.status !== 'archived'));
     });
     seedTemplates().then(() => getTemplates()).then((items) => {
       setTemplates(items.filter((item) => item.isActive));
@@ -187,6 +196,7 @@ export default function OperatorPage() {
   }, [user]);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
+  const isStandaloneVideo = !selectedEventId;
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const effectMeta = VIDEO_EFFECTS.find(item => item.value === effect);
   const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.feature, isAdmin);
@@ -195,8 +205,8 @@ export default function OperatorPage() {
     || hasFeature(user?.planId, 'premium_templates', isAdmin);
 
   const eventOptions = [
-    { value: '', label: 'Selecione um evento...' },
-    ...events.map(e => ({ value: e.id, label: e.name })),
+    { value: '', label: 'Sem evento - video avulso' },
+    ...events.map(e => ({ value: e.id, label: `${e.name} - ${eventStatusLabel[e.status] || e.status}` })),
   ];
 
   const templateOptions = [
@@ -286,7 +296,7 @@ export default function OperatorPage() {
   }
 
   async function handleProcess() {
-    if (!videoBlob || !user || !selectedEventId || !selectedEvent) return;
+    if (!videoBlob || !user) return;
     if (!canUseEffect) {
       toast.error('Esse efeito nao esta liberado no seu plano.');
       return;
@@ -304,8 +314,8 @@ export default function OperatorPage() {
       const uploaded = await uploadVideoToServer(videoBlob, (pct) => setProgress(Math.min(55, Math.round(pct * 0.55))));
       setProcessingLabel('Criando registro do video...');
       const video = await createVideo({
-        eventId: selectedEventId, ownerId: user.uid, operatorId: user.uid,
-        title: `Video 360 - ${new Date().toLocaleDateString('pt-BR')}`,
+        eventId: selectedEventId || STANDALONE_EVENT_ID, ownerId: user.uid, operatorId: user.uid,
+        title: `${isStandaloneVideo ? 'Video avulso' : 'Video 360'} - ${new Date().toLocaleDateString('pt-BR')}`,
         storagePath: uploaded.storagePath,
         videoUrl: uploaded.videoUrl || '',
         rawVideoUrl: uploaded.videoUrl,
@@ -332,7 +342,7 @@ export default function OperatorPage() {
         effect,
         musicTheme: processingMusicUrl ? 'none' : musicTheme,
         musicUrl: processingMusicUrl,
-        eventType: selectedEvent.type,
+        eventType: selectedEvent?.type,
         durationSeconds: duration,
       });
 
@@ -372,7 +382,11 @@ export default function OperatorPage() {
     setStep(selectedEventId ? 'capture' : 'select');
   }
 
-  const publicUrl = selectedEvent ? `${window.location.origin}/g/${selectedEvent.slug}` : '';
+  const publicUrl = savedVideoId
+    ? selectedEvent
+      ? `${window.location.origin}/g/${selectedEvent.slug}/${savedVideoId}`
+      : `${window.location.origin}/v/${savedVideoId}`
+    : '';
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
@@ -383,20 +397,26 @@ export default function OperatorPage() {
 
       {step === 'select' && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid lg:grid-cols-[1fr_0.82fr] gap-4">
-          <div className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
-            <Select label="Evento ativo" options={eventOptions} value={selectedEventId}
+          <div className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-5">
+            <Select label="Evento vinculado" options={eventOptions} value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)} />
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="primary" size="xl" className="flex-col h-32 gap-3 justify-center"
-                disabled={!selectedEventId} onClick={startCamera} icon={null}>
-                <Camera className="w-8 h-8" />
-                <span>Gravar</span>
-              </Button>
-              <label className={`flex flex-col items-center justify-center gap-3 h-32 rounded-2xl border font-medium transition-all cursor-pointer text-lg
-                ${selectedEventId ? 'border-white/10 bg-white/5 text-white hover:bg-white/10' : 'border-white/5 bg-white/3 text-white/30 pointer-events-none'}`}>
-                <Upload className="w-8 h-8" />
-                <span>Enviar</span>
-                <input type="file" accept="video/*" className="hidden" onChange={handleFileUpload} disabled={!selectedEventId} />
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <button
+                type="button"
+                onClick={startCamera}
+                className="group flex h-24 flex-col items-center justify-center gap-2 rounded-[24px] border border-brand-300/35 bg-gradient-brand text-white shadow-glow transition-all hover:scale-[1.01] hover:border-white/20 active:scale-[0.99] sm:h-28"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/12 transition-all group-hover:bg-white/18">
+                  <Camera className="h-5 w-5" />
+                </span>
+                <span className="text-sm font-bold sm:text-base">Gravar</span>
+              </button>
+              <label className="group flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-[24px] border border-white/10 bg-white/[0.045] text-white transition-all hover:scale-[1.01] hover:border-white/18 hover:bg-white/[0.075] active:scale-[0.99] sm:h-28">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.07] text-white/70 ring-1 ring-white/10 transition-all group-hover:text-white">
+                  <Upload className="h-5 w-5" />
+                </span>
+                <span className="text-sm font-bold sm:text-base">Enviar</span>
+                <input type="file" accept="video/*" className="hidden" onChange={handleFileUpload} />
               </label>
             </div>
           </div>
@@ -558,19 +578,19 @@ export default function OperatorPage() {
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">Video publicado!</h2>
-            <p className="text-white/50 text-sm mt-1">Compartilhe o QR Code com o cliente</p>
+            <p className="text-white/50 text-sm mt-1">{selectedEvent ? 'Compartilhe o QR Code com o cliente' : 'Video avulso pronto para compartilhar'}</p>
           </div>
           {publicUrl && (
             <div className="bg-white p-4 rounded-xl">
               <QRCodeSVG value={publicUrl} size={200} />
             </div>
           )}
-          <p className="text-xs text-white/30 break-all">{publicUrl}</p>
+          {publicUrl && <p className="text-xs text-white/30 break-all">{publicUrl}</p>}
           <div className="flex gap-3 w-full">
             <Button variant="secondary" className="flex-1 justify-center" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>
               Novo video
             </Button>
-            <Button className="flex-1 justify-center" onClick={() => navigator.share?.({ url: publicUrl, title: 'Video 360' })}
+            <Button className="flex-1 justify-center" disabled={!publicUrl} onClick={() => navigator.share?.({ url: publicUrl, title: 'Video 360' })}
               icon={<Share2 className="w-4 h-4" />}>
               Compartilhar
             </Button>

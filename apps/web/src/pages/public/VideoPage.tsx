@@ -12,6 +12,8 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import type { AppEvent, AppVideo } from '@/types';
 
+const STANDALONE_EVENT_ID = 'standalone';
+
 export default function VideoPage() {
   const { videoId } = useParams();
   const [video, setVideo] = useState<AppVideo | null>(null);
@@ -29,8 +31,10 @@ export default function VideoPage() {
       setVideo(foundVideo);
       if (!foundVideo) return;
 
-      const foundEvent = await getEvent(foundVideo.eventId);
-      setEvent(foundEvent);
+      if (foundVideo.eventId && foundVideo.eventId !== STANDALONE_EVENT_ID) {
+        const foundEvent = await getEvent(foundVideo.eventId);
+        setEvent(foundEvent);
+      }
       incrementVideoStat(foundVideo.id, 'views');
     });
   }, [videoId]);
@@ -76,7 +80,9 @@ export default function VideoPage() {
   }
 
   const shareUrl = window.location.href;
-  const whatsappMsg = encodeURIComponent(`Olha meu vídeo 360 no evento ${event?.name || ''}: ${shareUrl}`);
+  const whatsappMsg = encodeURIComponent(event?.name
+    ? `Olha meu video 360 no evento ${event.name}: ${shareUrl}`
+    : `Olha meu video 360: ${shareUrl}`);
 
   return (
     <div className="mx-auto min-h-screen max-w-md bg-surface pb-20">
