@@ -17,6 +17,8 @@ services:
         sync: false
       - key: FIREBASE_API_KEY
         sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
       - key: ADMIN_EMAIL
         sync: false
       - key: STRIPE_SECRET_KEY

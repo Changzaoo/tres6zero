@@ -2,6 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
+import { getFirebaseAdminAuth, toFirebaseUserRecord } from '../services/firebaseAdmin';
 
 export const authRouter = Router();
 
@@ -76,6 +77,13 @@ function authError(message = 'AUTH_REQUIRED', status = 401): never {
 }
 
 async function getUserFromIdToken(idToken: string) {
+  const adminAuth = getFirebaseAdminAuth();
+  if (adminAuth) {
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    const record = await adminAuth.getUser(decoded.uid);
+    return toFirebaseUserRecord(record);
+  }
+
   const lookup = await firebaseAuthRequest<{ users: FirebaseUserRecord[] }>('accounts:lookup', { idToken });
   return lookup.users?.[0];
 }
