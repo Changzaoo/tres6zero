@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { getStripeAccessForUser } from '../services/stripeBilling';
+import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 
 export const authRouter = Router();
 
@@ -170,6 +171,7 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
     role,
     subscriptionStatus: role === 'admin' ? 'active' : access?.subscriptionStatus || plan.status,
     planId: role === 'admin' ? 'unlimited' : access?.planId || plan.planId,
+    entitlements: getPlanEntitlements(role === 'admin' ? 'unlimited' : access?.planId || plan.planId),
     currentPeriodEnd: role === 'admin' ? null : access?.currentPeriodEnd || null,
     renewalDay: role === 'admin' ? null : access?.renewalDay || null,
     createdAt: user.createdAt ? new Date(Number(user.createdAt)).toISOString() : new Date().toISOString(),
@@ -312,8 +314,36 @@ export async function requireActiveSubscription(req: Request, _res: Response, ne
       throw err;
     }
 
+    _res.locals.user = profile;
     next();
   } catch (e) {
     next(e);
   }
+}
+
+export function requirePlanFeature(feature: PlanFeature) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await getAuthenticatedUser(req);
+      const profile = await userProfile(user);
+
+      if (profile.subscriptionStatus !== 'active') {
+        const err = new Error('PAYMENT_REQUIRED');
+        (err as any).status = 402;
+        throw err;
+      }
+
+      if (profile.role !== 'admin' && !hasPlanFeature(profile.planId, feature)) {
+        const err = new Error('PLAN_FEATURE_REQUIRED');
+        (err as any).status = 403;
+        (err as any).code = feature;
+        throw err;
+      }
+
+      res.locals.user = profile;
+      next();
+    } catch (e) {
+      next(e);
+    }
+  };
 }

@@ -2,27 +2,10 @@ import {
   collection, doc, addDoc, updateDoc, getDocs,
   getDoc, query, where, orderBy, serverTimestamp
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { AppVideo, VideoStatus } from '@/types';
 
 const COLL = 'videos';
-
-export async function uploadVideoToStorage(
-  file: File | Blob,
-  path: string,
-  onProgress?: (pct: number) => void
-): Promise<string> {
-  const storageRef = ref(storage, path);
-  const task = uploadBytesResumable(storageRef, file);
-  return new Promise((resolve, reject) => {
-    task.on('state_changed',
-      snap => onProgress && onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-      reject,
-      async () => resolve(await getDownloadURL(task.snapshot.ref))
-    );
-  });
-}
 
 export async function createVideo(data: Omit<AppVideo, 'id' | 'createdAt' | 'updatedAt'>): Promise<AppVideo> {
   const now = new Date().toISOString();

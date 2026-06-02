@@ -13,15 +13,27 @@ export function BrandWordmark({ className = '' }: { className?: string }) {
   );
 }
 
+function imageSizeClass(wordmarkClassName: string) {
+  if (wordmarkClassName.includes('text-4xl')) return 'h-16';
+  if (wordmarkClassName.includes('text-3xl')) return 'h-14';
+  if (wordmarkClassName.includes('text-2xl')) return 'h-11';
+  if (wordmarkClassName.includes('text-xl')) return 'h-9';
+  return 'h-10';
+}
+
 export function BrandLogo({
   className = '',
   wordmarkClassName = '',
-  subtitle = 'SaaS para experiências 360',
+  subtitle = 'SaaS para experiencias 360',
   showSubtitle = false,
 }: BrandLogoProps) {
   return (
     <div className={`flex min-w-0 flex-col ${className}`}>
-      <BrandWordmark className={wordmarkClassName} />
+      <img
+        src="/brand/six3-logo.png"
+        alt="SIX3°"
+        className={`${imageSizeClass(wordmarkClassName)} w-auto max-w-[220px] rounded-md object-contain`}
+      />
       {showSubtitle && <p className="mt-1 text-xs leading-tight text-white/45">{subtitle}</p>}
     </div>
   );

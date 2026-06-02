@@ -1,6 +1,83 @@
 export type PlanId = 'starter' | 'pro' | 'unlimited';
 
-type PlanFeature = {
+export type PlanFeature =
+  | 'basic_templates'
+  | 'premium_templates'
+  | 'custom_template_upload'
+  | 'offline_recent'
+  | 'offline_sync'
+  | 'public_gallery'
+  | 'qr_code'
+  | 'basic_leads'
+  | 'csv_export'
+  | 'basic_effects'
+  | 'popular_effects'
+  | 'ai_auto_edit'
+  | 'brand_customization'
+  | 'advanced_analytics'
+  | 'priority_support';
+
+export const PLAN_ENTITLEMENTS: Record<PlanId, PlanFeature[]> = {
+  starter: ['basic_templates', 'offline_recent', 'public_gallery', 'qr_code', 'basic_leads', 'basic_effects'],
+  pro: [
+    'basic_templates',
+    'premium_templates',
+    'custom_template_upload',
+    'offline_recent',
+    'offline_sync',
+    'public_gallery',
+    'qr_code',
+    'basic_leads',
+    'csv_export',
+    'basic_effects',
+    'popular_effects',
+    'brand_customization',
+    'advanced_analytics',
+  ],
+  unlimited: [
+    'basic_templates',
+    'premium_templates',
+    'custom_template_upload',
+    'offline_recent',
+    'offline_sync',
+    'public_gallery',
+    'qr_code',
+    'basic_leads',
+    'csv_export',
+    'basic_effects',
+    'popular_effects',
+    'ai_auto_edit',
+    'brand_customization',
+    'advanced_analytics',
+    'priority_support',
+  ],
+};
+
+export const VIDEO_EFFECTS = [
+  { value: 'clean', label: 'Clean', feature: 'basic_effects' },
+  { value: 'slow_motion', label: 'Slow motion', feature: 'basic_effects' },
+  { value: 'boomerang', label: 'Boomerang', feature: 'basic_effects' },
+  { value: 'speed_ramp', label: 'Speed ramp', feature: 'popular_effects' },
+  { value: 'cinematic', label: 'Cinematic', feature: 'popular_effects' },
+  { value: 'neon', label: 'Neon glow', feature: 'popular_effects' },
+  { value: 'party', label: 'Party pop', feature: 'popular_effects' },
+  { value: 'luxury', label: 'Luxury gold', feature: 'popular_effects' },
+  { value: 'glitch_flash', label: 'Glitch flash', feature: 'popular_effects' },
+  { value: 'wedding_soft', label: 'Wedding soft', feature: 'popular_effects' },
+  { value: 'corporate_sharp', label: 'Corporate sharp', feature: 'popular_effects' },
+  { value: 'ai_auto', label: 'IA auto edit', feature: 'ai_auto_edit' },
+] as const satisfies readonly { value: string; label: string; feature: PlanFeature }[];
+
+export function normalizePlanId(planId?: string | null): PlanId {
+  return planId === 'pro' || planId === 'unlimited' ? planId : 'starter';
+}
+
+export function hasFeature(planId: string | null | undefined, feature: PlanFeature, isAdmin = false) {
+  if (isAdmin) return true;
+  return PLAN_ENTITLEMENTS[normalizePlanId(planId)].includes(feature);
+}
+
+type PlanBullet = {
   label: string;
   description: string;
 };
@@ -103,5 +180,5 @@ export const PLANS = [
   price: number;
   tagline: string;
   highlight: boolean;
-  features: readonly PlanFeature[];
+  features: readonly PlanBullet[];
 }[];

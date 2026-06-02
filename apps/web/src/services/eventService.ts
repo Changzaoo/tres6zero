@@ -1,14 +1,14 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, getDocs,
-  getDoc, query, where, orderBy, serverTimestamp, Timestamp
+  getDoc, query, where, orderBy, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { AppEvent, EventStatus } from '@/types';
+import type { AppEvent } from '@/types';
 
 const COLL = 'events';
 
 function slugify(text: string) {
-  return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36);
 }
 
@@ -21,7 +21,7 @@ export async function createEvent(ownerId: string, data: Omit<AppEvent, 'id' | '
 }
 
 export async function updateEvent(id: string, data: Partial<AppEvent>) {
-  await updateDoc(doc(db, COLL, id), { ...data, updatedAt: new Date().toISOString() });
+  await updateDoc(doc(db, COLL), { ...data, updatedAt: new Date().toISOString() });
 }
 
 export async function deleteEvent(id: string) {
@@ -56,7 +56,7 @@ export async function getAllEvents(): Promise<AppEvent[]> {
 
 export async function duplicateEvent(id: string, ownerId: string): Promise<AppEvent> {
   const original = await getEvent(id);
-  if (!original) throw new Error('Evento não encontrado');
+  if (!original) throw new Error('Evento nao encontrado');
   const { createdAt, updatedAt, id: _id, slug: _slug, ...rest } = original;
-  return createEvent(ownerId, { ...rest, name: `${rest.name} (cópia)`, status: 'draft' });
+  return createEvent(ownerId, { ...rest, name: `${rest.name} (copia)`, status: 'draft' });
 }

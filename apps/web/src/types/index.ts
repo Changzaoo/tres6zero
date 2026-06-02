@@ -7,6 +7,11 @@ export interface UserProfile {
   role: UserRole;
   subscriptionStatus?: 'unpaid' | 'active' | 'past_due' | 'canceled';
   planId?: string | null;
+  entitlements?: {
+    planId: 'starter' | 'pro' | 'unlimited';
+    features: string[];
+    effects: string[];
+  };
   currentPeriodEnd?: string | null;
   renewalDay?: number | null;
   companyName?: string;
@@ -35,7 +40,10 @@ export interface AppEvent {
   description?: string;
   status: EventStatus;
   coverUrl?: string;
+  avatarUrl?: string;
   logoUrl?: string;
+  mediaUrls?: string[];
+  profileHeadline?: string;
   slug: string;
   passwordEnabled: boolean;
   branding: EventBranding;
@@ -57,6 +65,7 @@ export interface AppVideo {
   title: string;
   storagePath: string;
   videoUrl: string;
+  rawVideoUrl?: string;
   thumbnailUrl?: string;
   status: VideoStatus;
   duration?: number;
@@ -64,6 +73,7 @@ export interface AppVideo {
   format?: string;
   templateId?: string;
   effect?: string;
+  musicTheme?: string;
   views: number;
   downloads: number;
   shares: number;
@@ -96,6 +106,9 @@ export interface AppTemplate {
   overlayUrl?: string;
   frameUrl?: string;
   musicUrl?: string;
+  storagePath?: string;
+  ownerId?: string;
+  source?: 'generated' | 'custom' | 'default';
   aspectRatio: '9:16' | '1:1' | '16:9';
   effects: string[];
   isGlobal: boolean;

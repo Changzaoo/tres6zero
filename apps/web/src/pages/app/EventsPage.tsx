@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, MapPin, Users, MoreVertical, Copy, Archive, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, MoreVertical, Copy, Archive, Trash2, Edit2, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents, deleteEvent, duplicateEvent, updateEvent } from '@/services/eventService';
@@ -92,7 +92,7 @@ export default function EventsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/app/events/${event.id}`)}>Ver</Button>
+                <Button variant="secondary" size="sm" onClick={() => window.open(`/g/${event.slug}`, '_blank')} icon={<ExternalLink className="w-4 h-4" />}>Pagina</Button>
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === event.id ? null : event.id)}
                     className="p-2 rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-white transition-colors">
