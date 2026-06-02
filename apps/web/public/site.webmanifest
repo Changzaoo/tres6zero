@@ -1,0 +1,24 @@
+{
+  "name": "SIX3\u00b0",
+  "short_name": "SIX3\u00b0",
+  "description": "SIX3\u00b0 para edicao automatica de videos com IA, templates, galerias, QR Codes e leads.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "2000x2000",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon.png",
+      "sizes": "2000x2000",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
