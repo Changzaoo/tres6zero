@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Search, WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { useAuth } from '@/hooks/useAuth';
 
 interface HeaderProps {
   title?: string;
@@ -9,7 +8,6 @@ interface HeaderProps {
 
 export function Header({ title }: HeaderProps) {
   const online = useOnlineStatus();
-  const { user } = useAuth();
   const [search, setSearch] = useState('');
 
   return (
@@ -35,9 +33,6 @@ export function Header({ title }: HeaderProps) {
             <span>Offline</span>
           </div>
         )}
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-brand text-xs font-bold text-white shadow-glow ring-1 ring-white/15">
-          {user?.name?.charAt(0).toUpperCase() || '?'}
-        </div>
       </div>
     </header>
   );
