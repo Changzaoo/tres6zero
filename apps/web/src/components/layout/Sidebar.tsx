@@ -1,5 +1,4 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Calendar,
@@ -10,7 +9,6 @@ import {
   Settings,
   LogOut,
   Camera,
-  X,
   Shield,
   Lock,
   CreditCard,
@@ -23,7 +21,6 @@ import { toast } from '@/components/ui/Toast';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 
 interface SidebarProps {
-  open?: boolean;
   onClose?: () => void;
 }
 
@@ -39,7 +36,7 @@ const navItems = [
   { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
 ];
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ onClose }: SidebarProps) {
   const { user, isAdmin, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
@@ -128,41 +125,5 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     </div>
   );
 
-  return (
-    <>
-      <aside className="hidden shrink-0 lg:block">{content}</aside>
-
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/65 backdrop-blur-sm"
-              onClick={onClose}
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="absolute bottom-0 left-0 top-0"
-            >
-              <div className="relative h-full">
-                <button
-                  onClick={onClose}
-                  className="absolute right-[-48px] top-4 z-10 rounded-xl bg-white/10 p-2 text-white"
-                  aria-label="Fechar menu"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-                {content}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </>
-  );
+  return <aside className="hidden shrink-0 lg:block">{content}</aside>;
 }
