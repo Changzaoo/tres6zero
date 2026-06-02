@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Calendar, Video, Layers, Users,
-  BarChart2, Settings, LogOut, Camera, X, Shield, Lock, CreditCard,
+  BarChart2, Settings, LogOut, Camera, X, Shield, Lock, CreditCard, Bell,
 } from 'lucide-react';
 import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
@@ -73,8 +73,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <div className="p-3 border-t border-white/[0.08]">
         <div className="flex items-center gap-3 px-3 py-2.5 mb-1">
-          <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-xs font-bold text-white">
-            {user?.name?.charAt(0).toUpperCase()}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-xs font-bold text-white">
+              {user?.name?.charAt(0).toUpperCase()}
+            </div>
+            <button
+              type="button"
+              aria-label="Notificacoes"
+              className="w-8 h-8 rounded-full border border-white/10 bg-white/[0.055] flex items-center justify-center text-white/45 hover:text-white hover:bg-white/[0.09] transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+            </button>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white/80 truncate">{user?.name}</p>

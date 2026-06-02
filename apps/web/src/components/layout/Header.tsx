@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, Bell, Search, Wifi, WifiOff } from 'lucide-react';
+import { Menu, Search, WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -37,9 +37,6 @@ export function Header({ onMenuClick, title }: HeaderProps) {
             <span>Offline</span>
           </div>
         )}
-        <button className="p-2 rounded-2xl hover:bg-white/[0.06] text-white/40 hover:text-white transition-colors">
-          <Bell className="w-5 h-5" />
-        </button>
         <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-xs font-bold text-white">
           {user?.name?.charAt(0).toUpperCase() || '?'}
         </div>
