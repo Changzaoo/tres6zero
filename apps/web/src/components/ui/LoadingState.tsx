@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { BrandLogo, BrandWordmark } from '@/components/brand/BrandLogo';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 
 export function LoadingState({ message = 'Carregando...' }: { message?: string }) {
   return (
@@ -21,16 +21,13 @@ export function LoadingScreen() {
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-          className="w-20 h-20 rounded-full border-2 border-white/10 border-t-brand-500"
+          className="h-28 w-28 rounded-full border-2 border-white/10 border-t-brand-500"
         />
         <div className="absolute inset-0 flex items-center justify-center">
-          <BrandWordmark className="text-xl" />
+          <BrandLogo className="items-center" wordmarkClassName="text-xl" />
         </div>
       </div>
-      <div className="text-center">
-        <BrandLogo className="items-center" wordmarkClassName="text-3xl" />
-        <p className="text-white/40 text-sm mt-1">Carregando plataforma...</p>
-      </div>
+      <p className="text-white/40 text-sm">Carregando plataforma...</p>
     </div>
   );
 }
