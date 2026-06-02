@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Search, WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { useAuth } from '@/hooks/useAuth';
-import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface HeaderProps {
   title?: string;
@@ -10,9 +8,7 @@ interface HeaderProps {
 
 export function Header({ title }: HeaderProps) {
   const online = useOnlineStatus();
-  const { user, hasActiveSubscription } = useAuth();
   const [search, setSearch] = useState('');
-  const initial = user?.name?.charAt(0).toUpperCase() || 'U';
 
   return (
     <header className="relative z-10 hidden h-[68px] shrink-0 items-center gap-4 border-b border-white/[0.08] bg-[#0e1016]/80 px-5 backdrop-blur-2xl lg:flex">
@@ -40,21 +36,6 @@ export function Header({ title }: HeaderProps) {
           </div>
         )}
 
-        <NotificationBell />
-
-        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-2.5 py-1.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-brand text-xs font-black text-white ring-1 ring-white/15 shadow-glow">
-            {user?.avatarUrl
-              ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-              : initial}
-          </div>
-          <div className="hidden min-w-0 xl:block">
-            <p className="truncate text-xs font-bold text-white/80 max-w-[10rem]">{user?.name}</p>
-            <p className={`font-mono text-[10px] ${hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/30'}`}>
-              {hasActiveSubscription ? 'Ativo' : 'Sem assinatura'}
-            </p>
-          </div>
-        </div>
       </div>
     </header>
   );

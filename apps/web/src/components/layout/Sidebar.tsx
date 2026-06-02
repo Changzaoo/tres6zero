@@ -53,7 +53,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const content = (
     <div className="flex h-full w-64 flex-col border-r border-white/[0.08] bg-[#0e1016]/90 backdrop-blur-2xl">
       <div className="flex h-[68px] items-center border-b border-white/[0.08] px-5">
-        <BrandWordmark className="text-2xl" />
+        <BrandWordmark className="text-4xl" />
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
