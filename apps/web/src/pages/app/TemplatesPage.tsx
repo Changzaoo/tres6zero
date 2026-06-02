@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
-import { Database, Layers, Lock, Music2, Upload, Zap } from 'lucide-react';
+import { Database, Layers, Lock, Music2, Search, SlidersHorizontal, Upload, X, Zap } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
 import { uploadMusicToServer, uploadTemplateToServer, seedGeneratedTemplates } from '@/services/serverMediaService';
@@ -14,6 +14,30 @@ import type { AppMusic, AppTemplate } from '@/types';
 
 const INITIAL_TEMPLATE_COUNT = 32;
 const TEMPLATE_BATCH_SIZE = 32;
+
+const categoryOptions = [
+  { value: 'all', label: 'Todas' },
+  { value: 'party', label: 'Festa' },
+  { value: 'wedding', label: 'Casamento' },
+  { value: 'corporate', label: 'Corporativo' },
+  { value: 'birthday', label: 'Aniversario' },
+  { value: 'viral', label: 'Viral' },
+  { value: 'premium', label: 'Premium' },
+];
+
+const aspectOptions = [
+  { value: 'all', label: 'Todos formatos' },
+  { value: '9:16', label: 'Retrato' },
+  { value: '16:9', label: 'Paisagem' },
+  { value: '1:1', label: 'Quadrado' },
+];
+
+const sourceOptions = [
+  { value: 'all', label: 'Todas origens' },
+  { value: 'generated', label: 'SIX3' },
+  { value: 'custom', label: 'Enviados' },
+  { value: 'default', label: 'Padrao' },
+];
 
 function templateAspectRatio(aspectRatio: AppTemplate['aspectRatio']) {
   if (aspectRatio === '16:9') return '16 / 9';
@@ -31,6 +55,17 @@ function mergeTemplates(templates: AppTemplate[]) {
     .filter((template) => !isLegacyGenericTemplate(template))
     .forEach((template) => byId.set(template.id, template));
   return Array.from(byId.values());
+}
+
+function searchableTemplateText(template: AppTemplate) {
+  return [
+    template.name,
+    template.category,
+    template.aspectRatio,
+    template.source,
+    template.font,
+    ...(template.effects || []),
+  ].filter(Boolean).join(' ').toLowerCase();
 }
 
 async function loadCatalog(userId?: string) {
@@ -129,16 +164,38 @@ export default function TemplatesPage() {
   const [musicProgress, setMusicProgress] = useState(0);
   const [visibleCount, setVisibleCount] = useState(INITIAL_TEMPLATE_COUNT);
   const [activeMotionId, setActiveMotionId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [aspectFilter, setAspectFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [motionOnly, setMotionOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const canUpload = useMemo(
     () => isAdmin || hasFeature(user?.planId, 'custom_template_upload', isAdmin),
     [isAdmin, user?.planId]
   );
+  const filteredTemplates = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return templates.filter((template) => {
+      if (query && !searchableTemplateText(template).includes(query)) return false;
+      if (categoryFilter !== 'all' && template.category !== categoryFilter) return false;
+      if (aspectFilter !== 'all' && template.aspectRatio !== aspectFilter) return false;
+      if (sourceFilter !== 'all' && (template.source || 'generated') !== sourceFilter) return false;
+      if (motionOnly && !template.animationUrl) return false;
+      return true;
+    });
+  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter, templates]);
   const visibleTemplates = useMemo(
-    () => templates.slice(0, visibleCount),
-    [templates, visibleCount]
+    () => filteredTemplates.slice(0, visibleCount),
+    [filteredTemplates, visibleCount]
   );
-  const hasMoreTemplates = visibleCount < templates.length;
+  const hasMoreTemplates = visibleCount < filteredTemplates.length;
+  const hasActiveFilters = Boolean(searchTerm.trim())
+    || categoryFilter !== 'all'
+    || aspectFilter !== 'all'
+    || sourceFilter !== 'all'
+    || motionOnly;
 
   useEffect(() => {
     let active = true;
@@ -166,6 +223,18 @@ export default function TemplatesPage() {
       active = false;
     };
   }, [user?.uid]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_TEMPLATE_COUNT);
+  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter]);
+
+  function clearFilters() {
+    setSearchTerm('');
+    setCategoryFilter('all');
+    setAspectFilter('all');
+    setSourceFilter('all');
+    setMotionOnly(false);
+  }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -264,27 +333,115 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Templates</h1>
-          <p className="text-sm text-white/40">{templates.length} templates disponiveis</p>
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Templates</h1>
+            <p className="text-sm text-white/40">
+              {filteredTemplates.length} de {templates.length} templates
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={seeding}
+                onClick={handleSeedSupabase}
+                icon={<Database className="h-4 w-4" />}
+                className="col-span-2 sm:col-span-1"
+              >
+                Salvar catalogo
+              </Button>
+            )}
+            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+              {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <span className="truncate">{uploading ? `${progress}%` : 'Template'}</span>
+              <input type="file" accept="image/png,image/svg+xml,image/webp,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
+            </label>
+            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+              {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Musica'}</span>
+              <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
+            </label>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {isAdmin && (
-            <Button variant="secondary" loading={seeding} onClick={handleSeedSupabase} icon={<Database className="h-4 w-4" />}>
-              Salvar catalogo
-            </Button>
-          )}
-          <label className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
-            {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            {uploading ? `Enviando ${progress}%` : 'Enviar template'}
-            <input type="file" accept="image/png,image/svg+xml,image/webp,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
-          </label>
-          <label className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
-            {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            {uploadingMusic ? `Musica ${musicProgress}%` : 'Enviar musica'}
-            <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
-          </label>
+
+        <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-2.5">
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar por nome, tema, efeito..."
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] pl-9 pr-10 text-sm font-medium text-white placeholder-white/30 outline-none transition-all focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/15"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  aria-label="Limpar busca"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/45 hover:bg-white/[0.08] hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className={`flex h-11 shrink-0 items-center gap-2 rounded-[18px] border px-3 text-sm font-bold transition-all md:hidden ${
+                filtersOpen || hasActiveFilters
+                  ? 'border-brand-400/45 bg-brand-500/15 text-brand-100'
+                  : 'border-white/10 bg-white/[0.055] text-white/68'
+              }`}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+            </button>
+          </div>
+
+          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_auto_auto]`}>
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
+            >
+              {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <select
+              value={aspectFilter}
+              onChange={(event) => setAspectFilter(event.target.value)}
+              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
+            >
+              {aspectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <select
+              value={sourceFilter}
+              onChange={(event) => setSourceFilter(event.target.value)}
+              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
+            >
+              {sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => setMotionOnly((current) => !current)}
+              className={`h-10 rounded-[16px] border px-3 text-sm font-bold transition-all ${
+                motionOnly ? 'border-cyan-300/50 bg-cyan-400/15 text-cyan-100' : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
+              }`}
+            >
+              Animados
+            </button>
+            <button
+              type="button"
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.045] px-3 text-sm font-bold text-white/58 transition-all hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Limpar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -314,9 +471,16 @@ export default function TemplatesPage() {
 
       {templates.length === 0 ? (
         <EmptyState icon={<Layers className="h-8 w-8" />} title="Nenhum template" description="Os templates do catalogo serao exibidos assim que o backend responder." />
+      ) : filteredTemplates.length === 0 ? (
+        <EmptyState
+          icon={<Search className="h-8 w-8" />}
+          title="Nenhum resultado"
+          description="Tente outro termo, formato ou categoria."
+          action={{ label: 'Limpar filtros', onClick: clearFilters }}
+        />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {visibleTemplates.map((template) => (
               <TemplateCard
                 key={template.id}
@@ -329,7 +493,7 @@ export default function TemplatesPage() {
           {hasMoreTemplates && (
             <div className="flex flex-col items-center gap-2 pt-2">
               <p className="text-xs text-white/35">
-                Mostrando {visibleTemplates.length} de {templates.length}
+                Mostrando {visibleTemplates.length} de {filteredTemplates.length}
               </p>
               <Button
                 variant="secondary"
