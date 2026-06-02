@@ -12,6 +12,7 @@ import {
 export const billingRouter = Router();
 
 type CheckoutSession = Awaited<ReturnType<ReturnType<typeof getStripe>['checkout']['sessions']['create']>>;
+type CheckoutSessionParams = Parameters<ReturnType<typeof getStripe>['checkout']['sessions']['create']>[0];
 
 const checkoutSchema = z.object({
   planId: z.enum(['starter', 'pro', 'unlimited']),
@@ -19,6 +20,14 @@ const checkoutSchema = z.object({
 
 function frontendUrl() {
   return (process.env.FRONTEND_URL || 'https://six3.vercel.app').replace(/\/+$/, '');
+}
+
+function isPixUnavailableError(error: unknown) {
+  const stripeError = error as { message?: string; raw?: { message?: string; param?: string } } | null;
+  const message = `${stripeError?.message || ''} ${stripeError?.raw?.message || ''}`.toLowerCase();
+  const param = stripeError?.raw?.param?.toLowerCase() || '';
+
+  return (message.includes('pix') || param.includes('payment_method_types')) && (message.includes('invalid') || message.includes('activated'));
 }
 
 async function activateFromCheckoutSession(session: CheckoutSession) {
@@ -54,13 +63,13 @@ billingRouter.post('/checkout', async (req, res, next) => {
     const customer = await findOrCreateCustomerForUser(user);
     const baseUrl = frontendUrl();
 
-    const session = await stripe.checkout.sessions.create({
+    const checkoutParams: CheckoutSessionParams = {
       mode: 'payment',
       customer: customer.id,
       customer_update: {
         name: 'auto',
       },
-      payment_method_types: ['pix'],
+      payment_method_types: ['card', 'pix'],
       line_items: [
         {
           quantity: 1,
@@ -90,7 +99,20 @@ billingRouter.post('/checkout', async (req, res, next) => {
       },
       success_url: `${baseUrl}/app/billing?checkout=success`,
       cancel_url: `${baseUrl}/app/billing?checkout=cancelled`,
-    });
+    };
+
+    let session: CheckoutSession;
+    try {
+      session = await stripe.checkout.sessions.create(checkoutParams);
+    } catch (error) {
+      if (!isPixUnavailableError(error)) throw error;
+
+      console.warn('[billing] Pix is unavailable in Stripe settings. Falling back to card checkout.');
+      session = await stripe.checkout.sessions.create({
+        ...checkoutParams,
+        payment_method_types: ['card'],
+      });
+    }
 
     res.json({ url: session.url });
   } catch (e) {

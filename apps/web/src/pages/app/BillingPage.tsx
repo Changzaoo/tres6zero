@@ -27,7 +27,7 @@ export default function BillingPage() {
     window.history.replaceState({}, '', '/app/billing');
 
     if (checkout === 'success') {
-      toast.info('Pagamento recebido. Assim que a Stripe confirmar o Pix, seu acesso será liberado.');
+      toast.info('Pagamento recebido. Assim que a Stripe confirmar, seu acesso será liberado.');
       getCurrentUser().then((freshUser) => {
         if (freshUser) setUser(freshUser);
       });
@@ -44,7 +44,7 @@ export default function BillingPage() {
       const { url } = await createCheckout(planId);
       window.location.assign(url);
     } catch {
-      toast.error('Não foi possível iniciar o checkout Pix.');
+      toast.error('Não foi possível iniciar o checkout.');
       setLoadingPlan(null);
     }
   }
@@ -65,7 +65,7 @@ export default function BillingPage() {
                 {isAdmin && 'Seu acesso administrativo é ilimitado.'}
                 {!isAdmin && hasActiveSubscription && periodEnd && `Seu acesso está liberado até ${periodEnd}. A renovação mantém o mesmo dia da assinatura.`}
                 {!isAdmin && hasActiveSubscription && !periodEnd && 'Sua plataforma está liberada para operar.'}
-                {!hasActiveSubscription && `${user?.name || 'Sua conta'} já pode entrar, mas as áreas principais do SaaS ficam protegidas por cadeado até a confirmação do Pix.`}
+                {!hasActiveSubscription && `${user?.name || 'Sua conta'} já pode entrar, mas as áreas principais do SaaS ficam protegidas por cadeado até a confirmação do pagamento.`}
               </p>
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function BillingPage() {
       </div>
 
       <PlanCards
-        ctaLabel={loadingPlan ? 'Abrindo checkout...' : 'Pagar com Pix'}
+        ctaLabel={loadingPlan ? 'Abrindo checkout...' : 'Pagar com Pix ou cartão'}
         onSelect={selectPlan}
         disabled={Boolean(loadingPlan) || hasActiveSubscription}
       />
