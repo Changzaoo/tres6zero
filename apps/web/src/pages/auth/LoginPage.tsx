@@ -10,7 +10,6 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
-import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
 import { LoginSupportChat } from '@/components/support/LoginSupportChat';
 
@@ -41,8 +40,15 @@ export default function LoginPage() {
     <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <BrandWordmark className="text-4xl" />
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="relative h-24 w-full max-w-[18rem] overflow-hidden">
+            <img
+              src="/brand/six3.png"
+              alt="SIX3"
+              className="absolute left-1/2 top-1/2 w-[19rem] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain sm:w-[21rem]"
+              draggable={false}
+            />
+          </div>
         </div>
 
         <div className="six3-glass p-6">
