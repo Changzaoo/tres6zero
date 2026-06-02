@@ -146,7 +146,17 @@ function getConfiguredAdminEmail() {
   return parsed.success ? parsed.data : null;
 }
 
+function getConfiguredAdminUid() {
+  const uid = (process.env.ADMIN_UID || '').trim();
+  return uid.length >= 8 ? uid : null;
+}
+
 function roleFromUser(user: FirebaseUserRecord): UserRole {
+  const adminUid = getConfiguredAdminUid();
+  if (adminUid) {
+    return user.localId === adminUid ? 'admin' : 'user';
+  }
+
   const adminEmail = getConfiguredAdminEmail();
   const userEmail = (user.email || '').trim().toLowerCase();
 
