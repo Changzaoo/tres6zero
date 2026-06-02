@@ -15,6 +15,7 @@ const processSchema = z.object({
   storagePath: z.string().optional(),
   templateId: z.string().optional(),
   overlayUrl: z.string().min(1).optional(),
+  animationUrl: z.string().min(1).optional(),
   effect: z.string().optional(),
   musicTheme: z.string().optional(),
   musicUrl: z.string().min(1).optional(),
@@ -60,6 +61,10 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
 
     if (config.overlayUrl && !isAllowedSupabaseUrl(config.overlayUrl) && !isAllowedOverlayDataUrl(config.overlayUrl)) {
       rejectInvalidMediaUrl('INVALID_OVERLAY_URL');
+    }
+
+    if (config.animationUrl && !isAllowedSupabaseUrl(config.animationUrl)) {
+      rejectInvalidMediaUrl('INVALID_ANIMATION_URL');
     }
 
     if (config.musicUrl && !isAllowedSupabaseUrl(config.musicUrl)) {

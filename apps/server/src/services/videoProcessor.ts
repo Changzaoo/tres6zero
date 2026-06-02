@@ -15,6 +15,7 @@ export type ProcessingConfig = {
   storagePath?: string;
   templateId?: string;
   overlayUrl?: string;
+  animationUrl?: string;
   effect?: string;
   musicTheme?: string;
   musicUrl?: string;
@@ -106,12 +107,38 @@ function parseEditorEffect(stdout: string, fallback?: string) {
   }
 }
 
+function fallbackExtFromUrl(url?: string) {
+  if (!url) return '.bin';
+  if (url.startsWith('data:image/svg+xml')) return '.svg';
+  if (url.startsWith('data:image/png')) return '.png';
+  if (url.startsWith('data:image/webp')) return '.webp';
+
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    const ext = path.extname(pathname);
+    if (['.png', '.webp', '.svg', '.webm', '.mp4', '.mov', '.gif'].includes(ext)) return ext;
+  } catch {
+    // Fall back to binary when the URL is not parseable.
+  }
+
+  return '.bin';
+}
+
 async function rasterOverlayIfNeeded(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
+  if (['.webm', '.mp4', '.mov', '.gif'].includes(ext)) return filePath;
+
   const buffer = await readFile(filePath);
   const looksLikeSvg = ext === '.svg' || buffer.subarray(0, 200).toString('utf8').includes('<svg');
 
-  if (!looksLikeSvg) return filePath;
+  if (!looksLikeSvg) {
+    if (ext === '.webp') {
+      const outputPath = path.join(path.dirname(filePath), 'overlay.png');
+      await sharp(buffer).png().toFile(outputPath);
+      return outputPath;
+    }
+    return filePath;
+  }
 
   const outputPath = path.join(path.dirname(filePath), 'overlay.png');
   await sharp(buffer, { density: 180 }).png().toFile(outputPath);
@@ -148,8 +175,9 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
 
   try {
     inputTemp = await downloadToTempFile(config.inputUrl, '.mp4');
-    if (config.overlayUrl) {
-      overlayTemp = await downloadToTempFile(config.overlayUrl, '.png');
+    const overlaySourceUrl = config.animationUrl || config.overlayUrl;
+    if (overlaySourceUrl) {
+      overlayTemp = await downloadToTempFile(overlaySourceUrl, fallbackExtFromUrl(overlaySourceUrl));
     }
     if (config.musicUrl) {
       musicTemp = await downloadToTempFile(config.musicUrl, '.wav');

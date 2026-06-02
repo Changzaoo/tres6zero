@@ -67,7 +67,11 @@ def build_graph(effect, has_overlay, animated_overlay=False):
         overlay_options = "format=auto:eof_action=repeat"
         if animated_overlay:
             overlay_options += ":shortest=1"
-        graph += f";[1:v][base]scale2ref=w=iw:h=ih[ov][video];[video][ov]overlay=0:0:{overlay_options}[v]"
+        graph += (
+            ";[1:v]format=rgba[overlay_src];"
+            "[overlay_src][base]scale2ref=w=main_w:h=main_h:flags=lanczos[ov][video];"
+            f"[video][ov]overlay=0:0:{overlay_options}[v]"
+        )
     else:
         graph += ";[base]null[v]"
 
