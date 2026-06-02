@@ -1,5 +1,4 @@
 import { forwardRef, ButtonHTMLAttributes, type ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
@@ -29,19 +28,17 @@ const sizes: Record<Size, string> = {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', loading, icon, children, className = '', disabled, ...props }, ref) => (
-    <motion.button
+    <button
       ref={ref}
-      whileTap={{ scale: 0.97 }}
-      whileHover={{ scale: 1.01 }}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold tracking-[-0.01em] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
-      {...(props as any)}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold tracking-normal transition-all duration-300 active:scale-[0.98] hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props}
     >
       <span className="inline-flex items-center gap-2">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
         {children}
       </span>
-    </motion.button>
+    </button>
   )
 );
 Button.displayName = 'Button';

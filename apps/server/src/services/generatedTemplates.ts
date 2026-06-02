@@ -650,7 +650,14 @@ export async function renderTemplatePng(svg: string) {
     .toBuffer();
 }
 
-export function buildGeneratedTemplates(count = 720, offset = 0) {
+type BuildGeneratedTemplatesOptions = {
+  includeSvg?: boolean;
+  includeDataUrl?: boolean;
+};
+
+export function buildGeneratedTemplates(count = 720, offset = 0, options: BuildGeneratedTemplatesOptions = {}) {
+  const includeSvg = options.includeSvg ?? true;
+  const includeDataUrl = options.includeDataUrl ?? true;
   const now = new Date().toISOString();
   return Array.from({ length: count }, (_, batchIndex) => {
     const index = offset + batchIndex;
@@ -660,7 +667,7 @@ export function buildGeneratedTemplates(count = 720, offset = 0) {
     const [primary, secondary, accent] = pick(theme.palettes, Math.floor(index / (CATEGORIES.length * ASPECTS.length * THEMES[category].length)) + index);
     const layout = pick(theme.layouts, Math.floor(index / (CATEGORIES.length * ASPECTS.length)) + index);
     const name = templateName(theme, aspectRatio, index);
-    const svg = templateSvg({ name, category, primary, secondary, accent, aspectRatio, index, theme, layout });
+    const svg = (includeSvg || includeDataUrl) ? templateSvg({ name, category, primary, secondary, accent, aspectRatio, index, theme, layout }) : '';
     const id = `generated-${index + 1}`;
 
     return {
@@ -669,7 +676,7 @@ export function buildGeneratedTemplates(count = 720, offset = 0) {
       category,
       colors: { primary, secondary },
       font: 'Inter',
-      overlayUrl: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+      overlayUrl: includeDataUrl ? `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` : undefined,
       storagePath: generatedTemplatePath({ id, category, aspectRatio }),
       aspectRatio,
       effects: EFFECTS_BY_CATEGORY[category],
@@ -677,7 +684,7 @@ export function buildGeneratedTemplates(count = 720, offset = 0) {
       isActive: true,
       createdAt: now,
       updatedAt: now,
-      svg,
+      svg: includeSvg ? svg : '',
     };
   });
 }

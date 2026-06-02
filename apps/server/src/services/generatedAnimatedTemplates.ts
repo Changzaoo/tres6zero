@@ -13,7 +13,7 @@ export type GeneratedAnimatedTemplate = Omit<BaseTemplate, 'id' | 'name' | 'stor
   name: string;
   storagePath: string;
   animationStoragePath: string;
-  overlayUrl: string;
+  overlayUrl: string | undefined;
   animationUrl?: string;
 };
 
@@ -199,8 +199,13 @@ function motionSvg(template: BaseTemplate, width: number, height: number, frame:
 </svg>`;
 }
 
-export function buildGeneratedAnimatedTemplates(count = 144, offset = 0): GeneratedAnimatedTemplate[] {
-  const baseTemplates = buildGeneratedTemplates(count, offset);
+type BuildGeneratedAnimatedTemplatesOptions = {
+  includeSvg?: boolean;
+  includeDataUrl?: boolean;
+};
+
+export function buildGeneratedAnimatedTemplates(count = 144, offset = 0, options: BuildGeneratedAnimatedTemplatesOptions = {}): GeneratedAnimatedTemplate[] {
+  const baseTemplates = buildGeneratedTemplates(count, offset, options);
   return baseTemplates.map((template) => {
     const id = `animated-${template.id}`;
     const { svg, ...publicTemplate } = template;

@@ -35,11 +35,11 @@ type SeedJob = {
 const seedJobs = new Map<string, SeedJob>();
 
 templatesRouter.get('/generated', requireActiveSubscription, (_req, res) => {
-  const templates = buildGeneratedTemplates().map(({ svg, ...template }) => ({
+  const templates = buildGeneratedTemplates(720, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
     ...template,
     overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
   }));
-  const animatedTemplates = buildGeneratedAnimatedTemplates().map(({ svg, ...template }) => ({
+  const animatedTemplates = buildGeneratedAnimatedTemplates(144, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
     ...template,
     overlayUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
     animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
@@ -98,7 +98,7 @@ async function mapConcurrent<T, R>(items: T[], concurrency: number, handler: (it
 
 async function uploadProjectTemplates(count: number, offset = 0, onUploaded?: () => void) {
   await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
-  const templates = buildGeneratedTemplates(count, offset);
+  const templates = buildGeneratedTemplates(count, offset, { includeSvg: true, includeDataUrl: false });
 
   return mapConcurrent(templates, seedConcurrency(), async (template) => {
     const result = await uploadBufferToSupabase({
@@ -124,7 +124,7 @@ async function uploadProjectTemplates(count: number, offset = 0, onUploaded?: ()
 
 async function uploadProjectAnimatedTemplates(count: number, offset = 0, onUploaded?: () => void) {
   await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
-  const templates = buildGeneratedAnimatedTemplates(count, offset);
+  const templates = buildGeneratedAnimatedTemplates(count, offset, { includeSvg: true, includeDataUrl: false });
 
   return mapConcurrent(templates, Math.min(2, seedConcurrency()), async (template) => {
     const result = await uploadBufferToSupabase({
