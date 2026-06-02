@@ -43,7 +43,6 @@ export default function LoginPage() {
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <BrandWordmark className="text-4xl" />
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-white/35">Plataforma de edição com IA</p>
         </div>
 
         <div className="six3-glass p-6">

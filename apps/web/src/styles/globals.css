@@ -177,30 +177,6 @@
     background-clip: text;
     color: transparent;
   }
-  .brand-wordmark {
-    letter-spacing: 0;
-  }
-  .brand-degree {
-    display: inline-block;
-    margin-left: 0.04em;
-    background: var(--grad);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    text-shadow: 0 0 20px rgba(99, 102, 241, 0.45);
-    transform: translateY(-0.08em);
-  }
-  .six3-degree-dot {
-    display: inline-block;
-    width: .42em;
-    height: .42em;
-    margin-left: .06em;
-    border-radius: 999px;
-    background: var(--grad);
-    box-shadow: 0 0 18px color-mix(in oklab, var(--glow) 62%, transparent);
-    transform: translateY(-0.58em);
-    animation: six3-degree-pulse 2.8s var(--ease) infinite;
-  }
   .six3-glass {
     position: relative;
     border: 1px solid var(--border);
@@ -377,16 +353,6 @@
     animation:
       six3-loader-dash 1.35s cubic-bezier(.35,0,.25,1) infinite,
       six3-loader-color 5.4s ease-in-out infinite;
-  }
-}
-
-@keyframes six3-degree-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--glow) 55%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 6px transparent;
-    filter: brightness(1.25);
   }
 }
 

@@ -15,6 +15,7 @@ import { billingRouter, stripeWebhookHandler } from './routes/billing';
 import { supportRouter } from './routes/support';
 import { eventsRouter } from './routes/events';
 import { notificationsRouter } from './routes/notifications';
+import { musicRouter } from './routes/music';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -83,6 +84,7 @@ app.use('/api/leads', leadRouter);
 app.use('/api/track', trackRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/music', musicRouter);
 
 app.use(errorHandler);
 

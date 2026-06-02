@@ -84,13 +84,31 @@ SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 OPENAI_API_KEY=...
 OPENAI_MODEL=chat-latest
+SUNO_API_KEY=...
+SUNO_API_BASE_URL=https://api.sunoapi.org
+SUNO_MODEL=V4_5ALL
+SUNO_CALLBACK_URL=https://tres6zero.onrender.com/api/music/suno/callback
 SIX3_SEED_SECRET=...
 PYTHON_BIN=python3
+MUSIC_REMOTE_IMPORT_MAX_MB=50
+MUSIC_LICENSE_TEST_MODE=false
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` e recomendado no Render para uploads server-side sem depender de policies publicas de insert. Nunca coloque essa chave na Vercel nem em `VITE_*`.
 `OPENAI_API_KEY` tambem deve ficar somente no Render. O frontend nunca chama a OpenAI diretamente.
+`SUNO_API_KEY` tambem fica somente no Render. O frontend pede a geracao pelo backend, e o backend salva as musicas prontas no bucket `six3-user-music`.
 `SIX3_SEED_SECRET` protege a rota interna que cria buckets e semeia templates/musicas no Supabase.
+`MUSIC_REMOTE_IMPORT_MAX_MB` limita imports por URL das bibliotecas musicais para evitar estouro de memoria no Render.
+`MUSIC_LICENSE_TEST_MODE=true` libera importacao de musicas externas como rascunho interno de teste e marca essas faixas com `licenseStatus: "test_only"`. Deixe `false` em producao.
+
+## Bibliotecas musicais licenciadas
+
+O SIX3 integra YouTube Audio Library, Pixabay Music, Free Music Archive, Artlist, Epidemic Sound, Soundstripe, PremiumBeat, Envato Elements, Uppbeat e Audiio como fontes de trilhas licenciadas. A busca/download automatico so acontece quando a fonte expoe um arquivo de audio direto e a licenca passa pela validacao server-side.
+
+- YouTube Audio Library, Pixabay Music e Free Music Archive: informe a licenca da faixa; Creative Commons com atribuicao exige credito, NC/ND fica bloqueado.
+- Artlist, Epidemic Sound, Soundstripe, PremiumBeat, Envato Elements, Uppbeat e Audiio: exigem comprovante de assinatura/licenca do projeto antes de salvar a trilha.
+- O backend bloqueia URLs locais/privadas e limita o tamanho do arquivo para reduzir risco de SSRF e consumo de memoria.
+- Em ambiente de teste, `MUSIC_LICENSE_TEST_MODE=true` permite importar trilhas sem comprovante/licenca formal, mas elas ficam marcadas como `Somente teste`.
 
 ## URLs uteis
 

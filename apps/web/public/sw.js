@@ -10,7 +10,7 @@ const SHELL_ASSETS = [
   '/site.webmanifest',
   '/app-icon.png',
   '/logo.svg',
-  '/brand/six3-logo.png',
+  '/brand/six3.png',
 ];
 
 function isNavigationRequest(request) {

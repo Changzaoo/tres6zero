@@ -1,10 +1,12 @@
 import { Buffer } from 'node:buffer';
 import sharp from 'sharp';
 
-const CATEGORIES = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium'] as const;
+const LEGACY_CATEGORIES = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium'] as const;
+const CATEGORIES = [...LEGACY_CATEGORIES, 'graduation', 'store', 'church'] as const;
 const ASPECTS = ['9:16', '16:9'] as const;
 
 type TemplateCategory = (typeof CATEGORIES)[number];
+type LegacyTemplateCategory = (typeof LEGACY_CATEGORIES)[number];
 type TemplateAspect = (typeof ASPECTS)[number];
 type LayoutKey =
   | 'poster_clip'
@@ -89,9 +91,12 @@ const EFFECTS_BY_CATEGORY: Record<TemplateCategory, string[]> = {
   birthday: ['party', 'boomerang', 'neon'],
   viral: ['speed_ramp', 'glitch_flash', 'neon'],
   premium: ['luxury', 'cinematic', 'slow_motion'],
+  graduation: ['luxury', 'cinematic', 'party'],
+  store: ['corporate_sharp', 'clean', 'neon'],
+  church: ['wedding_soft', 'cinematic', 'clean'],
 };
 
-const THEMES: Record<TemplateCategory, ThemePack[]> = {
+const THEMES: Record<LegacyTemplateCategory, ThemePack[]> = {
   birthday: [
     {
       title: 'Birthday Clip',
@@ -232,6 +237,203 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
   ],
 };
 
+const TEMPLATE_IDEA_GROUPS: Partial<Record<TemplateCategory, string[]>> = {
+  birthday: [
+    'Confete neon com nome e idade',
+    'Baloes dourados transparentes',
+    'Bolo minimalista no rodape',
+    'Moldura Happy Birthday premium',
+    'Estrelas e glitter rosa dourado',
+    'Tema boteco elegante',
+    'Tema infantil colorido clean',
+    'Festa de 15 anos com brilho',
+    'Aniversario adulto preto e dourado',
+    'Pool party azul e branco',
+    'Chuva de confetes animados',
+    'Fita de cinema meu aniversario',
+    'Moldura tropical',
+    'Baloes cromados 3D',
+    'Tema gamer neon',
+    'Tema funk festa sem marcas',
+    'Tema anos 80 e 90',
+    'Minimal branco com tipografia grande',
+    'Moldura com espaco para logo do buffet',
+    'Tema luxo com particulas douradas',
+  ],
+  wedding: [
+    'Branco floral elegante',
+    'Dourado com iniciais dos noivos',
+    'Moldura Save the Moment',
+    'Rose gold romantico',
+    'Flores aquareladas',
+    'Minimal com data no rodape',
+    'Classico preto e branco',
+    'Luxo dourado com particulas',
+    'Jardim boho',
+    'Praia casamento tropical',
+    'Coracao line art',
+    'Moldura com assinatura dos noivos',
+    'Chuva de petalas',
+    'Recem casados clean',
+    'Moldura igreja sofisticada',
+    'Festa de casamento neon elegante',
+    'Champagne e brilhos',
+    'Alianca em traco fino',
+    'Moldura para hashtag do casamento',
+    'After party dos noivos',
+  ],
+  corporate: [
+    'Moldura com logo da empresa',
+    'Lower third com nome do evento',
+    'Linha tecnologica azul',
+    'Ativacao de marca clean',
+    'Lancamento de produto',
+    'Convencao anual',
+    'Palestra premium',
+    'Feirao exposicao',
+    'Fundo transparente com grid',
+    'Moldura LinkedIn style',
+    'Template para patrocinadores',
+    'QR de campanha no final',
+    'Obrigado por participar',
+    'Black corporate',
+    'Branco minimal institucional',
+    'Tech neon moderado',
+    'Premiacao corporativa',
+    'Networking event',
+    'Template com slogan',
+    'Metrica lead capture visual',
+  ],
+  graduation: [
+    'Capelo dourado',
+    'Formandos 2026',
+    'Curso mais turma',
+    'Preto dourado classico',
+    'Neon festa de formatura',
+    'Glamour com brilho',
+    'Moldura com brasao ficticio',
+    'Diploma minimal',
+    'Chuva de estrelas',
+    'Baile de gala',
+    'Medicina sem simbolos protegidos',
+    'Direito elegante',
+    'Engenharia tech',
+    'Administracao corporate',
+    'Pedagogia leve colorida',
+    'Missao cumprida',
+    'Turma mais hashtag',
+    'After formatura',
+    'Tapete vermelho',
+    'Moldura para foto video da turma',
+  ],
+  party: [
+    'Neon roxo azul',
+    'Laser light',
+    'Equalizador animado',
+    'Flash strobe moderado',
+    'Glitch party',
+    'Glow frame',
+    'DJ night',
+    'After party',
+    'Neon tropical',
+    'Festa open bar sem marca',
+    'Confete metalico',
+    'Balada premium black',
+    'Beat drops visual',
+    'Tonight only',
+    'Holographic frame',
+    'Smoke fog overlay',
+    'LED tunnel',
+    'Festa universitaria',
+    'Dark club',
+    'Sunset party',
+  ],
+  store: [
+    'Grande inauguracao',
+    'Moldura com logo da loja',
+    'Cupom no rodape',
+    'Visite nosso perfil',
+    'Vitrine premium',
+    'Confete comercial',
+    'Lancamento de colecao',
+    'Black Friday local',
+    'Loja de roupas clean',
+    'Barbearia premium',
+    'Salao de beleza glam',
+    'Academia fitness',
+    'Restaurante bar',
+    'Cafeteria elegante',
+    'Pet shop divertido',
+    'Clinica estetica',
+    'Stand de shopping',
+    'Cliente VIP',
+    'Sorteio campanha',
+    'Moldura com QR promocional',
+  ],
+  church: [
+    'Encontro de jovens',
+    'Conferencia crista clean',
+    'Louvor e adoracao',
+    'Retiro espiritual',
+    'Congresso de mulheres',
+    'Congresso de homens',
+    'Batismo',
+    'Culto especial',
+    'Aniversario da igreja',
+    'Natal cristao',
+    'Pascoa crista',
+    'Moldura com versiculo curto autorizado',
+    'Minimal branco dourado',
+    'Ceu luz suave',
+    'Familia na fe',
+    'Juventude neon moderado',
+    'Evento beneficente',
+    'Conferencia de lideranca',
+    'Bem vindo',
+    'Template com logo da igreja',
+  ],
+  premium: [
+    'Black gold',
+    'Champagne particles',
+    'Marble white',
+    'Diamond shine',
+    'Velvet red',
+    'Minimal luxury',
+    'Gold frame thin',
+    'Royal blue',
+    'Platinum silver',
+    'Luxury gala',
+    'VIP night',
+    'Red carpet',
+    'High fashion',
+    'Elegant serif',
+    'Black glass',
+    'Crystal glow',
+    'Golden dust',
+    'Premium corporate',
+    'Luxury wedding',
+    'Signature event',
+  ],
+};
+
+type TemplateIdea = {
+  category: TemplateCategory;
+  title: string;
+  ideaIndex: number;
+};
+
+const TEMPLATE_IDEAS: TemplateIdea[] = Object.entries(TEMPLATE_IDEA_GROUPS).flatMap(([category, titles]) =>
+  (titles || []).map((title, ideaIndex) => ({
+    category: category as TemplateCategory,
+    title,
+    ideaIndex,
+  }))
+);
+
+const LEGACY_GENERATED_TEMPLATE_COUNT = 720;
+const IDEA_COLOR_VARIANTS = [COLOR_VARIANTS[0], COLOR_VARIANTS[3]] as const;
+export const GENERATED_TEMPLATE_CATALOG_SIZE = LEGACY_GENERATED_TEMPLATE_COUNT + TEMPLATE_IDEAS.length * ASPECTS.length * IDEA_COLOR_VARIANTS.length;
+
 function aspectSize(aspect: TemplateAspect) {
   if (aspect === '16:9') return { width: 1920, height: 1080 };
   return { width: 1080, height: 1920 };
@@ -302,6 +504,92 @@ function paletteVariant(base: [string, string, string], variantIndex: number): [
 function templateName(theme: ThemePack, aspectRatio: TemplateAspect, index: number, layout: LayoutKey, variantLabel: string) {
   const suffix = aspectRatio === '16:9' ? 'Landscape' : 'Portrait';
   return `${theme.title} ${LAYOUT_LABELS[layout]} ${suffix} ${variantLabel} ${String(index + 1).padStart(3, '0')}`;
+}
+
+function defaultBadge(category: TemplateCategory) {
+  const labels: Record<TemplateCategory, string> = {
+    birthday: 'HAPPY BIRTHDAY',
+    wedding: 'SAVE THE MOMENT',
+    corporate: 'BRAND EVENT',
+    graduation: 'FORMANDOS',
+    party: 'PARTY NIGHT',
+    store: 'GRANDE ABERTURA',
+    church: 'BEM-VINDO',
+    premium: 'VIP MOMENT',
+    viral: 'VIRAL READY',
+  };
+  return labels[category];
+}
+
+function ideaFooter(title: string) {
+  const normalized = title.toUpperCase().replace(/\s+/g, ' ').trim();
+  return normalized.length > 28 ? `${normalized.slice(0, 25)}...` : normalized;
+}
+
+function ideaLayout(category: TemplateCategory, title: string, index: number): LayoutKey {
+  const text = title.toLowerCase();
+
+  if (/neon|laser|led|gamer|glitch|holographic|tech/.test(text)) return pick(['neon_corners', 'glitch_reel', 'applay_flow', 'tech_hud'], index);
+  if (/floral|flores|petalas|jardim|boho|aquarel/.test(text)) return pick(['floral_crown', 'romantic_lace', 'liquid_waves'], index);
+  if (/logo|marca|slogan|patrocin|empresa|linkedin|grid|lead|metrica|qr/.test(text)) return pick(['brand_slate', 'tech_hud', 'cinematic_band', 'event_badge'], index);
+  if (/luxo|luxury|premium|gold|dourad|champagne|diamond|platinum|velvet|royal|red carpet|gala|vip|black/.test(text)) return pick(['luxury_corners', 'minimal_luxe', 'geometric_lux', 'chrome_frame'], index);
+  if (/baloes|confete|glitter|estrelas|chuva|festa|party|tropical|pool/.test(text)) return pick(['confetti_arch', 'sticker_burst', 'poster_clip', 'social_story'], index);
+  if (/fita|cinema|anos 80|anos 90|tapete|ticket|after/.test(text)) return pick(['ticket_pass', 'retro_vhs', 'photo_strip', 'magazine_cover'], index);
+  if (/minimal|clean|branco|data|rodape|tipografia/.test(text)) return pick(['minimal_editorial', 'minimal_luxe', 'split_ribbon'], index);
+  if (/capelo|diploma|formandos|turma|curso|brasao/.test(text)) return pick(['event_badge', 'ticket_pass', 'brand_slate', 'photo_strip'], index);
+  if (/loja|cupom|vitrine|perfil|cliente|sorteio|inauguracao|colecao/.test(text)) return pick(['split_ribbon', 'event_badge', 'brand_slate', 'magazine_cover'], index);
+  if (/igreja|crista|louvor|adoracao|batismo|culto|retiro|ceu|familia|versiculo/.test(text)) return pick(['romantic_lace', 'minimal_luxe', 'floral_crown', 'orbital_focus'], index);
+
+  const byCategory: Record<TemplateCategory, LayoutKey[]> = {
+    birthday: ['confetti_arch', 'poster_clip', 'sticker_burst', 'magazine_cover'],
+    wedding: ['floral_crown', 'romantic_lace', 'minimal_luxe', 'luxury_corners'],
+    corporate: ['tech_hud', 'brand_slate', 'cinematic_band', 'chrome_frame'],
+    graduation: ['event_badge', 'ticket_pass', 'photo_strip', 'geometric_lux'],
+    party: ['neon_corners', 'spotlight_stage', 'glitch_reel', 'applay_flow'],
+    store: ['split_ribbon', 'brand_slate', 'event_badge', 'social_story'],
+    church: ['minimal_luxe', 'romantic_lace', 'orbital_focus', 'floral_crown'],
+    premium: ['luxury_corners', 'minimal_luxe', 'geometric_lux', 'chrome_frame'],
+    viral: ['glitch_reel', 'applay_flow', 'social_story', 'retro_vhs'],
+  };
+
+  return pick(byCategory[category], index);
+}
+
+function ideaPalettes(category: TemplateCategory, title: string): [string, string, string][] {
+  const text = title.toLowerCase();
+
+  if (/black|preto|gold|dourad/.test(text)) return [['#050505', '#d4af37', '#fff7d6'], ['#111827', '#facc15', '#f8fafc']];
+  if (/neon|laser|led|gamer|glitch/.test(text)) return [['#7c3aed', '#00d4ff', '#ff2d75'], ['#111827', '#8b5cf6', '#22d3ee']];
+  if (/rose|romant|floral|flores|petalas|casamento|wedding/.test(text)) return [['#fff7ed', '#d6b26e', '#f5d0fe'], ['#f8fafc', '#fb7185', '#fef3c7']];
+  if (/pool|praia|tropical|sunset|ceu/.test(text)) return [['#0ea5e9', '#f8fafc', '#facc15'], ['#22d3ee', '#2563eb', '#fff7ed']];
+  if (/tech|corporate|empresa|linkedin|grid|engenharia/.test(text)) return [['#0f172a', '#38bdf8', '#e2e8f0'], ['#020617', '#6366f1', '#f8fafc']];
+  if (/igreja|crista|louvor|batismo|culto|familia|fe/.test(text)) return [['#f8fafc', '#d6b26e', '#93c5fd'], ['#fff7ed', '#facc15', '#e0f2fe']];
+  if (/loja|cupom|vitrine|barbearia|salao|academia|cafeteria|pet/.test(text)) return [['#111827', '#38bdf8', '#f8fafc'], ['#f97316', '#111827', '#fef3c7']];
+
+  const defaults: Record<TemplateCategory, [string, string, string][]> = {
+    birthday: [['#ff3d8d', '#ffd166', '#38f6ff'], ['#7c3aed', '#ffb703', '#f9fafb']],
+    wedding: [['#f8fafc', '#d6b26e', '#f5d0fe'], ['#fff7ed', '#a16207', '#fb7185']],
+    corporate: [['#0f172a', '#38bdf8', '#e2e8f0'], ['#111827', '#a3e635', '#f8fafc']],
+    graduation: [['#111827', '#d4af37', '#f8fafc'], ['#7c3aed', '#facc15', '#fef3c7']],
+    party: [['#ff2d75', '#29f4d5', '#8b5cf6'], ['#00f5ff', '#f000ff', '#f8fafc']],
+    store: [['#f97316', '#111827', '#fef3c7'], ['#22c55e', '#0f172a', '#f8fafc']],
+    church: [['#f8fafc', '#d6b26e', '#93c5fd'], ['#1e3a8a', '#facc15', '#f8fafc']],
+    premium: [['#050505', '#f6c453', '#fef3c7'], ['#160b2f', '#c084fc', '#f8fafc']],
+    viral: [['#ff0050', '#00f2ea', '#f8fafc'], ['#7c3aed', '#22d3ee', '#fef08a']],
+  };
+
+  return defaults[category];
+}
+
+function ideaTheme(idea: TemplateIdea): ThemePack {
+  const layout = ideaLayout(idea.category, idea.title, idea.ideaIndex);
+  return {
+    title: idea.title,
+    badge: defaultBadge(idea.category),
+    footer: ideaFooter(idea.title),
+    palettes: ideaPalettes(idea.category, idea.title),
+    layouts: [layout],
+  };
 }
 
 type TemplateContext = {
@@ -456,6 +744,61 @@ function cakeIcon(ctx: TemplateContext) {
     <path d="M${x} ${y + s * 0.72} C${x + s * 0.22} ${y + s * 0.48}, ${x + s * 0.4} ${y + s * 0.9}, ${x + s * 0.62} ${y + s * 0.68} C${x + s * 0.84} ${y + s * 0.44}, ${x + s} ${y + s * 0.88}, ${x + s * 1.2} ${y + s * 0.62} V${y + s * 0.86} H${x} Z" fill="${secondary}" opacity="0.95"/>
     <rect x="${x + s * 0.52}" y="${y + s * 0.2}" width="${s * 0.12}" height="${s * 0.35}" rx="${s * 0.06}" fill="#ffffff"/>
     <path d="M${x + s * 0.58} ${y + s * 0.16} C${x + s * 0.47} ${y + s * 0.02}, ${x + s * 0.69} ${y + s * 0.02}, ${x + s * 0.58} ${y + s * 0.16}" fill="${accent}"/>
+  </g>`;
+}
+
+function graduationMark(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const s = aspectRatio === '16:9' ? height * 0.13 : width * 0.17;
+  const x = margin + s * 0.65;
+  const y = margin + s * 0.7;
+
+  return `<g filter="url(#shadow)" opacity="0.92">
+    <path d="M${x} ${y} L${x + s * 1.25} ${y - s * 0.42} L${x + s * 2.5} ${y} L${x + s * 1.25} ${y + s * 0.42} Z" fill="${primary}" opacity="0.9"/>
+    <path d="M${x + s * 0.7} ${y + s * 0.28} C${x + s * 0.95} ${y + s * 0.62}, ${x + s * 1.55} ${y + s * 0.62}, ${x + s * 1.8} ${y + s * 0.28} V${y + s * 0.82} C${x + s * 1.38} ${y + s * 1.05}, ${x + s * 1.12} ${y + s * 1.05}, ${x + s * 0.7} ${y + s * 0.82} Z" fill="${secondary}" opacity="0.9"/>
+    <path d="M${x + s * 1.25} ${y} V${y + s * 1.2}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" stroke-linecap="round"/>
+    <circle cx="${x + s * 1.25}" cy="${y + s * 1.32}" r="${s * 0.12}" fill="${accent}"/>
+    <rect x="${width - margin - s * 1.2}" y="${height - margin - s * 0.9}" width="${s * 1.1}" height="${s * 0.72}" rx="${s * 0.08}" fill="#ffffff" opacity="0.14" stroke="${secondary}" stroke-width="${Math.max(3, ctx.stroke * 0.12)}"/>
+    <path d="M${width - margin - s * 1.03} ${height - margin - s * 0.54} H${width - margin - s * 0.28}" stroke="${accent}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}" opacity="0.72"/>
+  </g>`;
+}
+
+function storeMark(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const s = aspectRatio === '16:9' ? height * 0.12 : width * 0.16;
+  const x = width - margin - s * 2.35;
+  const y = margin + s * 0.75;
+
+  return `<g filter="url(#shadow)" opacity="0.9">
+    <path d="M${x} ${y + s * 0.52} H${x + s * 2.1} L${x + s * 1.82} ${y} H${x + s * 0.28} Z" fill="#050505" opacity="0.48" stroke="${secondary}" stroke-width="${Math.max(3, ctx.stroke * 0.12)}"/>
+    ${Array.from({ length: 5 }, (_, i) => {
+      const sx = x + (i * s * 2.1) / 5;
+      const fill = i % 2 ? secondary : primary;
+      return `<path d="M${sx} ${y + s * 0.52} H${sx + s * 0.42} V${y + s * 0.72} C${sx + s * 0.36} ${y + s * 0.92}, ${sx + s * 0.06} ${y + s * 0.92}, ${sx} ${y + s * 0.72} Z" fill="${fill}" opacity="0.8"/>`;
+    }).join('')}
+    <rect x="${x + s * 0.22}" y="${y + s * 0.86}" width="${s * 1.66}" height="${s * 0.88}" rx="${s * 0.1}" fill="#ffffff" opacity="0.1" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.1)}"/>
+    <path d="M${margin} ${height - margin - s * 0.55} H${margin + s * 1.34}" stroke="${primary}" stroke-width="${Math.max(4, ctx.stroke * 0.2)}" stroke-linecap="round"/>
+    <rect x="${margin}" y="${height - margin - s * 0.92}" width="${s * 1.44}" height="${s * 0.52}" rx="${s * 0.1}" fill="#050505" opacity="0.42" stroke="${secondary}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}"/>
+    <text x="${margin + s * 0.72}" y="${height - margin - s * 0.58}" text-anchor="middle" font-size="${fontSize(width, aspectRatio, 0.016)}" font-weight="900" fill="${accent}">VIP</text>
+  </g>`;
+}
+
+function churchMark(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const s = aspectRatio === '16:9' ? height * 0.12 : width * 0.16;
+  const cx = width - margin - s * 1.1;
+  const cy = margin + s * 1.1;
+
+  return `<g filter="url(#softGlow)" opacity="0.88">
+    <path d="M${cx} ${cy - s * 0.72} V${cy + s * 0.72}" stroke="${secondary}" stroke-width="${Math.max(4, ctx.stroke * 0.2)}" stroke-linecap="round"/>
+    <path d="M${cx - s * 0.42} ${cy - s * 0.24} H${cx + s * 0.42}" stroke="${secondary}" stroke-width="${Math.max(4, ctx.stroke * 0.2)}" stroke-linecap="round"/>
+    <path d="M${cx - s * 0.9} ${cy + s * 0.72} C${cx - s * 0.58} ${cy + s * 0.22}, ${cx + s * 0.58} ${cy + s * 0.22}, ${cx + s * 0.9} ${cy + s * 0.72}" fill="none" stroke="${primary}" stroke-width="${Math.max(3, ctx.stroke * 0.15)}" stroke-linecap="round"/>
+    <path d="M${margin} ${height - margin - s * 0.48} C${width * 0.28} ${height - margin - s * 1.08}, ${width * 0.72} ${height - margin + s * 0.12}, ${width - margin} ${height - margin - s * 0.48}" fill="none" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.13)}" stroke-linecap="round" opacity="0.6"/>
+    ${Array.from({ length: 8 }, (_, i) => {
+      const x = margin + (i * (width - margin * 2)) / 7;
+      const y = margin + Math.sin(i * 1.2) * s * 0.18;
+      return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(s * 0.055)}" fill="${i % 2 ? secondary : accent}" opacity="0.5"/>`;
+    }).join('')}
   </g>`;
 }
 
@@ -963,7 +1306,7 @@ function renderLayout(ctx: TemplateContext) {
   }
 
   if (ctx.layout === 'confetti_arch') {
-    return [...common, confetti(ctx, ctx.aspectRatio === '16:9' ? 42 : 58, 'top'), confetti(ctx, 18, 'bottom'), balloonCluster(ctx), cakeIcon(ctx), badge(ctx)].join('');
+    return [...common, confetti(ctx, ctx.aspectRatio === '16:9' ? 42 : 58, 'top'), confetti(ctx, 18, 'bottom'), balloonCluster(ctx), cakeOrCategoryMark(ctx), badge(ctx)].join('');
   }
 
   if (ctx.layout === 'event_badge') {
@@ -1045,6 +1388,9 @@ function cakeOrCategoryMark(ctx: TemplateContext) {
   if (ctx.category === 'birthday') return cakeIcon(ctx);
   if (ctx.category === 'wedding') return rings(ctx);
   if (ctx.category === 'corporate') return corporateGrid(ctx);
+  if (ctx.category === 'graduation') return graduationMark(ctx);
+  if (ctx.category === 'store') return storeMark(ctx);
+  if (ctx.category === 'church') return churchMark(ctx);
   if (ctx.category === 'viral') return glitchBars(ctx);
   return sparkles(ctx, 10);
 }
@@ -1124,51 +1470,148 @@ type BuildGeneratedTemplatesOptions = {
   includeDataUrl?: boolean;
 };
 
-export function buildGeneratedTemplates(count = 720, offset = 0, options: BuildGeneratedTemplatesOptions = {}) {
+function buildTemplateRecord(params: {
+  id: string;
+  designId: string;
+  name: string;
+  category: TemplateCategory;
+  primary: string;
+  secondary: string;
+  accent: string;
+  aspectRatio: TemplateAspect;
+  index: number;
+  theme: ThemePack;
+  layout: LayoutKey;
+  variantKey: string;
+  variantName: string;
+  includeSvg: boolean;
+  includeDataUrl: boolean;
+  now: string;
+}) {
+  const svg = (params.includeSvg || params.includeDataUrl)
+    ? templateSvg({
+      name: params.name,
+      category: params.category,
+      primary: params.primary,
+      secondary: params.secondary,
+      accent: params.accent,
+      aspectRatio: params.aspectRatio,
+      index: params.index,
+      theme: params.theme,
+      layout: params.layout,
+    })
+    : '';
+
+  return {
+    id: params.id,
+    designId: params.designId,
+    name: params.name,
+    category: params.category,
+    colors: { primary: params.primary, secondary: params.secondary },
+    font: 'Inter',
+    layout: params.layout,
+    variantKey: params.variantKey,
+    variantName: params.variantName,
+    overlayUrl: params.includeDataUrl ? `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` : undefined,
+    storagePath: generatedTemplatePath({ id: params.id, category: params.category, aspectRatio: params.aspectRatio }),
+    aspectRatio: params.aspectRatio,
+    effects: EFFECTS_BY_CATEGORY[params.category],
+    isGlobal: true,
+    isActive: true,
+    createdAt: params.now,
+    updatedAt: params.now,
+    svg: params.includeSvg ? svg : '',
+  };
+}
+
+function buildLegacyGeneratedTemplate(index: number, options: Required<BuildGeneratedTemplatesOptions>, now: string) {
+  const colorVariantIndex = index % COLOR_VARIANTS.length;
+  const colorVariant = COLOR_VARIANTS[colorVariantIndex];
+  const familyIndex = Math.floor(index / COLOR_VARIANTS.length);
+  const category = LEGACY_CATEGORIES[familyIndex % LEGACY_CATEGORIES.length];
+  const aspectRatio = ASPECTS[Math.floor(familyIndex / LEGACY_CATEGORIES.length) % ASPECTS.length];
+  const categoryFamilyIndex = Math.floor(familyIndex / (LEGACY_CATEGORIES.length * ASPECTS.length));
+  const themes = THEMES[category];
+  const themeIndex = categoryFamilyIndex % themes.length;
+  const theme = themes[themeIndex];
+  const layoutIndex = Math.floor(categoryFamilyIndex / themes.length) % theme.layouts.length;
+  const layout = theme.layouts[layoutIndex];
+  const designCycle = Math.floor(categoryFamilyIndex / (themes.length * theme.layouts.length));
+  const designNumber = designCycle * themes.length * theme.layouts.length + themeIndex * theme.layouts.length + layoutIndex;
+  const basePalette = pick(theme.palettes, designCycle + themeIndex + layoutIndex);
+  const [primary, secondary, accent] = paletteVariant(basePalette, colorVariantIndex);
+  const name = templateName(theme, aspectRatio, designNumber, layout, colorVariant.label);
+  const id = `generated-${index + 1}`;
+  const designId = `${category}-${aspectRatio.replace(':', 'x')}-${themeIndex + 1}-${layout}-${designCycle + 1}`;
+
+  return buildTemplateRecord({
+    id,
+    designId,
+    name,
+    category,
+    primary,
+    secondary,
+    accent,
+    aspectRatio,
+    index,
+    theme,
+    layout,
+    variantKey: colorVariant.key,
+    variantName: colorVariant.label,
+    includeSvg: options.includeSvg,
+    includeDataUrl: options.includeDataUrl,
+    now,
+  });
+}
+
+function buildIdeaGeneratedTemplate(index: number, options: Required<BuildGeneratedTemplatesOptions>, now: string) {
+  const ideaIndex = index - LEGACY_GENERATED_TEMPLATE_COUNT;
+  const colorVariantOffset = ideaIndex % IDEA_COLOR_VARIANTS.length;
+  const colorVariant = IDEA_COLOR_VARIANTS[colorVariantOffset];
+  const colorVariantIndex = colorVariant.key === 'contrast' ? 3 : 0;
+  const familyIndex = Math.floor(ideaIndex / IDEA_COLOR_VARIANTS.length);
+  const aspectRatio = ASPECTS[familyIndex % ASPECTS.length];
+  const ideaFamilyIndex = Math.floor(familyIndex / ASPECTS.length);
+  const idea = TEMPLATE_IDEAS[ideaFamilyIndex % TEMPLATE_IDEAS.length];
+  const designCycle = Math.floor(ideaFamilyIndex / TEMPLATE_IDEAS.length);
+  const theme = ideaTheme(idea);
+  const layout = theme.layouts[0];
+  const basePalette = pick(theme.palettes, designCycle + idea.ideaIndex);
+  const [primary, secondary, accent] = paletteVariant(basePalette, colorVariantIndex);
+  const name = templateName(theme, aspectRatio, idea.ideaIndex + designCycle * TEMPLATE_IDEAS.length, layout, colorVariant.label);
+  const id = `idea-${index + 1}`;
+  const designId = `idea-${idea.category}-${aspectRatio.replace(':', 'x')}-${idea.ideaIndex + 1}-${layout}-${colorVariant.key}`;
+
+  return buildTemplateRecord({
+    id,
+    designId,
+    name,
+    category: idea.category,
+    primary,
+    secondary,
+    accent,
+    aspectRatio,
+    index,
+    theme,
+    layout,
+    variantKey: colorVariant.key,
+    variantName: colorVariant.label,
+    includeSvg: options.includeSvg,
+    includeDataUrl: options.includeDataUrl,
+    now,
+  });
+}
+
+export function buildGeneratedTemplates(count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, options: BuildGeneratedTemplatesOptions = {}) {
   const includeSvg = options.includeSvg ?? true;
   const includeDataUrl = options.includeDataUrl ?? true;
+  const resolvedOptions = { includeSvg, includeDataUrl };
   const now = new Date().toISOString();
+
   return Array.from({ length: count }, (_, batchIndex) => {
     const index = offset + batchIndex;
-    const colorVariantIndex = index % COLOR_VARIANTS.length;
-    const colorVariant = COLOR_VARIANTS[colorVariantIndex];
-    const familyIndex = Math.floor(index / COLOR_VARIANTS.length);
-    const category = CATEGORIES[familyIndex % CATEGORIES.length];
-    const aspectRatio = ASPECTS[Math.floor(familyIndex / CATEGORIES.length) % ASPECTS.length];
-    const categoryFamilyIndex = Math.floor(familyIndex / (CATEGORIES.length * ASPECTS.length));
-    const themes = THEMES[category];
-    const themeIndex = categoryFamilyIndex % themes.length;
-    const theme = themes[themeIndex];
-    const layoutIndex = Math.floor(categoryFamilyIndex / themes.length) % theme.layouts.length;
-    const layout = theme.layouts[layoutIndex];
-    const designCycle = Math.floor(categoryFamilyIndex / (themes.length * theme.layouts.length));
-    const designNumber = designCycle * themes.length * theme.layouts.length + themeIndex * theme.layouts.length + layoutIndex;
-    const basePalette = pick(theme.palettes, designCycle + themeIndex + layoutIndex);
-    const [primary, secondary, accent] = paletteVariant(basePalette, colorVariantIndex);
-    const name = templateName(theme, aspectRatio, designNumber, layout, colorVariant.label);
-    const svg = (includeSvg || includeDataUrl) ? templateSvg({ name, category, primary, secondary, accent, aspectRatio, index, theme, layout }) : '';
-    const id = `generated-${index + 1}`;
-    const designId = `${category}-${aspectRatio.replace(':', 'x')}-${themeIndex + 1}-${layout}-${designCycle + 1}`;
-
-    return {
-      id,
-      designId,
-      name,
-      category,
-      colors: { primary, secondary },
-      font: 'Inter',
-      layout,
-      variantKey: colorVariant.key,
-      variantName: colorVariant.label,
-      overlayUrl: includeDataUrl ? `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` : undefined,
-      storagePath: generatedTemplatePath({ id, category, aspectRatio }),
-      aspectRatio,
-      effects: EFFECTS_BY_CATEGORY[category],
-      isGlobal: true,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-      svg: includeSvg ? svg : '',
-    };
+    return index < LEGACY_GENERATED_TEMPLATE_COUNT
+      ? buildLegacyGeneratedTemplate(index, resolvedOptions, now)
+      : buildIdeaGeneratedTemplate(index, resolvedOptions, now);
   });
 }

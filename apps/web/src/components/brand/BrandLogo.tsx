@@ -3,10 +3,18 @@ type BrandLogoProps = {
   wordmarkClassName?: string;
 };
 
+const BRAND_LOGO_SRC = '/brand/six3.png';
+
 export function BrandWordmark({ className = '' }: { className?: string }) {
   return (
-    <span className={`brand-wordmark inline-flex items-baseline font-black leading-none text-white ${className}`}>
-      SIX3<span className="six3-degree-dot" aria-hidden="true" />
+    <span className={`inline-flex min-w-0 items-center leading-none ${className}`} aria-label="SIX3">
+      <img
+        src={BRAND_LOGO_SRC}
+        alt=""
+        aria-hidden="true"
+        className={`${imageSizeClass(className)} w-auto max-w-full select-none object-contain`}
+        draggable={false}
+      />
     </span>
   );
 }
@@ -18,6 +26,8 @@ function imageSizeClass(wordmarkClassName: string) {
   if (wordmarkClassName.includes('text-3xl')) return 'h-14';
   if (wordmarkClassName.includes('text-2xl')) return 'h-11';
   if (wordmarkClassName.includes('text-xl')) return 'h-9';
+  if (wordmarkClassName.includes('text-lg')) return 'h-8';
+  if (wordmarkClassName.includes('text-base')) return 'h-7';
   return 'h-10';
 }
 
@@ -25,9 +35,10 @@ export function BrandLogo({ className = '', wordmarkClassName = '' }: BrandLogoP
   return (
     <div className={`flex min-w-0 flex-col ${className}`}>
       <img
-        src="/brand/six3-logo.png"
+        src={BRAND_LOGO_SRC}
         alt="SIX3"
-        className={`${imageSizeClass(wordmarkClassName)} w-auto max-w-[220px] rounded-md object-contain`}
+        className={`${imageSizeClass(wordmarkClassName)} w-auto max-w-[220px] select-none object-contain`}
+        draggable={false}
       />
     </div>
   );

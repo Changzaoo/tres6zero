@@ -35,6 +35,14 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: chat-latest
+      - key: SUNO_API_KEY
+        sync: false
+      - key: SUNO_API_BASE_URL
+        value: https://api.sunoapi.org
+      - key: SUNO_MODEL
+        value: V4_5ALL
+      - key: SUNO_CALLBACK_URL
+        value: https://tres6zero.onrender.com/api/music/suno/callback
       - key: SIX3_SEED_SECRET
         sync: false
       - key: PYTHON_BIN
@@ -45,5 +53,9 @@ services:
         value: "1"
       - key: SERVER_VIDEO_PROCESSING_ENABLED
         value: "false"
+      - key: MUSIC_REMOTE_IMPORT_MAX_MB
+        value: "50"
+      - key: MUSIC_LICENSE_TEST_MODE
+        sync: false
       - key: ALLOW_VERCEL_PREVIEWS
         value: "true"

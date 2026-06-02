@@ -38,7 +38,7 @@ export default function PricingPage() {
           </div>
           <h1 className="mx-auto max-w-[18rem] text-3xl font-black leading-tight tracking-[-0.03em] text-white sm:max-w-none sm:text-5xl lg:text-6xl">
             Escolha sua jornada no{' '}
-            <span className="inline-flex items-end whitespace-nowrap">SIX3<span className="six3-degree-dot" aria-hidden="true" /></span>
+            <BrandWordmark className="inline-flex text-4xl sm:text-5xl" />
           </h1>
           <p className="mx-auto mt-4 max-w-[18rem] text-sm leading-relaxed text-white/55 sm:max-w-2xl sm:text-lg">
             Escolha um plano, crie sua conta e libere templates, galerias, QR Codes, leads, modo offline e analytics.

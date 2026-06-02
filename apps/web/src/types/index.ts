@@ -171,7 +171,7 @@ export interface Lead {
   createdAt: string;
 }
 
-export type TemplateCategory = 'party' | 'wedding' | 'corporate' | 'birthday' | 'viral' | 'premium';
+export type TemplateCategory = 'party' | 'wedding' | 'corporate' | 'birthday' | 'viral' | 'premium' | 'graduation' | 'store' | 'church';
 
 export interface AppTemplate {
   id: string;
@@ -212,13 +212,85 @@ export interface AppMusic {
   storagePath?: string;
   source?: 'generated' | 'custom' | 'default';
   library?: string;
+  providerId?: MusicLibraryProviderId;
+  providerTrackId?: string;
+  providerArtist?: string;
+  pageUrl?: string;
+  originalAudioUrl?: string;
   licenseName?: string;
   licenseUrl?: string;
+  licenseStatus?: MusicLicenseStatus;
+  licenseCheckedAt?: string;
+  licenseProofUrl?: string;
   attribution?: string;
   isGlobal: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type MusicLibraryProviderId =
+  | 'youtube_audio_library'
+  | 'pixabay_music'
+  | 'free_music_archive'
+  | 'artlist'
+  | 'epidemic_sound'
+  | 'soundstripe'
+  | 'premiumbeat'
+  | 'envato_elements'
+  | 'uppbeat'
+  | 'audiio';
+
+export type MusicLicenseStatus =
+  | 'allowed'
+  | 'requires_attribution'
+  | 'requires_subscription'
+  | 'test_only'
+  | 'manual_review'
+  | 'blocked';
+
+export interface MusicLibraryProvider {
+  id: MusicLibraryProviderId;
+  name: string;
+  type: 'open_catalog' | 'manual_catalog' | 'subscription_catalog';
+  homepageUrl: string;
+  licenseUrl: string;
+  docsUrl?: string;
+  browseUrl?: string;
+  supportsPublicApiSearch: boolean;
+  supportsRemoteImport: boolean;
+  requiresLicenseProof: boolean;
+  defaultLicenseName: string;
+  notes: string[];
+}
+
+export interface MusicLicenseEvaluation {
+  providerId: MusicLibraryProviderId;
+  status: MusicLicenseStatus;
+  licenseName: string;
+  licenseUrl?: string;
+  attributionRequired: boolean;
+  licenseProofRequired: boolean;
+  checkedAt: string;
+  warnings: string[];
+}
+
+export interface MusicLibraryImportInput {
+  providerId: MusicLibraryProviderId;
+  name: string;
+  artist?: string;
+  category?: TemplateCategory | 'ambient';
+  theme?: string;
+  bpm?: number;
+  duration?: number;
+  audioUrl: string;
+  pageUrl?: string;
+  providerTrackId?: string;
+  licenseName?: string;
+  licenseUrl?: string;
+  attribution?: string;
+  licenseProofUrl?: string;
+  subscriptionConfirmed?: boolean;
 }
 
 export interface DashboardStats {

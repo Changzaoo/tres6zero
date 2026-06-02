@@ -11,6 +11,8 @@ const PricingPage = lazy(() => import('@/pages/public/PricingPage'));
 const GalleryPage = lazy(() => import('@/pages/public/GalleryPage'));
 const VideoPage = lazy(() => import('@/pages/public/VideoPage'));
 const BlueprintPage = lazy(() => import('@/pages/public/BlueprintPage'));
+const PublicInfoPage = lazy(() => import('@/pages/public/PublicInfoPage'));
+const PublicDocsPage = lazy(() => import('@/pages/public/PublicDocsPage'));
 
 // Auth
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -69,14 +71,35 @@ export default function App() {
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/plans" element={<PricingPage />} />
+        <Route path="/planos" element={<PricingPage />} />
         <Route path="/blueprint" element={<BlueprintPage />} />
+        <Route path="/recursos" element={<PublicInfoPage pageId="recursos" />} />
+        <Route path="/como-funciona" element={<PublicInfoPage pageId="como-funciona" />} />
+        <Route path="/estilos" element={<PublicInfoPage pageId="estilos" />} />
+        <Route path="/mobile" element={<PublicInfoPage pageId="mobile" />} />
+        <Route path="/desktop" element={<PublicInfoPage pageId="desktop" />} />
+        <Route path="/templates" element={<PublicInfoPage pageId="templates" />} />
+        <Route path="/analytics" element={<PublicInfoPage pageId="analytics" />} />
+        <Route path="/pagamento" element={<PublicInfoPage pageId="pagamento" />} />
+        <Route path="/suporte" element={<PublicInfoPage pageId="suporte" />} />
+        <Route path="/faq" element={<PublicDocsPage pageId="faq" />} />
+        <Route path="/ajuda" element={<PublicDocsPage pageId="faq" />} />
+        <Route path="/termos" element={<PublicDocsPage pageId="termos" />} />
+        <Route path="/termos-de-uso" element={<PublicDocsPage pageId="termos" />} />
+        <Route path="/privacidade" element={<PublicDocsPage pageId="privacidade" />} />
+        <Route path="/politica-de-privacidade" element={<PublicDocsPage pageId="privacidade" />} />
+        <Route path="/beta" element={<PublicDocsPage pageId="beta" />} />
+        <Route path="/roadmap" element={<PublicDocsPage pageId="roadmap" />} />
+        <Route path="/materiais" element={<PublicDocsPage pageId="materiais" />} />
         <Route path="/g/:eventSlug" element={<GalleryPage />} />
         <Route path="/g/:eventSlug/:videoId" element={<VideoPage />} />
         <Route path="/v/:videoId" element={<VideoPage />} />
 
         {/* Auth */}
         <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+        <Route path="/entrar" element={<AuthRoute><LoginPage /></AuthRoute>} />
         <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
+        <Route path="/criar-conta" element={<AuthRoute><RegisterPage /></AuthRoute>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* App (private) */}

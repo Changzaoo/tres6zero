@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
-import { buildGeneratedTemplates, renderTemplatePng } from './generatedTemplates';
+import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplatePng } from './generatedTemplates';
 
 type BaseTemplate = ReturnType<typeof buildGeneratedTemplates>[number];
 
@@ -324,6 +324,9 @@ function categoryMotion(template: BaseTemplate, width: number, height: number, f
   if (template.category === 'party') return `${laserSweep(template, width, height, frame, frames)}${equalizer(template, width, height, frame, frames)}`;
   if (template.category === 'wedding') return petals(template, width, height, frame, frames) + luxuryGlints(template, width, height, frame, frames);
   if (template.category === 'corporate') return corporateScan(template, width, height, frame, frames);
+  if (template.category === 'graduation') return `${luxuryGlints(template, width, height, frame, frames)}${photoFlash(template, width, height, frame, frames)}`;
+  if (template.category === 'store') return `${corporateScan(template, width, height, frame, frames)}${ticketMarquee(template, width, height, frame, frames)}`;
+  if (template.category === 'church') return petals(template, width, height, frame, frames) + orbitMotion(template, width, height, frame, frames);
   if (template.category === 'viral') return `${glitch(template, width, height, frame, frames)}${equalizer(template, width, height, frame, frames)}`;
   return luxuryGlints(template, width, height, frame, frames);
 }
@@ -347,8 +350,6 @@ type BuildGeneratedAnimatedTemplatesOptions = {
   includeSvg?: boolean;
   includeDataUrl?: boolean;
 };
-
-const GENERATED_TEMPLATE_CATALOG_SIZE = 720;
 
 export function buildGeneratedAnimatedTemplates(count = 144, offset = 0, options: BuildGeneratedAnimatedTemplatesOptions = {}): GeneratedAnimatedTemplate[] {
   const stride = count < GENERATED_TEMPLATE_CATALOG_SIZE

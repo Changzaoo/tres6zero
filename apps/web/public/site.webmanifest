@@ -1,7 +1,6 @@
 {
   "name": "SIX3\u00b0",
   "short_name": "SIX3\u00b0",
-  "description": "SIX3\u00b0 para edicao automatica de videos com IA, templates, galerias, QR Codes e leads.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -149,6 +149,7 @@ function canCacheApiResponse(path: string, options: RequestInit) {
     '/api/billing/',
     '/api/support/',
     '/api/notifications/',
+    '/api/music/',
     '/api/upload/',
     '/api/events/admin/',
   ].some((blockedPath) => path.includes(blockedPath));

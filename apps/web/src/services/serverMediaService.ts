@@ -21,6 +21,22 @@ export type MediaUploadResult = {
   createdAt: string;
 };
 
+export type SeedTemplatesJob = {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  count: number;
+  offset: number;
+  musicCount: number;
+  animatedCount: number;
+  templateUploaded: number;
+  animatedUploaded: number;
+  musicUploaded: number;
+  startedAt: string;
+  updatedAt: string;
+  finishedAt?: string;
+  error?: string;
+};
+
 function authHeader() {
   const token = getAuthToken();
   return token ? `Bearer ${token}` : '';
@@ -57,9 +73,13 @@ function hashString(value: string) {
   return (hash >>> 0).toString(36);
 }
 
+function cacheablePathname(path: string) {
+  return path.split('?')[0];
+}
+
 function isCacheableJson(path: string, options: RequestInit) {
   return (!options.method || options.method.toUpperCase() === 'GET')
-    && ['/api/templates/generated', '/api/templates/generated-music'].includes(path);
+    && ['/api/templates/generated', '/api/templates/generated-music'].includes(cacheablePathname(path));
 }
 
 function cacheKey(path: string) {
@@ -165,7 +185,7 @@ export function uploadMusicToServer(file: File | Blob, onProgress?: (pct: number
 }
 
 export async function getGeneratedTemplates() {
-  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/generated');
+  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/generated?v=ideas-v1');
   return templates;
 }
 
@@ -174,10 +194,23 @@ export async function getGeneratedMusic() {
   return music;
 }
 
-export async function seedGeneratedTemplates(count = 720, animatedCount = 144, musicCount = 72) {
+export async function seedGeneratedTemplates(count?: number, animatedCount?: number, musicCount = 72) {
   const { templates, music } = await authedJson<{ templates: AppTemplate[]; music?: AppMusic[] }>('/api/templates/seed-transparent', {
     method: 'POST',
     body: JSON.stringify({ count, animatedCount, musicCount }),
   });
   return { templates, music: music || [] };
+}
+
+export async function startGeneratedTemplatesSeedJob(count?: number, animatedCount?: number, musicCount = 72) {
+  const { job } = await authedJson<{ job: SeedTemplatesJob }>('/api/templates/seed-transparent-job', {
+    method: 'POST',
+    body: JSON.stringify({ count, animatedCount, musicCount }),
+  });
+  return job;
+}
+
+export async function getGeneratedTemplatesSeedJob(jobId: string) {
+  const { job } = await authedJson<{ job: SeedTemplatesJob }>(`/api/templates/seed-transparent-job/${encodeURIComponent(jobId)}?t=${Date.now()}`);
+  return job;
 }

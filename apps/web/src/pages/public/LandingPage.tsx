@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart2,
@@ -32,6 +32,47 @@ const navLinks = [
   { href: '#como', label: 'Como funciona' },
   { href: '#estilos', label: 'Estilos' },
   { href: '#planos', label: 'Planos' },
+];
+
+const footerGroups = [
+  {
+    title: 'Produto',
+    items: [
+      { label: 'Recursos', href: '/recursos' },
+      { label: 'Como funciona', href: '/como-funciona' },
+      { label: 'Estilos', href: '/estilos' },
+      { label: 'Planos', href: '/plans' },
+      { label: 'Roadmap', href: '/roadmap' },
+    ],
+  },
+  {
+    title: 'Plataforma',
+    items: [
+      { label: 'Mobile', href: '/mobile' },
+      { label: 'Desktop', href: '/desktop' },
+      { label: 'Templates', href: '/templates' },
+      { label: 'Analytics', href: '/analytics' },
+      { label: 'Materiais', href: '/materiais' },
+    ],
+  },
+  {
+    title: 'Acesso',
+    items: [
+      { label: 'Entrar', href: '/login' },
+      { label: 'Criar conta', href: '/register' },
+      { label: 'Pagamento', href: '/pagamento' },
+      { label: 'Suporte', href: '/suporte' },
+      { label: 'FAQ', href: '/faq' },
+    ],
+  },
+  {
+    title: 'Documentos',
+    items: [
+      { label: 'Termos de uso', href: '/termos' },
+      { label: 'Privacidade', href: '/privacidade' },
+      { label: 'Beta pago', href: '/beta' },
+    ],
+  },
 ];
 
 const promises = [
@@ -300,10 +341,6 @@ export default function LandingPage() {
       <main className="relative z-10">
         <section className="mx-auto grid min-h-screen max-w-7xl items-center gap-10 px-4 pb-12 pt-[calc(var(--nav-h)+2rem)] sm:px-6 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pb-16 lg:pt-[calc(var(--nav-h)+4rem)]">
           <RevealOnScroll className="max-w-3xl">
-            <span className="six3-eyebrow">
-              <span className="six3-eyebrow-dot" />
-              Edição de vídeo com IA · 360°
-            </span>
             <h1 className="mt-7 text-[clamp(2.7rem,8vw,5.9rem)] font-black leading-[0.94] tracking-[-0.055em] text-white">
               Edite vídeos automaticamente em <span className="six3-gradient-text">qualquer lugar</span>
             </h1>
@@ -503,23 +540,18 @@ export default function LandingPage() {
       </main>
 
       <footer className="relative z-10 border-t border-white/10 px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-7xl gap-8 sm:grid-cols-2 lg:grid-cols-[1.2fr_repeat(4,1fr)]">
           <div>
             <BrandWordmark className="text-3xl" />
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/45">
-              Automação criativa em 360°. Do vídeo bruto ao conteúdo pronto para postar, em qualquer tela.
-            </p>
           </div>
-          {[
-            ['Produto', 'Recursos', 'Como funciona', 'Estilos', 'Planos'],
-            ['Plataforma', 'Mobile', 'Desktop', 'Templates', 'Analytics'],
-            ['Acesso', 'Entrar', 'Criar conta', 'Pagamento', 'Suporte'],
-          ].map(([title, ...items]) => (
-            <div key={title}>
-              <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">{title}</h3>
+          {footerGroups.map((group) => (
+            <div key={group.title}>
+              <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">{group.title}</h3>
               <div className="mt-3 flex flex-col gap-2">
-                {items.map((item) => (
-                  <span key={item} className="text-sm text-white/50">{item}</span>
+                {group.items.map((item) => (
+                  <Link key={item.label} to={item.href} className="w-fit text-sm text-white/50 transition hover:text-white">
+                    {item.label}
+                  </Link>
                 ))}
               </div>
             </div>

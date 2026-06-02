@@ -113,6 +113,18 @@ async function loadImage(url?: string): Promise<LoadedAsset<HTMLImageElement> | 
   return { element: image, objectUrl: asset.objectUrl };
 }
 
+async function loadFirstImage(urls: Array<string | undefined>): Promise<LoadedAsset<HTMLImageElement> | undefined> {
+  const seen = new Set<string>();
+  const candidates = urls.filter((url): url is string => Boolean(url && !seen.has(url) && seen.add(url)));
+
+  for (const url of candidates) {
+    const image = await loadImage(url).catch(() => undefined);
+    if (image) return image;
+  }
+
+  return undefined;
+}
+
 function looksLikeVideoUrl(url?: string) {
   return /\.(webm|mp4|mov)(\?|$)/i.test(url || '');
 }
@@ -495,10 +507,10 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('CANVAS_CONTEXT_UNAVAILABLE');
 
-    const imageOverlayUrl = looksLikeVideoUrl(options.overlayUrl) ? options.fallbackOverlayUrl : (options.overlayUrl || options.fallbackOverlayUrl);
+    const imageOverlayUrl = looksLikeVideoUrl(options.overlayUrl) ? undefined : options.overlayUrl;
     const motionOverlayUrl = options.animationUrl || (looksLikeVideoUrl(options.overlayUrl) ? options.overlayUrl : undefined);
     const [loadedOverlayImage, loadedOverlayVideo, loadedMusicBuffer] = await Promise.all([
-      loadImage(imageOverlayUrl).catch(() => undefined),
+      loadFirstImage([imageOverlayUrl, options.fallbackOverlayUrl]).catch(() => undefined),
       loadOverlayVideo(motionOverlayUrl).catch(() => undefined),
       loadMusicBuffer(audioContext, options.musicUrl).catch(() => undefined),
     ]);

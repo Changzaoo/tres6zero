@@ -11,9 +11,11 @@ import { createVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
 import { uploadVideoToServer, getGeneratedMusic } from '@/services/serverMediaService';
+import { generateSunoMusic, waitForSunoMusic } from '@/services/sunoMusicService';
 import { canRenderVideoInBrowser, renderVideoInBrowser } from '@/services/browserVideoRenderer';
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
+import { API_URL } from '@/config/api';
 import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
@@ -101,6 +103,9 @@ function effectLabel(effectId: string) {
 function localAiDirection(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']) {
   if (eventType === 'wedding' || templateCategory === 'wedding') return { effect: 'wedding_soft', musicTheme: 'wedding' };
   if (eventType === 'corporate' || templateCategory === 'corporate') return { effect: 'corporate_sharp', musicTheme: 'corporate' };
+  if (eventType === 'graduation' || templateCategory === 'graduation') return { effect: 'luxury', musicTheme: 'luxury' };
+  if (eventType === 'store' || templateCategory === 'store') return { effect: 'corporate_sharp', musicTheme: 'corporate' };
+  if (eventType === 'church' || templateCategory === 'church') return { effect: 'wedding_soft', musicTheme: 'ambient' };
   if (eventType === 'birthday' || templateCategory === 'birthday') return { effect: 'party', musicTheme: 'birthday' };
   if (eventType === 'club' || templateCategory === 'party') return { effect: 'neon', musicTheme: 'party' };
   if (templateCategory === 'premium') return { effect: 'luxury', musicTheme: 'luxury' };
@@ -155,24 +160,83 @@ function getEffectPreviewStyle(effect: string): CSSProperties {
   return { filter: effectPreviewFilters[effect] || effectPreviewFilters.clean };
 }
 
-function templateSource(template?: AppTemplate) {
-  return template?.animationUrl || template?.overlayUrl || template?.previewUrl;
+function uniqueSources(sources: Array<string | undefined>) {
+  const seen = new Set<string>();
+  return sources.filter((source): source is string => Boolean(source && !seen.has(source) && seen.add(source)));
 }
 
-function isVideoOverlay(src?: string) {
-  return /\.(webm|mp4|mov)(\?|$)/i.test(src || '');
+function generatedTemplateBaseId(template?: AppTemplate) {
+  const id = template?.id.replace(/^animated-/, '');
+  return id && /^(generated|idea)-\d+$/.test(id) ? id : undefined;
+}
+
+function generatedTemplateRenderUrl(template?: AppTemplate) {
+  const id = generatedTemplateBaseId(template);
+  return id ? `${API_URL}/api/templates/render/${encodeURIComponent(id)}.png` : undefined;
+}
+
+function templateImageSources(template?: AppTemplate) {
+  return uniqueSources([
+    template?.overlayUrl,
+    template?.frameUrl,
+    template?.previewUrl,
+    generatedTemplateRenderUrl(template),
+  ]);
+}
+
+function templateRenderAssets(template?: AppTemplate) {
+  const imageSources = templateImageSources(template);
+  const renderFallback = imageSources[1] || imageSources[0] || generatedTemplateRenderUrl(template);
+
+  return {
+    overlayUrl: imageSources[0] || renderFallback,
+    animationUrl: template?.animationUrl,
+    fallbackOverlayUrl: renderFallback,
+  };
 }
 
 function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
-  const src = templateSource(template);
-  if (!src) return null;
+  const imageSources = useMemo(() => templateImageSources(template), [template]);
+  const motionSrc = template?.animationUrl;
+  const [imageIndex, setImageIndex] = useState(0);
+  const [motionFailed, setMotionFailed] = useState(false);
 
-  const className = 'absolute inset-0 h-full w-full object-cover opacity-95 pointer-events-none';
-  if (isVideoOverlay(src)) {
-    return <video src={src} className={className} muted autoPlay loop playsInline preload="metadata" />;
+  useEffect(() => {
+    setImageIndex(0);
+    setMotionFailed(false);
+  }, [template?.id, template?.overlayUrl, template?.animationUrl]);
+
+  const className = 'absolute inset-0 h-full w-full object-contain opacity-95 pointer-events-none';
+  if (motionSrc && !motionFailed) {
+    return (
+      <video
+        key={`${template?.id}-${motionSrc}`}
+        src={motionSrc}
+        className={className}
+        muted
+        autoPlay
+        loop
+        playsInline
+        preload="metadata"
+        onError={() => setMotionFailed(true)}
+      />
+    );
   }
 
-  return <img src={src} alt="" className={className} loading="lazy" decoding="async" />;
+  const src = imageSources[imageIndex];
+  if (!src) return null;
+
+  return (
+    <img
+      key={`${template?.id}-${src}`}
+      src={src}
+      alt=""
+      className={className}
+      loading="lazy"
+      decoding="async"
+      onError={() => setImageIndex((current) => Math.min(current + 1, imageSources.length))}
+    />
+  );
 }
 
 function EffectPreviewLayer({ effect }: { effect: string }) {
@@ -394,6 +458,8 @@ export default function OperatorPage() {
   const [sourceDuration, setSourceDuration] = useState(0);
   const [effectSegmentStart, setEffectSegmentStart] = useState(0);
   const [effectSegmentEnd, setEffectSegmentEnd] = useState<number>(operatorPreferences.defaultDuration);
+  const [generatingAiMusic, setGeneratingAiMusic] = useState(false);
+  const [aiMusicStatus, setAiMusicStatus] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -424,6 +490,11 @@ export default function OperatorPage() {
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const effectMeta = VIDEO_EFFECTS.find(item => item.value === effect);
   const aiAutoSelected = effect === 'ai_auto';
+  const aiPreviewDirection = useMemo(
+    () => localAiDirection(selectedEvent?.type, selectedTemplate?.category),
+    [selectedEvent?.type, selectedTemplate?.category]
+  );
+  const previewEffect = aiAutoSelected ? aiPreviewDirection.effect : effect;
   const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
   const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.feature, isAdmin);
   const canUseTemplate = !selectedTemplate || isAdmin
@@ -474,7 +545,9 @@ export default function OperatorPage() {
   const musicPreviewUrl = selectedMusicUrl || selectedMusicTrack?.musicUrl;
   const processingMusicUrl = musicTheme === 'none' ? undefined : musicPreviewUrl;
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
-  const effectDescription = effectPreviewText[effect] || 'Acabamento aplicado pelo editor.';
+  const effectDescription = aiAutoSelected
+    ? `A IA local vai aplicar ${effectLabel(previewEffect)} para este contexto.`
+    : effectPreviewText[effect] || 'Acabamento aplicado pelo editor.';
   const effectSegments = useMemo<EffectSegment[]>(() => {
     if (effect === 'clean' || effect === 'ai_auto') return [];
 
@@ -655,6 +728,69 @@ export default function OperatorPage() {
     toast.success('IA automatica ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
   }
 
+  async function generateAiMusicFromContext() {
+    if (!canUseAiAuto) {
+      toast.error('Geracao de trilha IA esta liberada no plano Ilimitado.');
+      return;
+    }
+    if (generatingAiMusic) return;
+
+    const aiDirection = localAiDirection(selectedEvent?.type, selectedTemplate?.category);
+    const promptParts = [
+      selectedEvent
+        ? `Trilha original para evento ${selectedEvent.name}, tipo ${selectedEvent.type}, cliente ${selectedEvent.clientName || 'SIX3'}`
+        : 'Trilha original para video avulso de photo booth 360',
+      selectedTemplate ? `template visual ${selectedTemplate.name}` : 'sem template definido',
+      `efeito de video ${effect === 'ai_auto' ? aiDirection.effect : effect}`,
+      `duracao final ${duration} segundos`,
+      'energia moderna, memoravel, pronta para video curto e sem qualquer melodia conhecida',
+    ];
+
+    setGeneratingAiMusic(true);
+    setAiMusicStatus('Criando prompt musical com IA...');
+    try {
+      const started = await generateSunoMusic({
+        prompt: promptParts.join('. '),
+        mode: 'instrumental',
+        source: 'ai_auto_edit',
+        eventType: selectedEvent?.type,
+        templateName: selectedTemplate?.name,
+        effect: effect === 'ai_auto' ? aiDirection.effect : effect,
+        mood: musicTheme !== 'none' && !selectedMusicUrl ? musicTheme : aiDirection.musicTheme,
+        durationSeconds: duration,
+        title: selectedEvent ? `${selectedEvent.name} SIX3` : 'SIX3 Auto Track',
+        language: 'pt-BR',
+      });
+
+      const taskId = started.taskId || started.generation.taskId;
+      setAiMusicStatus('Suno gerando trilha original...');
+      const result = await waitForSunoMusic(taskId, (status) => {
+        setAiMusicStatus(status === 'SUCCESS' ? 'Salvando trilha...' : `Suno: ${status}`);
+      });
+      const tracks = result.music || [];
+      const selectedTrack = tracks.find((track) => track.musicUrl) || tracks[0];
+      if (!selectedTrack?.musicUrl) throw new Error('SUNO_MUSIC_NOT_READY');
+
+      setMusicCatalog((current) => [
+        ...tracks,
+        ...current.filter((track) => !tracks.some((created) => created.id === track.id)),
+      ]);
+      setMusicTheme(`url:${selectedTrack.musicUrl}`);
+      setAiMusicStatus('Trilha IA selecionada.');
+      toast.success('Trilha IA gerada, salva e selecionada.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao gerar trilha IA.';
+      setAiMusicStatus(message === 'SUNO_GENERATION_STILL_PROCESSING'
+        ? 'A Suno ainda esta processando. Tente novamente em alguns minutos.'
+        : message);
+      toast.error(message === 'SUNO_GENERATION_STILL_PROCESSING'
+        ? 'A Suno ainda esta processando a trilha.'
+        : message);
+    } finally {
+      setGeneratingAiMusic(false);
+    }
+  }
+
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -699,12 +835,13 @@ export default function OperatorPage() {
         ? 'Editando com IA local: efeito, template e trilha...'
         : 'Editando video no navegador...');
 
+      const templateAssets = templateRenderAssets(selectedTemplate);
       const renderedBlob = await renderVideoInBrowser({
         input: videoBlob,
         durationSeconds: duration,
-        overlayUrl: selectedTemplate?.overlayUrl,
-        animationUrl: selectedTemplate?.animationUrl,
-        fallbackOverlayUrl: selectedTemplate?.frameUrl || selectedTemplate?.previewUrl,
+        overlayUrl: templateAssets.overlayUrl,
+        animationUrl: templateAssets.animationUrl,
+        fallbackOverlayUrl: templateAssets.fallbackOverlayUrl,
         effect: browserEffect,
         effectSegments: shouldProcessEffectAsSegment ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
           effect: segmentEffect,
@@ -835,6 +972,22 @@ export default function OperatorPage() {
               onChange={e => setSelectedTemplateId(e.target.value)} />
             <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
             <Select label="Trilha" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={generatingAiMusic}
+              disabled={!canUseAiAuto}
+              onClick={generateAiMusicFromContext}
+              icon={<Music2 className="h-4 w-4" />}
+              className="w-full justify-center"
+            >
+              Gerar trilha IA
+            </Button>
+            {aiMusicStatus && (
+              <p className="rounded-xl border border-brand-300/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-100">
+                {aiMusicStatus}
+              </p>
+            )}
             {(!canUseEffect || !canUseTemplate) && (
               <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
                 <Lock className="w-4 h-4 shrink-0" />
@@ -842,7 +995,7 @@ export default function OperatorPage() {
               </div>
             )}
             <div className="grid gap-4 border-t border-white/[0.08] pt-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-              <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Preview" className="mx-auto aspect-[9/16] max-w-[220px]" />
+              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Preview" className="mx-auto aspect-[9/16] max-w-[220px]" />
               <div className="min-w-0 space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -899,7 +1052,7 @@ export default function OperatorPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[minmax(320px,520px)_1fr] gap-4">
           <div className="space-y-4">
             <div className="relative">
-              <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Ao vivo" className="aspect-[9/16] max-h-[68vh]">
+              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Ao vivo" className="aspect-[9/16] max-h-[68vh]">
                 <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
               </VideoPreviewFrame>
               {countdown > 0 && (
@@ -953,7 +1106,7 @@ export default function OperatorPage() {
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-[minmax(300px,500px)_minmax(0,1fr)]">
-            <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Editor" className="aspect-[9/16] max-h-[66vh]">
+            <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Editor" className="aspect-[9/16] max-h-[66vh]">
               <video
                 ref={previewRef}
                 src={videoUrl}
@@ -1000,6 +1153,17 @@ export default function OperatorPage() {
                   onChange={e => setSelectedTemplateId(e.target.value)} />
                 <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
                 <Select label="Trilha sonora" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={generatingAiMusic}
+                  disabled={!canUseAiAuto}
+                  onClick={generateAiMusicFromContext}
+                  icon={<Music2 className="h-4 w-4" />}
+                  className="min-h-11 justify-center"
+                >
+                  Gerar trilha IA
+                </Button>
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-white/70">Duracao final</p>
                   <div className="grid grid-cols-5 gap-1.5">
@@ -1020,6 +1184,12 @@ export default function OperatorPage() {
                   </div>
                 </div>
               </div>
+
+              {aiMusicStatus && (
+                <div className="mt-4 rounded-2xl border border-brand-300/20 bg-brand-500/10 p-3 text-sm text-brand-100">
+                  {aiMusicStatus}
+                </div>
+              )}
 
               <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

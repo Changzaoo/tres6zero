@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
-import { Database, Layers, Lock, Music2, Search, SlidersHorizontal, Upload, X, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Upload, Wand2, X, Zap } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
-import { uploadMusicToServer, uploadTemplateToServer, seedGeneratedTemplates } from '@/services/serverMediaService';
+import { getGeneratedTemplatesSeedJob, startGeneratedTemplatesSeedJob, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
+import { buildSunoPrompt, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
+import { checkMusicLibraryLicense, getMusicLibraries, importMusicLibraryTrack } from '@/services/musicLibraryService';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { hasFeature } from '@/config/plans';
-import type { AppMusic, AppTemplate } from '@/types';
+import type { AppMusic, AppTemplate, MusicLibraryProvider, MusicLibraryProviderId, MusicLicenseEvaluation, MusicLicenseStatus } from '@/types';
 
 const INITIAL_TEMPLATE_COUNT = 32;
 const TEMPLATE_BATCH_SIZE = 32;
@@ -21,6 +24,9 @@ const categoryOptions = [
   { value: 'wedding', label: 'Casamento' },
   { value: 'corporate', label: 'Corporativo' },
   { value: 'birthday', label: 'Aniversario' },
+  { value: 'graduation', label: 'Formatura' },
+  { value: 'store', label: 'Loja' },
+  { value: 'church', label: 'Igreja' },
   { value: 'viral', label: 'Viral' },
   { value: 'premium', label: 'Premium' },
 ];
@@ -38,6 +44,37 @@ const sourceOptions = [
   { value: 'custom', label: 'Enviados' },
   { value: 'default', label: 'Padrao' },
 ];
+
+const musicCategoryOptions: { value: AppMusic['category']; label: string }[] = [
+  { value: 'ambient', label: 'Ambiente' },
+  { value: 'party', label: 'Festa' },
+  { value: 'wedding', label: 'Casamento' },
+  { value: 'corporate', label: 'Corporativo' },
+  { value: 'birthday', label: 'Aniversario' },
+  { value: 'graduation', label: 'Formatura' },
+  { value: 'store', label: 'Loja' },
+  { value: 'church', label: 'Igreja' },
+  { value: 'viral', label: 'Viral' },
+  { value: 'premium', label: 'Premium' },
+];
+
+const licenseStatusLabels: Record<MusicLicenseStatus, string> = {
+  allowed: 'Liberada',
+  requires_attribution: 'Credito obrigatorio',
+  requires_subscription: 'Assinatura comprovada',
+  test_only: 'Somente teste',
+  manual_review: 'Revisao manual',
+  blocked: 'Bloqueada',
+};
+
+const licenseStatusClass: Record<MusicLicenseStatus, string> = {
+  allowed: 'border-emerald-300/25 bg-emerald-500/12 text-emerald-100',
+  requires_attribution: 'border-cyan-300/25 bg-cyan-500/12 text-cyan-100',
+  requires_subscription: 'border-brand-300/25 bg-brand-500/12 text-brand-100',
+  test_only: 'border-amber-300/25 bg-amber-500/12 text-amber-100',
+  manual_review: 'border-amber-300/25 bg-amber-500/12 text-amber-100',
+  blocked: 'border-red-300/25 bg-red-500/12 text-red-100',
+};
 
 function templateAspectRatio(aspectRatio: AppTemplate['aspectRatio']) {
   if (aspectRatio === '16:9') return '16 / 9';
@@ -69,6 +106,42 @@ function searchableTemplateText(template: AppTemplate) {
     template.designId,
     ...(template.effects || []),
   ].filter(Boolean).join(' ').toLowerCase();
+}
+
+type LibraryMusicForm = {
+  name: string;
+  artist: string;
+  category: AppMusic['category'];
+  theme: string;
+  bpm: string;
+  duration: string;
+  audioUrl: string;
+  pageUrl: string;
+  providerTrackId: string;
+  licenseName: string;
+  licenseUrl: string;
+  attribution: string;
+  licenseProofUrl: string;
+  subscriptionConfirmed: boolean;
+};
+
+function initialLibraryMusicForm(provider?: MusicLibraryProvider): LibraryMusicForm {
+  return {
+    name: '',
+    artist: '',
+    category: 'ambient',
+    theme: '',
+    bpm: '',
+    duration: '',
+    audioUrl: '',
+    pageUrl: '',
+    providerTrackId: '',
+    licenseName: provider?.defaultLicenseName || '',
+    licenseUrl: provider?.licenseUrl || '',
+    attribution: '',
+    licenseProofUrl: '',
+    subscriptionConfirmed: false,
+  };
 }
 
 async function loadCatalog(userId?: string) {
@@ -167,6 +240,7 @@ export default function TemplatesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [seedStatus, setSeedStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [musicProgress, setMusicProgress] = useState(0);
   const [visibleCount, setVisibleCount] = useState(INITIAL_TEMPLATE_COUNT);
@@ -177,10 +251,38 @@ export default function TemplatesPage() {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [motionOnly, setMotionOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sunoOpen, setSunoOpen] = useState(false);
+  const [sunoMode, setSunoMode] = useState<SunoMusicMode>('instrumental');
+  const [sunoPrompt, setSunoPrompt] = useState('');
+  const [sunoTitle, setSunoTitle] = useState('');
+  const [sunoStyle, setSunoStyle] = useState('');
+  const [sunoLyrics, setSunoLyrics] = useState('');
+  const [sunoPreviewPrompt, setSunoPreviewPrompt] = useState('');
+  const [sunoTaskId, setSunoTaskId] = useState('');
+  const [sunoStatus, setSunoStatus] = useState('');
+  const [sunoGenerating, setSunoGenerating] = useState(false);
+  const [librariesOpen, setLibrariesOpen] = useState(false);
+  const [librariesLoading, setLibrariesLoading] = useState(false);
+  const [libraryProviders, setLibraryProviders] = useState<MusicLibraryProvider[]>([]);
+  const [acceptedLicenses, setAcceptedLicenses] = useState<string[]>([]);
+  const [libraryTestMode, setLibraryTestMode] = useState(false);
+  const [selectedProviderId, setSelectedProviderId] = useState<MusicLibraryProviderId>('pixabay_music');
+  const [libraryForm, setLibraryForm] = useState<LibraryMusicForm>(() => initialLibraryMusicForm());
+  const [licenseEvaluation, setLicenseEvaluation] = useState<MusicLicenseEvaluation | null>(null);
+  const [checkingLicense, setCheckingLicense] = useState(false);
+  const [importingLibraryMusic, setImportingLibraryMusic] = useState(false);
 
   const canUpload = useMemo(
     () => isAdmin || hasFeature(user?.planId, 'custom_template_upload', isAdmin),
     [isAdmin, user?.planId]
+  );
+  const canGenerateSuno = useMemo(
+    () => isAdmin || hasFeature(user?.planId, 'ai_auto_edit', isAdmin),
+    [isAdmin, user?.planId]
+  );
+  const selectedProvider = useMemo(
+    () => libraryProviders.find((provider) => provider.id === selectedProviderId),
+    [libraryProviders, selectedProviderId]
   );
   const filteredTemplates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -234,6 +336,57 @@ export default function TemplatesPage() {
   useEffect(() => {
     setVisibleCount(INITIAL_TEMPLATE_COUNT);
   }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter]);
+
+  useEffect(() => {
+    if (!librariesOpen || libraryProviders.length > 0) return;
+
+    let active = true;
+    setLibrariesLoading(true);
+    getMusicLibraries()
+      .then(({ providers, acceptedLicenses, testMode }) => {
+        if (!active) return;
+        setLibraryProviders(providers);
+        setAcceptedLicenses(acceptedLicenses);
+        setLibraryTestMode(testMode);
+        const preferred = providers.find((provider) => provider.id === selectedProviderId) || providers[0];
+        if (preferred) {
+          setSelectedProviderId(preferred.id);
+          setLibraryForm((current) => ({
+            ...current,
+            licenseName: current.licenseName || preferred.defaultLicenseName,
+            licenseUrl: current.licenseUrl || preferred.licenseUrl,
+          }));
+        }
+      })
+      .catch((error) => {
+        console.warn('[music libraries] load failed:', error);
+        toast.error('Nao foi possivel carregar as bibliotecas musicais.');
+      })
+      .finally(() => {
+        if (active) setLibrariesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [librariesOpen, libraryProviders.length, selectedProviderId]);
+
+  function selectLibraryProvider(provider: MusicLibraryProvider) {
+    setSelectedProviderId(provider.id);
+    setLibraryForm((current) => ({
+      ...current,
+      licenseName: provider.defaultLicenseName,
+      licenseUrl: provider.licenseUrl,
+      licenseProofUrl: provider.requiresLicenseProof ? current.licenseProofUrl : '',
+      subscriptionConfirmed: false,
+    }));
+    setLicenseEvaluation(null);
+  }
+
+  function updateLibraryForm<K extends keyof LibraryMusicForm>(key: K, value: LibraryMusicForm[K]) {
+    setLibraryForm((current) => ({ ...current, [key]: value }));
+    setLicenseEvaluation(null);
+  }
 
   function clearFilters() {
     setSearchTerm('');
@@ -315,21 +468,189 @@ export default function TemplatesPage() {
     }
   }
 
+  function libraryLicensePayload() {
+    return {
+      providerId: selectedProviderId,
+      licenseName: libraryForm.licenseName || selectedProvider?.defaultLicenseName,
+      licenseUrl: libraryForm.licenseUrl || selectedProvider?.licenseUrl,
+      attribution: libraryForm.attribution || undefined,
+      licenseProofUrl: libraryForm.licenseProofUrl || undefined,
+      subscriptionConfirmed: libraryForm.subscriptionConfirmed,
+    };
+  }
+
+  async function handleCheckLibraryLicense() {
+    if (!canUpload) {
+      toast.error('Bibliotecas externas ficam liberadas nos planos Profissional e Ilimitado.');
+      return;
+    }
+
+    setCheckingLicense(true);
+    try {
+      const evaluation = await checkMusicLibraryLicense(libraryLicensePayload());
+      setLicenseEvaluation(evaluation);
+      if (evaluation.status === 'test_only') {
+        toast.success('Modo teste ativo: a trilha pode ser importada como rascunho interno.');
+      } else if (evaluation.status === 'blocked') {
+        toast.error('Licenca bloqueada para uso seguro no SIX3.');
+      } else if (evaluation.status === 'manual_review') {
+        toast.error('Essa licenca precisa de revisao manual antes de importar.');
+      } else {
+        toast.success('Licenca conferida.');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Nao foi possivel conferir a licenca.');
+    } finally {
+      setCheckingLicense(false);
+    }
+  }
+
+  async function handleImportLibraryMusic() {
+    if (!canUpload) {
+      toast.error('Bibliotecas externas ficam liberadas nos planos Profissional e Ilimitado.');
+      return;
+    }
+    if (!libraryForm.name.trim()) {
+      toast.error('Informe o nome da faixa.');
+      return;
+    }
+    if (!libraryForm.audioUrl.trim()) {
+      toast.error('Informe uma URL direta do arquivo de audio.');
+      return;
+    }
+
+    setImportingLibraryMusic(true);
+    try {
+      const { music: track, evaluation } = await importMusicLibraryTrack({
+        ...libraryLicensePayload(),
+        name: libraryForm.name.trim(),
+        artist: libraryForm.artist.trim() || undefined,
+        category: libraryForm.category,
+        theme: libraryForm.theme.trim() || undefined,
+        bpm: libraryForm.bpm ? Number(libraryForm.bpm) : undefined,
+        duration: libraryForm.duration ? Number(libraryForm.duration) : undefined,
+        audioUrl: libraryForm.audioUrl.trim(),
+        pageUrl: libraryForm.pageUrl.trim() || undefined,
+        providerTrackId: libraryForm.providerTrackId.trim() || undefined,
+      });
+      setLicenseEvaluation(evaluation);
+      setMusic((current) => [track, ...current.filter((item) => item.id !== track.id)]);
+      setLibraryForm(initialLibraryMusicForm(selectedProvider));
+      toast.success('Musica licenciada importada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao importar musica licenciada.');
+    } finally {
+      setImportingLibraryMusic(false);
+    }
+  }
+
   async function handleSeedSupabase() {
     if (!isAdmin) return;
     setSeeding(true);
+    setSeedStatus('Preparando catalogo no Supabase...');
     try {
-      const uploaded = await seedGeneratedTemplates(720);
-      setTemplates((current) => mergeTemplates([...uploaded.templates.map((template) => ({ ...template, source: 'generated' as const })), ...current]));
-      if (uploaded.music.length) {
-        setMusic((current) => [...uploaded.music.map((track) => ({ ...track, source: 'generated' as const })), ...current]);
+      const job = await startGeneratedTemplatesSeedJob();
+      let currentJob = job;
+
+      while (currentJob.status === 'queued' || currentJob.status === 'running') {
+        setSeedStatus(`Templates ${currentJob.templateUploaded}/${currentJob.count} - animados ${currentJob.animatedUploaded}/${currentJob.animatedCount}`);
+        await new Promise((resolve) => window.setTimeout(resolve, 3500));
+        currentJob = await getGeneratedTemplatesSeedJob(currentJob.id);
       }
+
+      if (currentJob.status === 'failed') throw new Error(currentJob.error || 'SEED_JOB_FAILED');
+
+      const { templates: loadedTemplates, music: loadedMusic } = await loadCatalog(user?.uid);
+      setTemplates(mergeTemplates(loadedTemplates));
+      setMusic(loadedMusic);
       setVisibleCount(INITIAL_TEMPLATE_COUNT);
+      setSeedStatus('Catalogo salvo no Supabase.');
       toast.success('Catalogo transparente, animado e musical salvo no Supabase.');
     } catch (error) {
+      setSeedStatus('');
       toast.error(error instanceof Error ? error.message : 'Erro ao semear catalogo.');
     } finally {
       setSeeding(false);
+    }
+  }
+
+  function sunoInput() {
+    return {
+      prompt: sunoPrompt,
+      mode: sunoMode,
+      source: 'user_prompt' as const,
+      title: sunoTitle || undefined,
+      style: sunoStyle || undefined,
+      lyrics: sunoMode === 'vocal' ? sunoLyrics || undefined : undefined,
+      durationSeconds: 45,
+      language: 'pt-BR',
+    };
+  }
+
+  async function handlePreviewSunoPrompt() {
+    if (!canGenerateSuno) {
+      toast.error('Geracao de musica IA fica liberada no plano Ilimitado.');
+      return;
+    }
+    if (sunoPrompt.trim().length < 3) {
+      toast.error('Descreva a musica que voce quer gerar.');
+      return;
+    }
+
+    try {
+      const preview = await buildSunoPrompt(sunoInput());
+      setSunoPreviewPrompt(preview.sunoPrompt);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar o prompt.');
+    }
+  }
+
+  async function handleGenerateSunoMusic() {
+    if (!canGenerateSuno) {
+      toast.error('Geracao de musica IA fica liberada no plano Ilimitado.');
+      return;
+    }
+    if (sunoPrompt.trim().length < 3) {
+      toast.error('Descreva a musica que voce quer gerar.');
+      return;
+    }
+
+    setSunoGenerating(true);
+    setSunoStatus('Criando prompt original...');
+    try {
+      const input = sunoInput();
+      const preview = await buildSunoPrompt(input);
+      setSunoPreviewPrompt(preview.sunoPrompt);
+
+      setSunoStatus('Enviando para a Suno...');
+      const started = await generateSunoMusic(input);
+      const taskId = started.taskId || started.generation.taskId;
+      setSunoTaskId(taskId);
+
+      setSunoStatus('Gerando musica original...');
+      const result = await waitForSunoMusic(taskId, (status) => {
+        setSunoStatus(status === 'SUCCESS' ? 'Salvando no Supabase...' : `Suno: ${status}`);
+      });
+      const newTracks = result.music || [];
+      if (!newTracks.length) throw new Error('SUNO_MUSIC_NOT_READY');
+
+      setMusic((current) => [
+        ...newTracks,
+        ...current.filter((track) => !newTracks.some((created) => created.id === track.id)),
+      ]);
+      setSunoStatus('Musica salva na biblioteca.');
+      toast.success('Musica IA gerada e salva nas suas trilhas.');
+      setSunoOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao gerar musica IA.';
+      setSunoStatus(message === 'SUNO_GENERATION_STILL_PROCESSING'
+        ? 'A Suno ainda esta processando. Tente novamente em alguns minutos.'
+        : message);
+      toast.error(message === 'SUNO_GENERATION_STILL_PROCESSING'
+        ? 'A Suno ainda esta processando. A tarefa ficou salva para consulta.'
+        : message);
+    } finally {
+      setSunoGenerating(false);
     }
   }
 
@@ -374,6 +695,28 @@ export default function TemplatesPage() {
               <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Musica'}</span>
               <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
             </label>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!canUpload}
+              onClick={() => setLibrariesOpen(true)}
+              icon={canUpload ? <Library className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              className="col-span-2 sm:col-span-1"
+              title={canUpload ? 'Importar trilha licenciada' : 'Liberado nos planos Profissional e Ilimitado'}
+            >
+              Bibliotecas
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!canGenerateSuno}
+              onClick={() => setSunoOpen(true)}
+              icon={canGenerateSuno ? <Wand2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              className="col-span-2 sm:col-span-1"
+              title={canGenerateSuno ? 'Gerar musica original pela Suno' : 'Liberado no plano Ilimitado'}
+            >
+              Gerar IA
+            </Button>
           </div>
         </div>
 
@@ -461,6 +804,12 @@ export default function TemplatesPage() {
         </div>
       )}
 
+      {seedStatus && (
+        <div className="rounded-2xl border border-brand-300/20 bg-brand-500/10 p-4 text-sm text-brand-100">
+          {seedStatus}
+        </div>
+      )}
+
       {music.length > 0 && (
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -471,10 +820,22 @@ export default function TemplatesPage() {
             {music.map((track) => (
               <div key={track.id} className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
                 <p className="truncate text-sm font-semibold text-white">{track.name}</p>
-                <p className="mb-2 text-xs text-white/35">{track.source || 'custom'} - {track.category}</p>
+                <p className="mb-2 text-xs text-white/35">
+                  {track.library || track.source || 'custom'} - {track.category}
+                  {track.providerArtist ? ` - ${track.providerArtist}` : ''}
+                </p>
+                {track.licenseStatus && (
+                  <span className={`mb-2 inline-flex rounded-full border px-2 py-1 text-[11px] font-bold ${licenseStatusClass[track.licenseStatus]}`}>
+                    {licenseStatusLabels[track.licenseStatus]}
+                  </span>
+                )}
                 {track.licenseName && (
                   <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-white/30">
-                    {track.licenseName}
+                    {track.licenseUrl ? (
+                      <a href={track.licenseUrl} target="_blank" rel="noreferrer" className="text-brand-200 hover:text-white">
+                        {track.licenseName}
+                      </a>
+                    ) : track.licenseName}
                   </p>
                 )}
                 {track.musicUrl && <audio src={track.musicUrl} controls preload="none" className="h-9 w-full" />}
@@ -520,6 +881,366 @@ export default function TemplatesPage() {
           )}
         </>
       )}
+
+      <Modal open={librariesOpen} onClose={() => !importingLibraryMusic && setLibrariesOpen(false)} title="Bibliotecas de musicas" size="xl">
+        <div className="max-h-[74vh] space-y-4 overflow-y-auto pr-1">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-200" />
+              <p className="text-sm font-bold text-white">
+                {libraryTestMode ? 'Modo teste de importacao musical' : 'Importacao com licenca conferida'}
+              </p>
+            </div>
+            <p className="text-sm leading-relaxed text-white/55">
+              {libraryTestMode
+                ? 'O backend esta aceitando trilhas como rascunho interno de teste e marcando tudo como somente teste.'
+                : 'O SIX3 salva a trilha somente quando a licenca e aceita pelo backend. Bibliotecas pagas exigem comprovante de assinatura/licenca do projeto.'}
+            </p>
+            {acceptedLicenses.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {acceptedLicenses.map((item) => (
+                  <span key={item} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/55">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {librariesLoading ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="h-20 animate-pulse rounded-2xl bg-white/[0.05]" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {libraryProviders.map((provider) => (
+                <button
+                  key={provider.id}
+                  type="button"
+                  onClick={() => selectLibraryProvider(provider)}
+                  className={`rounded-2xl border p-3 text-left transition-all ${
+                    selectedProviderId === provider.id
+                      ? 'border-brand-300/70 bg-brand-500/18 shadow-glow'
+                      : 'border-white/10 bg-white/[0.045] hover:border-white/18 hover:bg-white/[0.07]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-white">{provider.name}</p>
+                      <p className="mt-1 text-xs text-white/38">
+                        {provider.type === 'subscription_catalog' ? 'Assinatura/licenca' : 'Biblioteca aberta/manual'}
+                      </p>
+                    </div>
+                    {provider.requiresLicenseProof ? (
+                      <Lock className="h-4 w-4 shrink-0 text-amber-200" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-200" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedProvider && (
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-base font-bold text-white">{selectedProvider.name}</p>
+                  <p className="mt-1 text-sm text-white/45">{selectedProvider.defaultLicenseName}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedProvider.browseUrl && (
+                    <a href={selectedProvider.browseUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 text-xs font-bold text-white/70 hover:text-white">
+                      Abrir catalogo <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  <a href={selectedProvider.licenseUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 text-xs font-bold text-white/70 hover:text-white">
+                    Licenca <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                {selectedProvider.notes.map((note) => (
+                  <p key={note} className="flex gap-2 text-xs leading-relaxed text-white/45">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-300/70" />
+                    {note}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Nome da faixa</span>
+              <input
+                value={libraryForm.name}
+                onChange={(event) => updateLibraryForm('name', event.target.value)}
+                placeholder="Ex: Neon Birthday Intro"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Artista</span>
+              <input
+                value={libraryForm.artist}
+                onChange={(event) => updateLibraryForm('artist', event.target.value)}
+                placeholder="Nome do artista"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Categoria</span>
+              <select
+                value={libraryForm.category}
+                onChange={(event) => updateLibraryForm('category', event.target.value as AppMusic['category'])}
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white outline-none"
+              >
+                {musicCategoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Tema</span>
+              <input
+                value={libraryForm.theme}
+                onChange={(event) => updateLibraryForm('theme', event.target.value)}
+                placeholder="Ex: aniversario, casamento, luxo"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2 sm:col-span-2">
+              <span className="text-sm font-semibold text-white/70">URL direta do arquivo de audio</span>
+              <input
+                value={libraryForm.audioUrl}
+                onChange={(event) => updateLibraryForm('audioUrl', event.target.value)}
+                placeholder="https://.../musica.mp3"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Pagina da faixa</span>
+              <input
+                value={libraryForm.pageUrl}
+                onChange={(event) => updateLibraryForm('pageUrl', event.target.value)}
+                placeholder="URL publica da faixa"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">ID/codigo da faixa</span>
+              <input
+                value={libraryForm.providerTrackId}
+                onChange={(event) => updateLibraryForm('providerTrackId', event.target.value)}
+                placeholder="Opcional"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Licenca</span>
+              <input
+                value={libraryForm.licenseName}
+                onChange={(event) => updateLibraryForm('licenseName', event.target.value)}
+                placeholder="Ex: CC BY 4.0"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">URL da licenca</span>
+              <input
+                value={libraryForm.licenseUrl}
+                onChange={(event) => updateLibraryForm('licenseUrl', event.target.value)}
+                placeholder="Link da licenca"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2 sm:col-span-2">
+              <span className="text-sm font-semibold text-white/70">Comprovante de licenca/assinatura</span>
+              <input
+                value={libraryForm.licenseProofUrl}
+                onChange={(event) => updateLibraryForm('licenseProofUrl', event.target.value)}
+                placeholder="Link, numero de licenca, invoice ou identificador do projeto"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2 sm:col-span-2">
+              <span className="text-sm font-semibold text-white/70">Atribuicao/credito</span>
+              <textarea
+                value={libraryForm.attribution}
+                onChange={(event) => updateLibraryForm('attribution', event.target.value)}
+                rows={3}
+                placeholder="Preencha quando a licenca pedir credito do artista."
+                className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+              <label className="flex min-h-11 items-center gap-3 rounded-[18px] border border-white/10 bg-white/[0.045] px-4 text-sm text-white/65">
+                <input
+                  type="checkbox"
+                  checked={libraryForm.subscriptionConfirmed}
+                  onChange={(event) => updateLibraryForm('subscriptionConfirmed', event.target.checked)}
+                  className="h-4 w-4 accent-brand-500"
+                />
+                Assinatura/licenca ativa para esta faixa e projeto
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold text-white/45">BPM</span>
+                  <input
+                    value={libraryForm.bpm}
+                    onChange={(event) => updateLibraryForm('bpm', event.target.value)}
+                    inputMode="numeric"
+                    placeholder="120"
+                    className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold text-white/45">Duracao (s)</span>
+                  <input
+                    value={libraryForm.duration}
+                    onChange={(event) => updateLibraryForm('duration', event.target.value)}
+                    inputMode="numeric"
+                    placeholder="45"
+                    className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {licenseEvaluation && (
+            <div className={`rounded-2xl border p-4 ${licenseStatusClass[licenseEvaluation.status]}`}>
+              <div className="flex items-center gap-2 text-sm font-bold">
+                {licenseEvaluation.status === 'blocked' || licenseEvaluation.status === 'manual_review' || licenseEvaluation.status === 'test_only'
+                  ? <AlertTriangle className="h-4 w-4" />
+                  : <ShieldCheck className="h-4 w-4" />}
+                {licenseStatusLabels[licenseEvaluation.status]}
+              </div>
+              {licenseEvaluation.warnings.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {licenseEvaluation.warnings.map((warning) => (
+                    <p key={warning} className="text-xs leading-relaxed opacity-80">{warning}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button
+              variant="secondary"
+              loading={checkingLicense}
+              disabled={!canUpload}
+              onClick={handleCheckLibraryLicense}
+              icon={<ShieldCheck className="h-4 w-4" />}
+            >
+              Conferir licenca
+            </Button>
+            <Button
+              loading={importingLibraryMusic}
+              disabled={!canUpload}
+              onClick={handleImportLibraryMusic}
+              icon={<FileAudio className="h-4 w-4" />}
+            >
+              Importar trilha
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={sunoOpen} onClose={() => !sunoGenerating && setSunoOpen(false)} title="Gerar musica com IA" size="xl">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ['instrumental', 'Instrumental'],
+              ['vocal', 'Cantada'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setSunoMode(value as SunoMusicMode)}
+                className={`h-11 rounded-2xl border text-sm font-bold transition-all ${
+                  sunoMode === value
+                    ? 'border-brand-300/70 bg-brand-500/22 text-white shadow-glow'
+                    : 'border-white/10 bg-white/[0.045] text-white/60 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-semibold text-white/70">Ideia da musica</span>
+            <textarea
+              value={sunoPrompt}
+              onChange={(event) => setSunoPrompt(event.target.value)}
+              rows={4}
+              placeholder="Ex: trilha animada para aniversario neon, com batida moderna, energia de festa e final suave para video 360..."
+              className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:border-brand-400/70 focus:ring-2 focus:ring-brand-500/20"
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Titulo opcional</span>
+              <input
+                value={sunoTitle}
+                onChange={(event) => setSunoTitle(event.target.value)}
+                placeholder="Ex: Neon Birthday 360"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Estilo opcional</span>
+              <input
+                value={sunoStyle}
+                onChange={(event) => setSunoStyle(event.target.value)}
+                placeholder="Ex: pop eletronico, club, cinematic"
+                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+          </div>
+
+          {sunoMode === 'vocal' && (
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-white/70">Letra opcional</span>
+              <textarea
+                value={sunoLyrics}
+                onChange={(event) => setSunoLyrics(event.target.value)}
+                rows={4}
+                placeholder="Deixe vazio para a Suno criar a letra original a partir da ideia."
+                className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 outline-none"
+              />
+            </label>
+          )}
+
+          {sunoPreviewPrompt && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-white/35">Prompt enviado para Suno</p>
+              <p className="text-sm leading-relaxed text-white/62">{sunoPreviewPrompt}</p>
+            </div>
+          )}
+
+          {sunoStatus && (
+            <div className="rounded-2xl border border-brand-300/20 bg-brand-500/10 p-3 text-sm text-brand-100">
+              {sunoStatus}
+              {sunoTaskId && <span className="mt-1 block text-xs text-white/35">Task: {sunoTaskId}</span>}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button variant="secondary" onClick={handlePreviewSunoPrompt} disabled={sunoGenerating}>
+              Ver prompt
+            </Button>
+            <Button loading={sunoGenerating} onClick={handleGenerateSunoMusic} icon={<Wand2 className="h-4 w-4" />}>
+              Gerar na Suno
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
