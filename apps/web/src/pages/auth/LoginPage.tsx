@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, LifeBuoy, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { login, parseFirebaseError } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
+import { LoginSupportChat } from '@/components/support/LoginSupportChat';
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -24,7 +25,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
   const setUser = useAuthStore((state) => state.setUser);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   async function onSubmit(data: FormData) {
     try {
@@ -36,7 +37,7 @@ export default function LoginPage() {
     }
   }
 
-  const supportHref = `mailto:suporte@six3.com?subject=${encodeURIComponent('Suporte SIX3 - acesso à conta')}&body=${encodeURIComponent('E-mail da conta:\nAssunto:\n\nMensagem:\n')}`;
+  const emailHint = watch('email') || '';
 
   return (
     <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
@@ -72,13 +73,7 @@ export default function LoginPage() {
             <Link to="/register" className="font-medium text-brand-300 hover:text-white">Começar a jornada</Link>
           </p>
 
-          <a
-            href={supportHref}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-white/60 transition hover:bg-white/[0.08] hover:text-white"
-          >
-            <LifeBuoy className="h-4 w-4" />
-            Entrar em contato com suporte
-          </a>
+          <LoginSupportChat emailHint={emailHint} />
         </div>
       </motion.div>
     </div>

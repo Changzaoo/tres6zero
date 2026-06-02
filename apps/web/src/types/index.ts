@@ -37,8 +37,12 @@ export interface TrustedDevice {
 export interface SupportConversation {
   id: string;
   ownerUid: string;
+  visitorId?: string;
+  accessLevel?: 'authenticated' | 'anonymous';
+  source?: 'app' | 'login';
   userName: string;
   userEmail: string;
+  contactEmail?: string;
   subject: string;
   status: 'open' | 'answered' | 'closed';
   lastMessagePreview: string;
@@ -53,10 +57,12 @@ export interface SupportMessage {
   id: string;
   conversationId: string;
   senderUid: string;
-  senderRole: 'admin' | 'user';
+  senderRole: 'admin' | 'user' | 'anonymous' | 'system';
   senderName: string;
   body: string;
   createdAt: string;
+  localId?: string;
+  pending?: boolean;
 }
 
 export type EventStatus = 'draft' | 'active' | 'closed' | 'archived';

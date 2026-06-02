@@ -12,8 +12,19 @@ const conversationSchema = z.object({
   message: z.string().min(1).max(5000),
 });
 
+const anonymousConversationSchema = conversationSchema.extend({
+  visitorId: z.string().min(16).max(96).regex(/^[a-zA-Z0-9._-]+$/),
+  name: z.string().min(2).max(120).optional(),
+  userAgent: z.string().max(500).optional(),
+  pageUrl: z.string().max(500).optional(),
+});
+
 const messageSchema = z.object({
   message: z.string().min(1).max(5000),
+});
+
+const anonymousMessageSchema = messageSchema.extend({
+  visitorId: z.string().min(16).max(96).regex(/^[a-zA-Z0-9._-]+$/),
 });
 
 function getDb() {
@@ -46,8 +57,12 @@ function conversationFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
   return {
     id: doc.id,
     ownerUid: data.ownerUid || '',
+    visitorId: data.visitorId || '',
+    accessLevel: data.accessLevel || 'authenticated',
+    source: data.source || 'app',
     userName: data.userName || 'Usuario',
     userEmail: data.userEmail || '',
+    contactEmail: data.contactEmail || data.userEmail || '',
     subject: data.subject || '',
     status: data.status || 'open',
     lastMessagePreview: data.lastMessagePreview || '',
@@ -91,6 +106,125 @@ async function listMessages(conversationId: string) {
   return snap.docs.map(messageFromDoc);
 }
 
+function assertAnonymousConversation(conversation: ReturnType<typeof conversationFromDoc>, visitorId: string) {
+  if (conversation.accessLevel !== 'anonymous' || conversation.visitorId !== visitorId) {
+    supportError('FORBIDDEN', 403);
+  }
+}
+
+supportRouter.get('/anonymous/conversations', async (req, res, next) => {
+  try {
+    const visitorId = z.string().min(16).max(96).regex(/^[a-zA-Z0-9._-]+$/).parse(req.query.visitorId);
+    const db = getDb();
+    const snap = await db.collection('supportConversations')
+      .where('accessLevel', '==', 'anonymous')
+      .where('visitorId', '==', visitorId)
+      .get();
+    const conversations = snap.docs
+      .map(conversationFromDoc)
+      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+
+    res.json({ conversations });
+  } catch (error) {
+    next(error);
+  }
+});
+
+supportRouter.post('/anonymous/conversations', async (req, res, next) => {
+  try {
+    const data = anonymousConversationSchema.parse(req.body);
+    const db = getDb();
+    const createdAt = nowIso();
+    const userName = data.name || 'Anonimo';
+    const contactEmail = data.email || '';
+    const conversationRef = db.collection('supportConversations').doc();
+    const contextLines = [
+      data.pageUrl ? `Pagina: ${data.pageUrl}` : '',
+      data.userAgent ? `Dispositivo: ${data.userAgent}` : '',
+    ].filter(Boolean);
+    const body = contextLines.length ? `${data.message}\n\n---\n${contextLines.join('\n')}` : data.message;
+
+    const conversation = {
+      ownerUid: `anonymous:${data.visitorId}`,
+      visitorId: data.visitorId,
+      accessLevel: 'anonymous',
+      source: 'login',
+      userName,
+      userEmail: contactEmail || 'anonimo',
+      contactEmail,
+      subject: data.subject,
+      status: 'open',
+      lastMessagePreview: preview(data.message),
+      lastMessageAt: createdAt,
+      unreadForAdmin: 1,
+      unreadForUser: 0,
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    await conversationRef.set(conversation);
+    await conversationRef.collection('messages').add({
+      conversationId: conversationRef.id,
+      senderUid: data.visitorId,
+      senderRole: 'anonymous',
+      senderName: userName,
+      body,
+      createdAt,
+    });
+
+    res.status(201).json({ conversation: { id: conversationRef.id, ...conversation } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+supportRouter.get('/anonymous/conversations/:id/messages', async (req, res, next) => {
+  try {
+    const visitorId = z.string().min(16).max(96).regex(/^[a-zA-Z0-9._-]+$/).parse(req.query.visitorId);
+    const { ref, data } = await getConversation(req.params.id);
+    assertAnonymousConversation(data, visitorId);
+
+    const messages = await listMessages(req.params.id);
+    await ref.update({ unreadForUser: 0, updatedAt: nowIso() });
+
+    res.json({ conversation: { ...data, unreadForUser: 0 }, messages });
+  } catch (error) {
+    next(error);
+  }
+});
+
+supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, next) => {
+  try {
+    const data = anonymousMessageSchema.parse(req.body);
+    const { ref, data: conversation } = await getConversation(req.params.id);
+    assertAnonymousConversation(conversation, data.visitorId);
+
+    const createdAt = nowIso();
+    const messageRef = await ref.collection('messages').add({
+      conversationId: req.params.id,
+      senderUid: data.visitorId,
+      senderRole: 'anonymous',
+      senderName: conversation.userName || 'Anonimo',
+      body: data.message,
+      createdAt,
+    });
+
+    await ref.update({
+      status: 'open',
+      lastMessagePreview: preview(data.message),
+      lastMessageAt: createdAt,
+      unreadForAdmin: FieldValue.increment(1),
+      updatedAt: createdAt,
+    });
+
+    res.status(201).json({
+      message: messageFromDoc(await messageRef.get()),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 supportRouter.get('/conversations', async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
@@ -118,8 +252,11 @@ supportRouter.post('/conversations', async (req, res, next) => {
 
     const conversation = {
       ownerUid: user.localId,
+      accessLevel: 'authenticated',
+      source: 'app',
       userName,
       userEmail,
+      contactEmail: userEmail,
       subject: data.subject,
       status: 'open',
       lastMessagePreview: preview(data.message),
