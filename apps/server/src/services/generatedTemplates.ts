@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import sharp from 'sharp';
 
 const CATEGORIES = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium'] as const;
 const ASPECTS = ['9:16', '1:1', '16:9'] as const;
@@ -81,7 +82,13 @@ export function templateSvg(params: {
 }
 
 export function generatedTemplatePath(template: { id: string; category: string }) {
-  return `generated/${template.category}/${template.id}.svg`;
+  return `generated/${template.category}/${template.id}.png`;
+}
+
+export async function renderTemplatePng(svg: string) {
+  return sharp(Buffer.from(svg))
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toBuffer();
 }
 
 export function buildGeneratedTemplates(count = 360) {

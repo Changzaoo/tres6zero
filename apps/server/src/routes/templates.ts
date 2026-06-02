@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { Buffer } from 'node:buffer';
 import { timingSafeEqual } from 'node:crypto';
 import { requireAdmin, requireActiveSubscription } from './auth';
-import { buildGeneratedTemplates } from '../services/generatedTemplates';
+import { buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
 import { buildGeneratedMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 
@@ -59,10 +59,10 @@ async function uploadProjectTemplates(count: number) {
     const result = await uploadBufferToSupabase({
       bucket: SUPABASE_BUCKETS.projectTemplates,
       prefix: `generated/${template.category}`,
-      fileName: `${template.id}.svg`,
-      fallbackExt: '.svg',
-      buffer: Buffer.from(template.svg),
-      contentType: 'image/svg+xml',
+      fileName: `${template.id}.png`,
+      fallbackExt: '.png',
+      buffer: await renderTemplatePng(template.svg),
+      contentType: 'image/png',
       objectPath: template.storagePath,
       upsert: true,
     });
