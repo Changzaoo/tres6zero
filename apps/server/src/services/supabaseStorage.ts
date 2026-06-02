@@ -1,8 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 const DEFAULT_SUPABASE_URL = 'https://xmuawzcpydmbcqackgoz.supabase.co';
 
@@ -106,6 +109,40 @@ export async function uploadBufferToSupabase(params: {
   };
 }
 
+export async function uploadFileToSupabase(params: {
+  bucket: SupabaseBucket;
+  prefix: string;
+  fileName: string;
+  fallbackExt: string;
+  filePath: string;
+  contentType: string;
+  objectPath?: string;
+  upsert?: boolean;
+}) {
+  const ext = safeExt(params.fileName, params.fallbackExt);
+  const objectPath = params.objectPath || `${params.prefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${ext}`;
+
+  const { data, error } = await getSupabase()
+    .storage
+    .from(params.bucket)
+    .upload(objectPath, createReadStream(params.filePath), {
+      contentType: params.contentType,
+      upsert: params.upsert || false,
+    });
+
+  if (error) {
+    const err = new Error(`SUPABASE_UPLOAD_FAILED: ${error.message}`);
+    (err as any).status = 502;
+    throw err;
+  }
+
+  return {
+    bucket: params.bucket,
+    path: data.path,
+    publicUrl: publicUrl(params.bucket, data.path),
+  };
+}
+
 export async function downloadToTempFile(url: string, fallbackExt = '.bin') {
   const response = await fetch(url);
   if (!response.ok) {
@@ -124,7 +161,14 @@ export async function downloadToTempFile(url: string, fallbackExt = '.bin') {
         : contentType.includes('mp4') ? '.mp4'
           : fallbackExt;
   const filePath = path.join(dir, `input${ext}`);
-  await writeFile(filePath, Buffer.from(await response.arrayBuffer()));
+
+  if (!response.body) {
+    const err = new Error('DOWNLOAD_BODY_UNAVAILABLE');
+    (err as any).status = 502;
+    throw err;
+  }
+
+  await pipeline(Readable.fromWeb(response.body as ReadableStream<Uint8Array>), createWriteStream(filePath));
 
   return {
     dir,

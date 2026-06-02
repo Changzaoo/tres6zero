@@ -39,5 +39,9 @@ services:
         sync: false
       - key: PYTHON_BIN
         value: python3
+      - key: MAX_VIDEO_UPLOAD_MB
+        value: "120"
+      - key: VIDEO_PROCESS_CONCURRENCY
+        value: "1"
       - key: ALLOW_VERCEL_PREVIEWS
         value: "true"

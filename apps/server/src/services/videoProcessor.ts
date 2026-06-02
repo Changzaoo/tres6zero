@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
-import { downloadToTempFile, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from './supabaseStorage';
+import { downloadToTempFile, publicUrl, SUPABASE_BUCKETS, uploadFileToSupabase } from './supabaseStorage';
 import { BASIC_EFFECTS, POPULAR_EFFECTS, AI_EFFECTS } from './planEntitlements';
 import { getAIVideoDirection, getFallbackAIVideoDirection } from './openaiVideoDirector';
 import { buildPublicLibraryMusic } from './generatedMusic';
@@ -37,6 +37,31 @@ export type ProcessingResult = {
   error?: string;
   processedAt: string;
 };
+
+type QueueTask<T> = () => Promise<T>;
+
+let activeProcessing = 0;
+const processingQueue: Array<() => void> = [];
+
+function processingConcurrency() {
+  const configured = Number(process.env.VIDEO_PROCESS_CONCURRENCY || 1);
+  if (!Number.isFinite(configured)) return 1;
+  return Math.min(2, Math.max(1, Math.round(configured)));
+}
+
+async function withProcessingSlot<T>(task: QueueTask<T>) {
+  if (activeProcessing >= processingConcurrency()) {
+    await new Promise<void>((resolve) => processingQueue.push(resolve));
+  }
+
+  activeProcessing += 1;
+  try {
+    return await task();
+  } finally {
+    activeProcessing = Math.max(0, activeProcessing - 1);
+    processingQueue.shift()?.();
+  }
+}
 
 function resolvePythonScript() {
   const candidates = [
@@ -169,6 +194,10 @@ function publicLibraryMusicUrlForTheme(theme?: string) {
 }
 
 export async function processVideo(config: ProcessingConfig): Promise<ProcessingResult> {
+  return withProcessingSlot(() => processVideoInSlot(config));
+}
+
+async function processVideoInSlot(config: ProcessingConfig): Promise<ProcessingResult> {
   const processedAt = new Date().toISOString();
   if (!config.inputUrl) {
     return {
@@ -242,13 +271,12 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
     if (config.effectSegments?.length) args.push('--effect-segments', JSON.stringify(config.effectSegments));
 
     const editor = await runPythonEditor(args);
-    const output = await readFile(outputPath);
-    const uploaded = await uploadBufferToSupabase({
+    const uploaded = await uploadFileToSupabase({
       bucket: 'videos',
       prefix: `processed/${config.userId || 'unknown'}`,
       fileName: `${config.videoId}.mp4`,
       fallbackExt: '.mp4',
-      buffer: output,
+      filePath: outputPath,
       contentType: 'video/mp4',
     });
 

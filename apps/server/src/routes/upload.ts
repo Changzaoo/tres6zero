@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
+import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { mkdir, rm } from 'node:fs/promises';
 import { requireActiveSubscription, requirePlanFeature } from './auth';
-import { SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
+import { SUPABASE_BUCKETS, uploadFileToSupabase } from '../services/supabaseStorage';
 
 export const uploadRouter = Router();
 
@@ -11,12 +13,37 @@ const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
 const ALLOWED_IMAGE = ['image/png', 'image/jpeg', 'image/webp'];
 const ALLOWED_TEMPLATE = ['image/png', 'image/svg+xml', 'image/webp', 'video/webm'];
 const ALLOWED_MUSIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/aac', 'audio/mp4', 'audio/ogg', 'audio/webm'];
-const MAX_VIDEO_MB = 500;
+function envNumber(name: string, fallback: number) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+const MAX_VIDEO_MB = envNumber('MAX_VIDEO_UPLOAD_MB', 120);
 const MAX_IMAGE_MB = 10;
 const MAX_TEMPLATE_MB = 15;
 const MAX_MUSIC_MB = 50;
 
-const storage = multer.memoryStorage();
+const uploadRoot = path.join(os.tmpdir(), 'six3-uploads');
+const storage = multer.diskStorage({
+  destination: async (_req, _file, cb) => {
+    try {
+      await mkdir(uploadRoot, { recursive: true });
+      cb(null, uploadRoot);
+    } catch (error) {
+      cb(error as Error, uploadRoot);
+    }
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.bin';
+    cb(null, `${Date.now()}-${randomUUID()}${ext}`);
+  },
+});
+
+async function cleanupUpload(file?: Express.Multer.File) {
+  if (file?.path) {
+    await rm(file.path, { force: true }).catch(() => undefined);
+  }
+}
 
 const videoUpload = multer({
   storage,
@@ -61,12 +88,12 @@ uploadRouter.post('/video', requireActiveSubscription, videoUpload.single('file'
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || '.mp4';
     const userId = res.locals.user?.uid || 'unknown';
-    const uploaded = await uploadBufferToSupabase({
+    const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.videos,
       prefix: `raw/${userId}`,
       fileName: req.file.originalname,
       fallbackExt: ext,
-      buffer: req.file.buffer,
+      filePath: req.file.path,
       contentType: req.file.mimetype,
     });
 
@@ -83,6 +110,7 @@ uploadRouter.post('/video', requireActiveSubscription, videoUpload.single('file'
       createdAt: new Date().toISOString(),
     });
   } catch (e) { next(e); }
+  finally { await cleanupUpload(req.file); }
 });
 
 uploadRouter.post('/image', requireActiveSubscription, imageUpload.single('file'), async (req, res, next) => {
@@ -92,12 +120,12 @@ uploadRouter.post('/image', requireActiveSubscription, imageUpload.single('file'
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || '.jpg';
     const userId = res.locals.user?.uid || 'unknown';
-    const uploaded = await uploadBufferToSupabase({
+    const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.legacyTemplates,
       prefix: `events/${userId}`,
       fileName: req.file.originalname,
       fallbackExt: ext,
-      buffer: req.file.buffer,
+      filePath: req.file.path,
       contentType: req.file.mimetype,
     });
 
@@ -114,6 +142,7 @@ uploadRouter.post('/image', requireActiveSubscription, imageUpload.single('file'
       createdAt: new Date().toISOString(),
     });
   } catch (e) { next(e); }
+  finally { await cleanupUpload(req.file); }
 });
 
 uploadRouter.post('/template', requirePlanFeature('custom_template_upload'), templateUpload.single('file'), async (req, res, next) => {
@@ -123,12 +152,12 @@ uploadRouter.post('/template', requirePlanFeature('custom_template_upload'), tem
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || (req.file.mimetype === 'image/svg+xml' ? '.svg' : '.png');
     const userId = res.locals.user?.uid || 'unknown';
-    const uploaded = await uploadBufferToSupabase({
+    const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.userTemplates,
       prefix: `custom/${userId}`,
       fileName: req.file.originalname,
       fallbackExt: ext,
-      buffer: req.file.buffer,
+      filePath: req.file.path,
       contentType: req.file.mimetype,
     });
 
@@ -145,6 +174,7 @@ uploadRouter.post('/template', requirePlanFeature('custom_template_upload'), tem
       createdAt: new Date().toISOString(),
     });
   } catch (e) { next(e); }
+  finally { await cleanupUpload(req.file); }
 });
 
 uploadRouter.post('/music', requirePlanFeature('custom_template_upload'), musicUpload.single('file'), async (req, res, next) => {
@@ -154,12 +184,12 @@ uploadRouter.post('/music', requirePlanFeature('custom_template_upload'), musicU
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || '.mp3';
     const userId = res.locals.user?.uid || 'unknown';
-    const uploaded = await uploadBufferToSupabase({
+    const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.userMusic,
       prefix: `custom/${userId}`,
       fileName: req.file.originalname,
       fallbackExt: ext,
-      buffer: req.file.buffer,
+      filePath: req.file.path,
       contentType: req.file.mimetype,
     });
 
@@ -176,4 +206,5 @@ uploadRouter.post('/music', requirePlanFeature('custom_template_upload'), musicU
       createdAt: new Date().toISOString(),
     });
   } catch (e) { next(e); }
+  finally { await cleanupUpload(req.file); }
 });
