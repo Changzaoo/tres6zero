@@ -32,6 +32,8 @@ const musicOptions = [
   { value: 'luxury', label: 'Luxury' },
   { value: 'wedding', label: 'Wedding' },
   { value: 'corporate', label: 'Corporate' },
+  { value: 'birthday', label: 'Birthday' },
+  { value: 'viral', label: 'Viral' },
 ] as const;
 
 function formatDate(value?: string) {

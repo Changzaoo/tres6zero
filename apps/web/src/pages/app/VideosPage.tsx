@@ -51,7 +51,7 @@ export default function VideosPage() {
       </div>
 
       {videos.length === 0 ? (
-        <EmptyState icon={<Video className="h-8 w-8" />} title="Nenhum vídeo ainda" description="Use o Modo Operador para publicar vídeos." />
+        <EmptyState icon={<Video className="h-8 w-8" />} title="Nenhum vídeo ainda" description="Use a aba Gravar para publicar vídeos." />
       ) : (
         <div className="space-y-3">
           {videos.map((video) => (

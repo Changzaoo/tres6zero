@@ -1,11 +1,11 @@
 export type OperatorPreferences = {
   defaultDuration: 5 | 15 | 25 | 35 | 45;
-  defaultMusicTheme: 'none' | 'ambient' | 'party' | 'luxury' | 'wedding' | 'corporate';
+  defaultMusicTheme: 'none' | 'ambient' | 'party' | 'luxury' | 'wedding' | 'corporate' | 'birthday' | 'viral';
 };
 
 const OPERATOR_PREFS_KEY = 'six3.operatorPreferences';
 const allowedDurations = [5, 15, 25, 35, 45] as const;
-const allowedMusicThemes = ['none', 'ambient', 'party', 'luxury', 'wedding', 'corporate'] as const;
+const allowedMusicThemes = ['none', 'ambient', 'party', 'luxury', 'wedding', 'corporate', 'birthday', 'viral'] as const;
 
 export const defaultOperatorPreferences: OperatorPreferences = {
   defaultDuration: 15,

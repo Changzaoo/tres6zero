@@ -2,8 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { BASIC_EFFECTS, POPULAR_EFFECTS } from './planEntitlements';
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
-const DEFAULT_OPENAI_MODEL = 'chat-latest';
-const MUSIC_THEMES = ['none', 'ambient', 'party', 'luxury', 'wedding', 'corporate'] as const;
+const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
+const MUSIC_THEMES = ['none', 'ambient', 'party', 'luxury', 'wedding', 'corporate', 'birthday', 'viral'] as const;
 const AI_EFFECTS = [...BASIC_EFFECTS, ...POPULAR_EFFECTS].filter((effect) => effect !== 'boomerang');
 
 export type AIVideoDirection = {
@@ -60,6 +60,7 @@ function fallbackEffect(eventType?: string) {
     inauguration: 'corporate_sharp',
     store: 'corporate_sharp',
     birthday: 'party',
+    viral: 'party',
     club: 'neon',
     graduation: 'cinematic',
     church: 'wedding_soft',
@@ -73,12 +74,29 @@ function fallbackMusic(eventType?: string) {
     corporate: 'corporate',
     inauguration: 'corporate',
     store: 'corporate',
-    birthday: 'party',
+    birthday: 'birthday',
     club: 'party',
+    viral: 'viral',
     graduation: 'ambient',
     church: 'wedding',
   };
   return themes[eventType || ''] || 'ambient';
+}
+
+export function getFallbackAIVideoDirection(params: {
+  eventType?: string;
+  requestedMusicTheme?: string;
+}): AIVideoDirection {
+  const requestedMusicTheme = params.requestedMusicTheme;
+  const musicTheme = typeof requestedMusicTheme === 'string' && MUSIC_THEMES.includes(requestedMusicTheme as any) && requestedMusicTheme !== 'none'
+    ? requestedMusicTheme
+    : fallbackMusic(params.eventType);
+
+  return {
+    effect: fallbackEffect(params.eventType),
+    musicTheme,
+    rationale: 'IA indisponivel no momento; direcao automatica aplicada pelo servidor.',
+  };
 }
 
 export async function getAIVideoDirection(params: {

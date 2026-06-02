@@ -4,9 +4,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
-import { downloadToTempFile, uploadBufferToSupabase } from './supabaseStorage';
+import { downloadToTempFile, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from './supabaseStorage';
 import { BASIC_EFFECTS, POPULAR_EFFECTS, AI_EFFECTS } from './planEntitlements';
-import { getAIVideoDirection } from './openaiVideoDirector';
+import { getAIVideoDirection, getFallbackAIVideoDirection } from './openaiVideoDirector';
+import { buildPublicLibraryMusic } from './generatedMusic';
 
 export type ProcessingConfig = {
   videoId: string;
@@ -159,6 +160,14 @@ async function extractAnalysisFrame(inputPath: string, dir: string) {
   return outputPath;
 }
 
+function publicLibraryMusicUrlForTheme(theme?: string) {
+  if (!theme || theme === 'none') return undefined;
+  const tracks = buildPublicLibraryMusic();
+  const track = tracks.find((item) => item.theme === theme)
+    || tracks.find((item) => item.category === theme);
+  return track ? publicUrl(SUPABASE_BUCKETS.projectMusic, track.storagePath) : undefined;
+}
+
 export async function processVideo(config: ProcessingConfig): Promise<ProcessingResult> {
   const processedAt = new Date().toISOString();
   if (!config.inputUrl) {
@@ -192,15 +201,29 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
 
     if (config.effect === 'ai_auto') {
       const framePath = await extractAnalysisFrame(inputTemp.filePath, inputTemp.dir);
-      const direction = await getAIVideoDirection({
+      const directionParams = {
         framePath,
         eventType: config.eventType,
         requestedMusicTheme: config.musicTheme,
         hasOverlay: Boolean(config.overlayUrl),
+      };
+      const direction = await getAIVideoDirection(directionParams).catch((error) => {
+        console.warn('[videoProcessor] OpenAI direction fallback:', error instanceof Error ? error.message : error);
+        return getFallbackAIVideoDirection(directionParams);
       });
       selectedEffect = direction.effect;
       selectedMusicTheme = direction.musicTheme;
       aiRationale = direction.rationale;
+    }
+
+    if (!musicTemp && selectedMusicTheme !== 'none') {
+      const autoMusicUrl = publicLibraryMusicUrlForTheme(selectedMusicTheme);
+      if (autoMusicUrl) {
+        musicTemp = await downloadToTempFile(autoMusicUrl, '.mp3').catch((error) => {
+          console.warn('[videoProcessor] Public music fallback:', error instanceof Error ? error.message : error);
+          return null;
+        });
+      }
     }
 
     const args = [

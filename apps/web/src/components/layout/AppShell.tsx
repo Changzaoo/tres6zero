@@ -7,7 +7,8 @@ import { MobileBottomNav } from './MobileBottomNav';
 const PAGE_TITLES: Record<string, string> = {
   '/app/dashboard': 'Dashboard',
   '/app/events': 'Eventos',
-  '/app/operator': 'Modo Operador',
+  '/app/operator': 'Gravar',
+  '/app/gravar': 'Gravar',
   '/app/videos': 'Vídeos',
   '/app/templates': 'Templates',
   '/app/leads': 'Leads',

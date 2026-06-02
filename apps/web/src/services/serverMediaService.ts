@@ -206,10 +206,10 @@ export async function getGeneratedMusic() {
   return music;
 }
 
-export async function seedGeneratedTemplates(count = 720, animatedCount = 144) {
-  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/seed-transparent', {
+export async function seedGeneratedTemplates(count = 720, animatedCount = 144, musicCount = 72) {
+  const { templates, music } = await authedJson<{ templates: AppTemplate[]; music?: AppMusic[] }>('/api/templates/seed-transparent', {
     method: 'POST',
-    body: JSON.stringify({ count, animatedCount }),
+    body: JSON.stringify({ count, animatedCount, musicCount }),
   });
-  return templates;
+  return { templates, music: music || [] };
 }

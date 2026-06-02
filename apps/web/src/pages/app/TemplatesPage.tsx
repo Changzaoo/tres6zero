@@ -320,9 +320,12 @@ export default function TemplatesPage() {
     setSeeding(true);
     try {
       const uploaded = await seedGeneratedTemplates(720);
-      setTemplates((current) => mergeTemplates([...uploaded.map((template) => ({ ...template, source: 'generated' as const })), ...current]));
+      setTemplates((current) => mergeTemplates([...uploaded.templates.map((template) => ({ ...template, source: 'generated' as const })), ...current]));
+      if (uploaded.music.length) {
+        setMusic((current) => [...uploaded.music.map((track) => ({ ...track, source: 'generated' as const })), ...current]);
+      }
       setVisibleCount(INITIAL_TEMPLATE_COUNT);
-      toast.success('Catalogo transparente e animado salvo no Supabase.');
+      toast.success('Catalogo transparente, animado e musical salvo no Supabase.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao semear catalogo.');
     } finally {
@@ -462,13 +465,18 @@ export default function TemplatesPage() {
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <div className="mb-3 flex items-center gap-2">
             <Music2 className="h-4 w-4 text-brand-300" />
-            <h2 className="text-sm font-bold text-white">Musicas personalizadas</h2>
+            <h2 className="text-sm font-bold text-white">Musicas e trilhas</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {music.map((track) => (
               <div key={track.id} className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
                 <p className="truncate text-sm font-semibold text-white">{track.name}</p>
                 <p className="mb-2 text-xs text-white/35">{track.source || 'custom'} - {track.category}</p>
+                {track.licenseName && (
+                  <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-white/30">
+                    {track.licenseName}
+                  </p>
+                )}
                 {track.musicUrl && <audio src={track.musicUrl} controls preload="none" className="h-9 w-full" />}
               </div>
             ))}

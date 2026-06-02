@@ -6,7 +6,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { requireAdmin, requireActiveSubscription } from './auth';
 import { buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
 import { buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
-import { buildGeneratedMusic, renderMusicWav } from '../services/generatedMusic';
+import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 
 export const templatesRouter = Router();
@@ -49,11 +49,16 @@ templatesRouter.get('/generated', requireActiveSubscription, (_req, res) => {
 });
 
 templatesRouter.get('/generated-music', requireActiveSubscription, (_req, res) => {
-  const music = buildGeneratedMusic().map(({ baseFrequency, ...item }) => ({
+  const generatedMusic = buildGeneratedMusic().map(({ baseFrequency, ...item }) => ({
     ...item,
     musicUrl: publicUrl(SUPABASE_BUCKETS.projectMusic, item.storagePath),
   }));
-  res.json({ music });
+  const publicLibraryMusic = buildPublicLibraryMusic().map(({ sourceUrl, ...item }) => ({
+    ...item,
+    musicUrl: publicUrl(SUPABASE_BUCKETS.projectMusic, item.storagePath),
+  }));
+
+  res.json({ music: [...publicLibraryMusic, ...generatedMusic] });
 });
 
 function hasSeedSecret(req: Request) {
@@ -174,6 +179,33 @@ async function uploadProjectMusic(count: number) {
     });
   }
 
+  for (const track of buildPublicLibraryMusic()) {
+    try {
+      const response = await fetch(track.sourceUrl);
+      if (!response.ok) throw new Error(`PUBLIC_MUSIC_DOWNLOAD_FAILED_${response.status}`);
+
+      const result = await uploadBufferToSupabase({
+        bucket: SUPABASE_BUCKETS.projectMusic,
+        prefix: `public-library/${track.theme}`,
+        fileName: `${track.id}.mp3`,
+        fallbackExt: '.mp3',
+        buffer: Buffer.from(await response.arrayBuffer()),
+        contentType: 'audio/mpeg',
+        objectPath: track.storagePath,
+        upsert: true,
+      });
+
+      const { sourceUrl, ...publicTrack } = track;
+      uploaded.push({
+        ...publicTrack,
+        musicUrl: result.publicUrl,
+        storagePath: result.path,
+      });
+    } catch (error) {
+      console.warn('[templates] Public music skipped:', track.id, error instanceof Error ? error.message : error);
+    }
+  }
+
   return uploaded;
 }
 
@@ -222,10 +254,11 @@ async function runSeedJob(jobId: string) {
 
 templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) => {
   try {
-    const { count = 360, offset = 0, animatedCount = 0 } = seedSchema.parse(req.body || {});
+    const { count = 360, offset = 0, animatedCount = 0, musicCount = 0 } = seedSchema.parse(req.body || {});
     const templates = await uploadProjectTemplates(count, offset);
     const animatedTemplates = animatedCount > 0 ? await uploadProjectAnimatedTemplates(animatedCount, offset) : [];
-    res.json({ templates: [...animatedTemplates, ...templates] });
+    const music = musicCount > 0 ? await uploadProjectMusic(musicCount) : [];
+    res.json({ templates: [...animatedTemplates, ...templates], music });
   } catch (e) { next(e); }
 });
 

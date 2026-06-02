@@ -13,6 +13,8 @@ THEME_TONES = {
     "luxury": 330,
     "wedding": 262,
     "corporate": 196,
+    "birthday": 294,
+    "viral": 247,
 }
 
 AI_EVENT_EFFECT = {

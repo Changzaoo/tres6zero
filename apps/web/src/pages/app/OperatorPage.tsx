@@ -41,6 +41,8 @@ const musicOptions = [
   { value: 'luxury', label: 'Luxury pulse' },
   { value: 'wedding', label: 'Wedding soft' },
   { value: 'corporate', label: 'Corporate clean' },
+  { value: 'birthday', label: 'Birthday pop' },
+  { value: 'viral', label: 'Viral motion' },
 ];
 
 const eventStatusLabel: Record<AppEvent['status'], string> = {
@@ -232,12 +234,14 @@ function EditorTimeline({
   sourceDuration,
   templateName,
   musicLabel,
+  effect,
   effectSegments,
 }: {
   duration: number;
   sourceDuration: number;
   templateName?: string;
   musicLabel: string;
+  effect: string;
   effectSegments: EffectSegment[];
 }) {
   const markers = [0, duration / 2, duration].map((value) => clamp(value, 0, duration));
@@ -294,7 +298,9 @@ function EditorTimeline({
                 duration={duration}
                 className="border-violet-300/35 bg-violet-500/28"
               />
-            )) : (
+            )) : effect === 'ai_auto' ? (
+              <TimelineClip label="IA escolhe no servidor" start={0} end={duration} duration={duration} className="border-violet-300/35 bg-violet-500/28" />
+            ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
             )}
           </TimelineRow>
@@ -362,6 +368,8 @@ export default function OperatorPage() {
   const isStandaloneVideo = !selectedEventId;
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const effectMeta = VIDEO_EFFECTS.find(item => item.value === effect);
+  const aiAutoSelected = effect === 'ai_auto';
+  const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
   const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.feature, isAdmin);
   const canUseTemplate = !selectedTemplate || isAdmin
     || selectedTemplate.category !== 'premium'
@@ -394,7 +402,9 @@ export default function OperatorPage() {
   ];
 
   const selectedMusicUrl = musicTheme.startsWith('url:') ? musicTheme.slice(4) : undefined;
-  const selectedMusicLabel = resolvedMusicOptions.find(o => o.value === musicTheme)?.label || 'Sem trilha';
+  const selectedMusicLabel = aiAutoSelected && musicTheme === 'none'
+    ? 'IA escolhe a trilha'
+    : resolvedMusicOptions.find(o => o.value === musicTheme)?.label || 'Sem trilha';
   const selectedMusicTrack = useMemo(() => {
     if (selectedMusicUrl) {
       return musicCatalog.find((track) => track.musicUrl === selectedMusicUrl);
@@ -411,7 +421,7 @@ export default function OperatorPage() {
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
   const effectDescription = effectPreviewText[effect] || 'Acabamento aplicado pelo servidor.';
   const effectSegments = useMemo<EffectSegment[]>(() => {
-    if (effect === 'clean') return [];
+    if (effect === 'clean' || effect === 'ai_auto') return [];
 
     const start = clamp(effectSegmentStart, 0, Math.max(0, duration - MIN_EFFECT_SEGMENT_SECONDS));
     const end = clamp(effectSegmentEnd, start + MIN_EFFECT_SEGMENT_SECONDS, duration);
@@ -504,6 +514,19 @@ export default function OperatorPage() {
     setEffectSegmentEnd(Math.min(duration, starts[preset] + segmentSize));
   }
 
+  function enableAiAutoEdit() {
+    if (!canUseAiAuto) {
+      toast.error('A edicao automatica com IA esta liberada no plano Ilimitado.');
+      return;
+    }
+
+    setEffect('ai_auto');
+    setMusicTheme('none');
+    setEffectSegmentStart(0);
+    setEffectSegmentEnd(duration);
+    toast.success('IA automatica ativada. O servidor vai escolher efeito, clima e trilha.');
+  }
+
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -553,7 +576,7 @@ export default function OperatorPage() {
       createdVideoId = video.id;
       setSavedVideoId(video.id);
       setProgress(65);
-      setProcessingLabel('Processando com Python e FFmpeg...');
+      setProcessingLabel(effect === 'ai_auto' ? 'Analisando cena com IA e editando no servidor...' : 'Processando com Python e FFmpeg...');
       const processed = await processVideoOnServer({
         videoId: video.id,
         inputUrl: uploaded.videoUrl || '',
@@ -583,7 +606,7 @@ export default function OperatorPage() {
         videoUrl: processed.outputUrl,
         status: 'published',
         effect,
-        musicTheme: storedMusicTheme || processed.musicTheme || musicTheme,
+        musicTheme: processed.musicTheme || storedMusicTheme || musicTheme,
         musicUrl: processingMusicUrl,
         duration,
       });
@@ -618,8 +641,8 @@ export default function OperatorPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-white">Modo Operador</h1>
-        <p className="text-white/40 text-sm">Capture, edite e publique videos 360 pelo servidor</p>
+        <h1 className="text-2xl font-bold text-white">Gravar</h1>
+        <p className="text-white/40 text-sm">Grave, edite com IA e publique videos 360 pelo servidor</p>
       </div>
 
       {step === 'select' && (
@@ -653,6 +676,28 @@ export default function OperatorPage() {
               <Wand2 className="w-4 h-4 text-brand-300" />
               Edicao do video
             </div>
+            <button
+              type="button"
+              onClick={enableAiAutoEdit}
+              className={`group flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
+                aiAutoSelected
+                  ? 'border-brand-300/55 bg-brand-500/18 shadow-glow'
+                  : canUseAiAuto
+                    ? 'border-white/10 bg-white/[0.045] hover:border-brand-300/35 hover:bg-white/[0.07]'
+                    : 'border-white/10 bg-white/[0.035] opacity-70'
+              }`}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-brand text-white ring-1 ring-white/15">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
+                <span className="block text-xs leading-relaxed text-white/42">
+                  Analisa a cena no servidor, escolhe efeito, clima e trilha por tema.
+                </span>
+              </span>
+              {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
+            </button>
             <Select label="Template transparente" options={templateOptions} value={selectedTemplateId}
               onChange={e => setSelectedTemplateId(e.target.value)} />
             <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
@@ -790,6 +835,24 @@ export default function OperatorPage() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={enableAiAutoEdit}
+                  className={`flex min-h-[62px] items-center gap-3 rounded-2xl border px-3 text-left transition-all sm:col-span-2 ${
+                    aiAutoSelected
+                      ? 'border-brand-300/55 bg-brand-500/18 shadow-glow'
+                      : canUseAiAuto
+                        ? 'border-white/10 bg-white/[0.045] hover:border-brand-300/35 hover:bg-white/[0.07]'
+                        : 'border-white/10 bg-white/[0.035] opacity-70'
+                  }`}
+                >
+                  <Sparkles className="h-5 w-5 shrink-0 text-brand-200" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
+                    <span className="block truncate text-xs text-white/42">OpenAI no backend decide acabamento, clima e trilha.</span>
+                  </span>
+                  {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
+                </button>
                 <Select label="Template" options={templateOptions} value={selectedTemplateId}
                   onChange={e => setSelectedTemplateId(e.target.value)} />
                 <Select label="Efeito" options={effectOptions} value={effect} onChange={e => setEffect(e.target.value)} />
@@ -849,7 +912,7 @@ export default function OperatorPage() {
                       max={duration}
                       step={0.1}
                       value={effectSegments[0]?.start || 0}
-                      disabled={effect === 'clean'}
+                      disabled={effect === 'clean' || effect === 'ai_auto'}
                       onChange={(event) => updateEffectStart(Number(event.target.value))}
                       className="w-full accent-violet-400 disabled:opacity-35"
                     />
@@ -862,14 +925,18 @@ export default function OperatorPage() {
                       max={duration}
                       step={0.1}
                       value={effectSegments[0]?.end || duration}
-                      disabled={effect === 'clean'}
+                      disabled={effect === 'clean' || effect === 'ai_auto'}
                       onChange={(event) => updateEffectEnd(Number(event.target.value))}
                       className="w-full accent-violet-400 disabled:opacity-35"
                     />
                   </label>
                 </div>
                 <p className="text-xs leading-relaxed text-white/38">
-                  {effect === 'clean' ? 'Escolha um efeito para marcar o trecho na timeline.' : effectDescription}
+                  {effect === 'clean'
+                    ? 'Escolha um efeito para marcar o trecho na timeline.'
+                    : effect === 'ai_auto'
+                      ? 'A IA escolhe o efeito e o clima depois de analisar o primeiro frame no servidor.'
+                      : effectDescription}
                 </p>
               </div>
 
@@ -902,6 +969,7 @@ export default function OperatorPage() {
             sourceDuration={sourceDuration}
             templateName={selectedTemplate?.name}
             musicLabel={selectedMusicLabel}
+            effect={effect}
             effectSegments={effectSegments}
           />
         </motion.div>

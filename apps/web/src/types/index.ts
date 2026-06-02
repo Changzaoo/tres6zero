@@ -174,6 +174,10 @@ export interface AppMusic {
   musicUrl?: string;
   storagePath?: string;
   source?: 'generated' | 'custom' | 'default';
+  library?: string;
+  licenseName?: string;
+  licenseUrl?: string;
+  attribution?: string;
   isGlobal: boolean;
   isActive: boolean;
   createdAt: string;

@@ -23,7 +23,7 @@ import { toast } from '@/components/ui/Toast';
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
   { to: '/app/videos', label: 'Videos', icon: Video, unlocked: true },
-  { to: '/app/operator', label: 'Operar', icon: Camera, primary: true },
+  { to: '/app/gravar', label: 'Gravar', icon: Camera, primary: true },
   { to: '/app/templates', label: 'Templates', icon: Layers },
 ];
 

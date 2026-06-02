@@ -9,6 +9,100 @@ const THEMES = [
 
 const SAMPLE_RATE = 22050;
 const DURATION_SECONDS = 6;
+const CITIZEN_DJ_BASE_URL = 'https://citizen-dj.labs.loc.gov';
+
+const PUBLIC_LIBRARY_TRACKS = [
+  {
+    id: 'public-party-disco-cat',
+    name: 'Disco Cat',
+    category: 'party',
+    theme: 'party',
+    bpm: 124,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Disco-Cat_fma-169734_001_00-00-30.mp3',
+  },
+  {
+    id: 'public-party-free-to-use',
+    name: 'Free To Use 13',
+    category: 'party',
+    theme: 'party',
+    bpm: 126,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Free-To-Use-13_fma-152622_002_00-00-32.mp3',
+  },
+  {
+    id: 'public-birthday-christmas-lights',
+    name: 'Christmas Lights',
+    category: 'birthday',
+    theme: 'birthday',
+    bpm: 112,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Christmas-lights_fma-182248_001_00-00-00.mp3',
+  },
+  {
+    id: 'public-wedding-dreaming',
+    name: 'Dreaming Of You',
+    category: 'wedding',
+    theme: 'wedding',
+    bpm: 78,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Dreaming-of-you_fma-145627_001_00-00-01.mp3',
+  },
+  {
+    id: 'public-wedding-dans-le-love',
+    name: 'Dans Le Love',
+    category: 'wedding',
+    theme: 'wedding',
+    bpm: 82,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Dans-le-love_fma-158487_001_00-02-32.mp3',
+  },
+  {
+    id: 'public-corporate-father-green',
+    name: 'Father Green',
+    category: 'corporate',
+    theme: 'corporate',
+    bpm: 98,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Father-Green_fma-175116_001_00-00-00.mp3',
+  },
+  {
+    id: 'public-corporate-action',
+    name: 'Action Decisive Move',
+    category: 'corporate',
+    theme: 'corporate',
+    bpm: 104,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Action-Decisive-Move_fma-155584_001_00-02-30.mp3',
+  },
+  {
+    id: 'public-ambient-no-return',
+    name: 'Ambiant Point Of No Return',
+    category: 'ambient',
+    theme: 'ambient',
+    bpm: 74,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Ambiant-Point-Of-No-Return_fma-155586_001_00-01-06.mp3',
+  },
+  {
+    id: 'public-luxury-castle',
+    name: 'Castle In The Cloud',
+    category: 'premium',
+    theme: 'luxury',
+    bpm: 88,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/Castle-in-the-cloud_fma-174212_002_00-00-30.mp3',
+  },
+  {
+    id: 'public-viral-good-start',
+    name: 'A Good Start',
+    category: 'viral',
+    theme: 'viral',
+    bpm: 132,
+    duration: 30,
+    sourcePath: '/audio/samplepacks/loc-fma/A-Good-Start_fma-182157_003_00-00-18.mp3',
+  },
+] as const;
 
 function writeString(view: DataView, offset: number, value: string) {
   for (let i = 0; i < value.length; i++) {
@@ -50,6 +144,30 @@ export function buildGeneratedMusic(count = 72) {
       baseFrequency: theme.base + variant * 3,
     };
   });
+}
+
+export function buildPublicLibraryMusic() {
+  const now = new Date().toISOString();
+  return PUBLIC_LIBRARY_TRACKS.map((track) => ({
+    id: track.id,
+    name: track.name,
+    category: track.category,
+    theme: track.theme,
+    bpm: track.bpm,
+    duration: track.duration,
+    musicUrl: undefined as string | undefined,
+    sourceUrl: `${CITIZEN_DJ_BASE_URL}${track.sourcePath}`,
+    storagePath: `public-library/${track.theme}/${track.id}.mp3`,
+    library: 'Citizen DJ / Library of Congress Free Music Archive sample packs',
+    licenseName: 'Public sample pack from Citizen DJ',
+    licenseUrl: 'https://citizen-dj.labs.loc.gov/loc-fma/use/',
+    attribution: `${track.name} - Citizen DJ / Free Music Archive`,
+    isGlobal: true,
+    isActive: true,
+    source: 'generated' as const,
+    createdAt: now,
+    updatedAt: now,
+  }));
 }
 
 export function renderMusicWav(params: { baseFrequency: number; bpm: number }) {
