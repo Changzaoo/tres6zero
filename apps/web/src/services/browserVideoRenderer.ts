@@ -9,6 +9,13 @@ type LoadedAsset<T extends HTMLImageElement | HTMLVideoElement> = {
   objectUrl?: string;
 };
 
+type BoomerangFrameCache = {
+  frames: ImageBitmap[];
+  outputStart: number;
+  outputEnd: number;
+  forwardDuration: number;
+};
+
 export type BrowserVideoRenderOptions = {
   input: Blob;
   durationSeconds: number;
@@ -27,6 +34,8 @@ export type BrowserVideoRenderOptions = {
 const TARGET_FPS = 30;
 const MAX_RENDER_SIDE = 720;
 const MIN_RENDER_SIDE = 360;
+const BOOMERANG_CACHE_FPS = 18;
+const MAX_BOOMERANG_FRAMES = 96;
 
 type AudioContextConstructor = typeof AudioContext;
 
@@ -239,6 +248,22 @@ function drawFullFrame(
   ctx.drawImage(source, 0, 0, width, height);
 }
 
+function drawBitmapCover(
+  ctx: CanvasRenderingContext2D,
+  source: ImageBitmap,
+  width: number,
+  height: number,
+) {
+  if (!source.width || !source.height) return;
+
+  const scale = Math.max(width / source.width, height / source.height);
+  const drawWidth = source.width * scale;
+  const drawHeight = source.height * scale;
+  const drawX = (width - drawWidth) / 2;
+  const drawY = (height - drawHeight) / 2;
+  ctx.drawImage(source, drawX, drawY, drawWidth, drawHeight);
+}
+
 function canvasFilter(effect: string) {
   const filters: Record<string, string> = {
     clean: 'contrast(1.05) saturate(1.08) brightness(1.01)',
@@ -291,18 +316,89 @@ function activeEffectState(baseEffect: string, segments: RenderEffectSegment[] |
   };
 }
 
+function isTemporalEffect(effect: string) {
+  return effect === 'slow_motion' || effect === 'speed_ramp' || effect === 'boomerang';
+}
+
 function mapPlaybackRate(effect: string, elapsed: number, duration: number) {
-  if (effect === 'slow_motion') return 0.52;
+  if (effect === 'slow_motion') return 0.38;
 
   if (effect === 'speed_ramp') {
     const progress = Math.min(1, Math.max(0, elapsed / Math.max(duration, 1)));
-    if (progress < 0.18) return 0.72;
-    if (progress < 0.58) return 1.85;
-    if (progress < 0.78) return 1.18;
-    return 0.82;
+    if (progress < 0.16) return 0.55;
+    if (progress < 0.5) return 2.45;
+    if (progress < 0.72) return 1.25;
+    if (progress < 0.86) return 0.45;
+    return 0.95;
   }
 
   return 1;
+}
+
+function boomerangFrameIndex(cache: BoomerangFrameCache, localElapsed: number) {
+  if (cache.frames.length <= 1) return 0;
+
+  const cycleDuration = Math.max(0.2, cache.forwardDuration * 2);
+  const cyclePosition = localElapsed % cycleDuration;
+  const forward = cyclePosition <= cache.forwardDuration;
+  const progress = forward
+    ? cyclePosition / cache.forwardDuration
+    : 1 - ((cyclePosition - cache.forwardDuration) / cache.forwardDuration);
+  return Math.max(0, Math.min(cache.frames.length - 1, Math.round(progress * (cache.frames.length - 1))));
+}
+
+async function buildBoomerangFrameCache({
+  sourceVideo,
+  width,
+  height,
+  trimStart,
+  trimEnd,
+  targetDuration,
+  baseEffect,
+  segments,
+}: {
+  sourceVideo: HTMLVideoElement;
+  width: number;
+  height: number;
+  trimStart: number;
+  trimEnd: number;
+  targetDuration: number;
+  baseEffect: string;
+  segments: RenderEffectSegment[];
+}): Promise<BoomerangFrameCache | undefined> {
+  const boomerangRange = segments.find((segment) => segment.effect === 'boomerang')
+    || (baseEffect === 'boomerang' ? { effect: 'boomerang', start: 0, end: targetDuration } : undefined);
+  if (!boomerangRange) return undefined;
+
+  const outputStart = Math.max(0, Math.min(targetDuration, boomerangRange.start));
+  const outputEnd = Math.max(outputStart + 0.2, Math.min(targetDuration, boomerangRange.end));
+  const sourceStart = Math.max(trimStart, Math.min(trimEnd - 0.05, trimStart + outputStart));
+  const sourceAvailable = Math.max(0.2, trimEnd - sourceStart);
+  const outputDuration = Math.max(0.2, outputEnd - outputStart);
+  const forwardDuration = Math.max(0.35, Math.min(sourceAvailable, outputDuration / 2, 4));
+  const frameCount = Math.max(8, Math.min(MAX_BOOMERANG_FRAMES, Math.round(forwardDuration * BOOMERANG_CACHE_FPS)));
+  const frameCanvas = document.createElement('canvas');
+  frameCanvas.width = width;
+  frameCanvas.height = height;
+  const frameCtx = frameCanvas.getContext('2d');
+  if (!frameCtx) return undefined;
+
+  const frames: ImageBitmap[] = [];
+  sourceVideo.pause();
+  sourceVideo.playbackRate = 1;
+
+  for (let index = 0; index < frameCount; index += 1) {
+    const progress = frameCount <= 1 ? 0 : index / (frameCount - 1);
+    const sourceTime = Math.min(trimEnd - 0.04, sourceStart + (progress * forwardDuration));
+    await seekVideo(sourceVideo, sourceTime).catch(() => undefined);
+    frameCtx.clearRect(0, 0, width, height);
+    frameCtx.filter = canvasFilter('boomerang');
+    drawCover(frameCtx, sourceVideo, width, height);
+    frameCtx.filter = 'none';
+    frames.push(await createImageBitmap(frameCanvas));
+  }
+
+  return frames.length ? { frames, outputStart, outputEnd, forwardDuration } : undefined;
 }
 
 function mapManualSourceTime(effect: string, elapsed: number, effectDuration: number, sourceStart: number, sourceEnd: number) {
@@ -559,6 +655,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
 
   let overlayImage: LoadedAsset<HTMLImageElement> | undefined;
   let overlayVideo: LoadedAsset<HTMLVideoElement> | undefined;
+  let boomerangCache: BoomerangFrameCache | undefined;
   const needsAudio = Boolean(options.musicUrl || (options.musicTheme && options.musicTheme !== 'none'));
   const audioContext = needsAudio ? createAudioContext() : undefined;
   let cleanupAudio: (() => void) | undefined;
@@ -601,6 +698,16 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     const availableDuration = Math.max(0.05, trimEnd - trimStart);
     const targetDuration = Math.max(0.5, Math.min(60, options.durationSeconds || availableDuration, availableDuration));
     const normalizedSegments = normalizeEffectSegments(options.effectSegments, targetDuration);
+    boomerangCache = await buildBoomerangFrameCache({
+      sourceVideo,
+      width,
+      height,
+      trimStart,
+      trimEnd,
+      targetDuration,
+      baseEffect: options.effect || 'clean',
+      segments: normalizedSegments,
+    }).catch(() => undefined);
     cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, targetDuration);
 
     const rendered = new Promise<Blob>((resolve, reject) => {
@@ -637,16 +744,18 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
 
       if (currentEffect === 'boomerang') {
         sourceVideo.pause();
-        const mappedTime = mapManualSourceTime(currentEffect, effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd);
-        if (Number.isFinite(mappedTime) && Math.abs(sourceVideo.currentTime - mappedTime) > 0.035) {
-          if ('fastSeek' in sourceVideo && typeof sourceVideo.fastSeek === 'function') {
-            sourceVideo.fastSeek(mappedTime);
-          } else {
-            sourceVideo.currentTime = mappedTime;
+        if (!boomerangCache) {
+          const mappedTime = mapManualSourceTime(currentEffect, effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd);
+          if (Number.isFinite(mappedTime) && Math.abs(sourceVideo.currentTime - mappedTime) > 0.035) {
+            if ('fastSeek' in sourceVideo && typeof sourceVideo.fastSeek === 'function') {
+              sourceVideo.fastSeek(mappedTime);
+            } else {
+              sourceVideo.currentTime = mappedTime;
+            }
           }
         }
       } else {
-        if (previousEffect === 'boomerang') {
+        if (isTemporalEffect(previousEffect) && previousEffect !== currentEffect) {
           const resumedTime = Math.min(trimEnd - 0.03, trimStart + elapsed);
           if (Number.isFinite(resumedTime) && Math.abs(sourceVideo.currentTime - resumedTime) > 0.08) {
             sourceVideo.currentTime = resumedTime;
@@ -667,7 +776,13 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
 
       ctx.clearRect(0, 0, width, height);
       ctx.filter = canvasFilter(currentEffect);
-      if (currentEffect === 'boomerang' && isBoomerangReverseFrame(effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd)) {
+      const cachedBoomerangFrame = currentEffect === 'boomerang' && boomerangCache
+        ? boomerangCache.frames[boomerangFrameIndex(boomerangCache, effectState.localElapsed)]
+        : undefined;
+
+      if (cachedBoomerangFrame) {
+        drawBitmapCover(ctx, cachedBoomerangFrame, width, height);
+      } else if (currentEffect === 'boomerang' && isBoomerangReverseFrame(effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd)) {
         ctx.save();
         ctx.translate(width, 0);
         ctx.scale(-1, 1);
@@ -705,6 +820,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
   } finally {
     sourceVideo.pause();
     overlayVideo?.element.pause();
+    boomerangCache?.frames.forEach((frame) => frame.close());
     cleanupAudio?.();
     audioContext?.close().catch(() => undefined);
     revokeAssets([overlayImage, overlayVideo], inputUrl);
