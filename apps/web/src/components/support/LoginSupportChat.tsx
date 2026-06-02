@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, LifeBuoy, Mail, MessageCircle, Send, X } from 'lucide-react';
+import { AlertCircle, LifeBuoy, MessageCircle, Send, X } from 'lucide-react';
 import {
   createAnonymousSupportConversation,
   getAnonymousSupportMessages,
@@ -12,12 +12,22 @@ import type { SupportConversation, SupportMessage } from '@/types';
 
 const VISITOR_KEY = 'six3.support.visitorId';
 const CACHE_PREFIX = 'six3.support.loginCache.';
+const defaultSubject = 'Problema para entrar na conta';
+const supportSubjectOptions = [
+  defaultSubject,
+  'Esqueci minha senha',
+  'Pagamento ou assinatura',
+  'Conta bloqueada por dispositivo',
+  'Nao recebi o e-mail de recuperacao',
+  'Problema para criar conta',
+  'Erro ao gravar ou enviar video',
+  'Outro assunto',
+];
 
 type LoginSupportCache = {
   conversationId?: string;
   messages: SupportMessage[];
   subject?: string;
-  email?: string;
   savedAt: number;
 };
 
@@ -84,13 +94,12 @@ function localMessage(visitorId: string, body: string, pending = true): SupportM
   };
 }
 
-export function LoginSupportChat({ emailHint = '' }: { emailHint?: string }) {
+export function LoginSupportChat({ emailHint: _emailHint = '' }: { emailHint?: string }) {
   const [open, setOpen] = useState(false);
   const [visitorId] = useState(() => getVisitorId());
   const [conversation, setConversation] = useState<SupportConversation | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [email, setEmail] = useState(emailHint);
-  const [subject, setSubject] = useState('Problema para entrar na conta');
+  const [subject, setSubject] = useState(defaultSubject);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -98,27 +107,21 @@ export function LoginSupportChat({ emailHint = '' }: { emailHint?: string }) {
   const shortVisitor = useMemo(() => visitorId.slice(-6).toUpperCase(), [visitorId]);
 
   useEffect(() => {
-    if (emailHint && !email) setEmail(emailHint);
-  }, [email, emailHint]);
-
-  useEffect(() => {
     const cached = readCache(visitorId);
     if (cached) {
       setMessages(cached.messages || []);
-      setSubject(cached.subject || 'Problema para entrar na conta');
-      setEmail(cached.email || emailHint || '');
+      setSubject(cached.subject || defaultSubject);
     }
-  }, [emailHint, visitorId]);
+  }, [visitorId]);
 
   useEffect(() => {
     writeCache(visitorId, {
       conversationId: conversation?.id,
       messages,
       subject,
-      email,
       savedAt: Date.now(),
     });
-  }, [conversation?.id, email, messages, subject, visitorId]);
+  }, [conversation?.id, messages, subject, visitorId]);
 
   useEffect(() => {
     if (!open) return;
@@ -135,7 +138,6 @@ export function LoginSupportChat({ emailHint = '' }: { emailHint?: string }) {
 
       setConversation(selected);
       setSubject(selected.subject || subject);
-      setEmail(selected.contactEmail || selected.userEmail || email);
       const loaded = await getAnonymousSupportMessages(selected.id, visitorId);
       setConversation(loaded.conversation);
       setMessages(loaded.messages);
@@ -179,8 +181,7 @@ export function LoginSupportChat({ emailHint = '' }: { emailHint?: string }) {
       try {
         const { conversation: created } = await createAnonymousSupportConversation({
           visitorId,
-          email: email.trim() || undefined,
-          subject: subject.trim() || 'Problema para entrar na conta',
+          subject: subject.trim() || defaultSubject,
           message,
           userAgent: isBrowser() ? window.navigator.userAgent : undefined,
           pageUrl: isBrowser() ? window.location.href : undefined,
@@ -246,25 +247,21 @@ export function LoginSupportChat({ emailHint = '' }: { emailHint?: string }) {
               <div className="border-b border-white/10 bg-yellow-400/[0.055] px-4 py-3">
                 <div className="flex gap-2 text-xs leading-relaxed text-yellow-50/78">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-200" />
-                  <span>Voce sera identificado como anonimo ate informar o e-mail usado na conta.</span>
+                  <span>Voce sera identificado como anonimo. O suporte pode pedir o e-mail da conta dentro da conversa se precisar.</span>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1.1fr]">
-                  <label className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/28" />
-                    <input
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      type="email"
-                      placeholder="E-mail da conta"
-                      className="h-10 w-full rounded-full border border-white/10 bg-black/20 pl-9 pr-3 text-sm text-white placeholder-white/28 outline-none focus:border-brand-300/60"
-                    />
-                  </label>
-                  <input
+                <div className="mt-3">
+                  <select
                     value={subject}
                     onChange={(event) => setSubject(event.target.value)}
-                    placeholder="Assunto"
-                    className="h-10 w-full rounded-full border border-white/10 bg-black/20 px-3 text-sm text-white placeholder-white/28 outline-none focus:border-brand-300/60"
-                  />
+                    aria-label="Assunto do suporte"
+                    className="h-10 w-full rounded-full border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-brand-300/60"
+                  >
+                    {supportSubjectOptions.map((option) => (
+                      <option key={option} value={option} className="bg-[#101218] text-white">
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             )}
@@ -279,7 +276,7 @@ export function LoginSupportChat({ emailHint = '' }: { emailHint?: string }) {
                   <MessageCircle className="mb-3 h-10 w-10 text-white/20" />
                   <p className="text-sm font-semibold text-white">Como podemos ajudar?</p>
                   <p className="mt-1 max-w-xs text-xs leading-relaxed text-white/40">
-                    Envie o e-mail da conta, o erro que aparece e o que voce tentou fazer.
+                    Escolha o assunto e descreva o erro que aparece ou o que voce tentou fazer.
                   </p>
                 </div>
               ) : messages.map((message) => {
