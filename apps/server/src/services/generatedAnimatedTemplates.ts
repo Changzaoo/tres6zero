@@ -175,7 +175,151 @@ function birthdayMotion(template: BaseTemplate, width: number, height: number, f
   `;
 }
 
+function orbitMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const cx = width / 2;
+  const cy = height / 2;
+  const rx = template.aspectRatio === '16:9' ? width * 0.28 : width * 0.36;
+  const ry = template.aspectRatio === '16:9' ? height * 0.28 : height * 0.23;
+  return Array.from({ length: 10 }, (_, i) => {
+    const angle = phase(frame, frames) + (Math.PI * 2 * i) / 10;
+    const x = cx + Math.cos(angle) * rx;
+    const y = cy + Math.sin(angle) * ry;
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(width * (0.007 + (i % 3) * 0.002)).toFixed(2)}" fill="${color(template, i)}" opacity="${0.44 + Math.abs(wave(frame, frames, i)) * 0.32}"/>`;
+  }).join('');
+}
+
+function hudPulse(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const p = (frame % frames) / frames;
+  const scanY = height * (0.12 + p * 0.76);
+  const scanX = width * (0.12 + (1 - p) * 0.76);
+  return `
+    <path d="M${width * 0.08} ${scanY.toFixed(2)} H${width * 0.92}" stroke="${template.colors.primary}" stroke-width="${Math.max(3, width * 0.005)}" opacity="0.42"/>
+    <path d="M${scanX.toFixed(2)} ${height * 0.08} V${height * 0.92}" stroke="${template.colors.secondary}" stroke-width="${Math.max(3, width * 0.004)}" opacity="0.34"/>
+    ${Array.from({ length: 18 }, (_, i) => sparkle(
+      i % 2 ? width * 0.9 : width * 0.1,
+      height * 0.15 + ((i * 71 + frame * 11) % Math.round(height * 0.7)),
+      width * (0.006 + (i % 3) * 0.002),
+      color(template, i),
+      0.28 + Math.abs(wave(frame, frames, i)) * 0.4,
+    )).join('')}
+  `;
+}
+
+function ribbonSweep(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const p = (frame % frames) / frames;
+  const x = -width * 0.22 + p * width * 1.44;
+  return `
+    <path d="M${x.toFixed(2)} ${height * 0.14} L${(x + width * 0.16).toFixed(2)} ${height * 0.08} L${(x + width * 0.24).toFixed(2)} ${height * 0.13} L${(x + width * 0.08).toFixed(2)} ${height * 0.2} Z" fill="${template.colors.primary}" opacity="0.46"/>
+    <path d="M${(width - x).toFixed(2)} ${height * 0.86} L${(width - x - width * 0.16).toFixed(2)} ${height * 0.92} L${(width - x - width * 0.24).toFixed(2)} ${height * 0.87} L${(width - x - width * 0.08).toFixed(2)} ${height * 0.8} Z" fill="${template.colors.secondary}" opacity="0.42"/>
+  `;
+}
+
+function storyMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = width * (0.88 - i * 0.055);
+    const y = height * (0.78 - Math.abs(wave(frame, frames, i * 0.7)) * 0.16);
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(width * (0.012 + (i % 3) * 0.003)).toFixed(2)}" fill="${color(template, i)}" opacity="${0.36 + Math.abs(wave(frame, frames, i)) * 0.42}"/>`;
+  }).join('');
+}
+
+function photoFlash(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const flash = frame % Math.max(2, Math.floor(frames / 4)) === 0 ? 0.18 : 0.04;
+  return `
+    <rect x="${width * 0.07}" y="${height * 0.16}" width="${width * 0.2}" height="${height * 0.16}" rx="${width * 0.014}" fill="#ffffff" opacity="${flash}"/>
+    <rect x="${width * 0.73}" y="${height * 0.18}" width="${width * 0.2}" height="${height * 0.16}" rx="${width * 0.014}" fill="#ffffff" opacity="${flash * 0.8}"/>
+    ${sparkle(width * 0.2, height * 0.18, width * 0.018, template.colors.primary, 0.65 + flash)}
+    ${sparkle(width * 0.78, height * 0.82, width * 0.018, template.colors.secondary, 0.58 + flash)}
+  `;
+}
+
+function ticketMarquee(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const dots = template.aspectRatio === '16:9' ? 18 : 14;
+  const y = height * 0.86;
+  return Array.from({ length: dots }, (_, i) => {
+    const opacity = 0.24 + Math.abs(wave(frame, frames, i * 0.7)) * 0.54;
+    const x = width * 0.18 + (i * width * 0.64) / (dots - 1);
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(width * 0.006).toFixed(2)}" fill="${color(template, i)}" opacity="${opacity.toFixed(2)}"/>`;
+  }).join('');
+}
+
+function liquidDrops(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  return Array.from({ length: 12 }, (_, i) => {
+    const x = i % 2 ? width * 0.08 : width * 0.92;
+    const y = height * 0.12 + ((i * 101 + frame * 13) % Math.round(height * 0.76));
+    const r = width * (0.008 + (i % 4) * 0.002);
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r.toFixed(2)}" fill="${color(template, i)}" opacity="${(0.22 + Math.abs(wave(frame, frames, i)) * 0.42).toFixed(2)}"/>`;
+  }).join('');
+}
+
+function stickerPop(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const pulse = 0.72 + Math.abs(wave(frame, frames)) * 0.34;
+  return `
+    ${sparkle(width * 0.14, height * 0.16, width * 0.026 * pulse, template.colors.primary, 0.74)}
+    ${sparkle(width * 0.86, height * 0.82, width * 0.024 * pulse, template.colors.secondary, 0.7)}
+    ${confetti(template, width, height, frame, frames)}
+  `;
+}
+
+function vhsNoise(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const rows = Array.from({ length: 10 }, (_, i) => {
+    const y = height * 0.12 + ((i * 97 + frame * 19) % Math.round(height * 0.76));
+    const w = width * (0.1 + (i % 4) * 0.045);
+    const x = i % 2 ? width - width * 0.08 - w : width * 0.08;
+    return rect(x + wave(frame, frames, i) * width * 0.025, y, w, height * 0.006, color(template, i), 0.24 + (i % 3) * 0.12);
+  }).join('');
+  return `${rows}<circle cx="${width * 0.09}" cy="${height * 0.08}" r="${width * 0.012}" fill="${template.colors.primary}" opacity="${0.42 + Math.abs(wave(frame, frames)) * 0.4}"/>`;
+}
+
+function laceDrift(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const beads = template.aspectRatio === '16:9' ? 18 : 14;
+  return Array.from({ length: beads }, (_, i) => {
+    const x = width * 0.12 + (i * width * 0.76) / (beads - 1);
+    const y = height * 0.08 + wave(frame, frames, i * 0.45) * height * 0.012;
+    const y2 = height * 0.92 - wave(frame, frames, i * 0.45) * height * 0.012;
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(width * 0.006).toFixed(2)}" fill="${color(template, i)}" opacity="0.42"/>
+      <circle cx="${x.toFixed(2)}" cy="${y2.toFixed(2)}" r="${(width * 0.006).toFixed(2)}" fill="${color(template, i + 2)}" opacity="0.34"/>`;
+  }).join('');
+}
+
+function geometricPulse(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const pulse = 0.72 + Math.abs(wave(frame, frames)) * 0.28;
+  const diamond = (x: number, y: number, s: number, fill: string) => `<path d="M${x} ${y - s * pulse} L${x + s * pulse} ${y} L${x} ${y + s * pulse} L${x - s * pulse} ${y} Z" fill="none" stroke="${fill}" stroke-width="${Math.max(3, width * 0.005)}" opacity="0.48"/>`;
+  return [
+    diamond(width * 0.12, height * 0.13, width * 0.04, template.colors.primary),
+    diamond(width * 0.88, height * 0.87, width * 0.04, template.colors.secondary),
+    diamond(width * 0.5, height * 0.08, width * 0.025, '#ffffff'),
+    diamond(width * 0.5, height * 0.92, width * 0.025, template.colors.primary),
+  ].join('');
+}
+
+function spotlightSweep(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const offset = wave(frame, frames) * width * 0.08;
+  return `
+    <path d="M${(width * 0.28 + offset).toFixed(2)} ${height * 0.08} L${width * 0.43} ${height * 0.9} L${width * 0.33} ${height * 0.9} Z" fill="${template.colors.primary}" opacity="0.16"/>
+    <path d="M${(width * 0.72 - offset).toFixed(2)} ${height * 0.08} L${width * 0.57} ${height * 0.9} L${width * 0.67} ${height * 0.9} Z" fill="${template.colors.secondary}" opacity="0.16"/>
+    ${equalizer(template, width, height, frame, frames)}
+  `;
+}
+
+function layoutMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  if (template.layout === 'orbital_focus') return orbitMotion(template, width, height, frame, frames);
+  if (template.layout === 'tech_hud' || template.layout === 'brand_slate') return hudPulse(template, width, height, frame, frames);
+  if (template.layout === 'split_ribbon') return ribbonSweep(template, width, height, frame, frames);
+  if (template.layout === 'social_story') return storyMotion(template, width, height, frame, frames);
+  if (template.layout === 'polaroid_stack' || template.layout === 'photo_strip' || template.layout === 'magazine_cover') return photoFlash(template, width, height, frame, frames);
+  if (template.layout === 'ticket_pass' || template.layout === 'event_badge') return ticketMarquee(template, width, height, frame, frames);
+  if (template.layout === 'liquid_waves') return liquidDrops(template, width, height, frame, frames);
+  if (template.layout === 'sticker_burst' || template.layout === 'confetti_arch') return stickerPop(template, width, height, frame, frames);
+  if (template.layout === 'retro_vhs' || template.layout === 'glitch_reel') return vhsNoise(template, width, height, frame, frames);
+  if (template.layout === 'romantic_lace' || template.layout === 'floral_crown') return laceDrift(template, width, height, frame, frames);
+  if (template.layout === 'geometric_lux' || template.layout === 'luxury_corners' || template.layout === 'minimal_luxe') return geometricPulse(template, width, height, frame, frames);
+  if (template.layout === 'spotlight_stage') return spotlightSweep(template, width, height, frame, frames);
+  return '';
+}
+
 function categoryMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const motion = layoutMotion(template, width, height, frame, frames);
+  if (motion) return motion;
   if (template.category === 'birthday') return birthdayMotion(template, width, height, frame, frames);
   if (template.category === 'party') return `${laserSweep(template, width, height, frame, frames)}${equalizer(template, width, height, frame, frames)}`;
   if (template.category === 'wedding') return petals(template, width, height, frame, frames) + luxuryGlints(template, width, height, frame, frames);
@@ -204,8 +348,18 @@ type BuildGeneratedAnimatedTemplatesOptions = {
   includeDataUrl?: boolean;
 };
 
+const GENERATED_TEMPLATE_CATALOG_SIZE = 720;
+
 export function buildGeneratedAnimatedTemplates(count = 144, offset = 0, options: BuildGeneratedAnimatedTemplatesOptions = {}): GeneratedAnimatedTemplate[] {
-  const baseTemplates = buildGeneratedTemplates(count, offset, options);
+  const stride = count < GENERATED_TEMPLATE_CATALOG_SIZE
+    ? Math.max(1, Math.floor(GENERATED_TEMPLATE_CATALOG_SIZE / count))
+    : 1;
+  const baseTemplates = Array.from({ length: count }, (_, batchIndex) => {
+    const baseOffset = count < GENERATED_TEMPLATE_CATALOG_SIZE
+      ? (offset + batchIndex * stride) % GENERATED_TEMPLATE_CATALOG_SIZE
+      : offset + batchIndex;
+    return buildGeneratedTemplates(1, baseOffset, options)[0];
+  });
   return baseTemplates.map((template) => {
     const id = `animated-${template.id}`;
     const { svg, ...publicTemplate } = template;

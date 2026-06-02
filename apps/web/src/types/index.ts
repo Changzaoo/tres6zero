@@ -142,6 +142,10 @@ export interface AppTemplate {
   category: TemplateCategory;
   colors: { primary: string; secondary: string };
   font: string;
+  designId?: string;
+  layout?: string;
+  variantKey?: string;
+  variantName?: string;
   previewUrl?: string;
   overlayUrl?: string;
   animationUrl?: string;

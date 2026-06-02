@@ -64,6 +64,9 @@ function searchableTemplateText(template: AppTemplate) {
     template.aspectRatio,
     template.source,
     template.font,
+    template.layout,
+    template.variantName,
+    template.designId,
     ...(template.effects || []),
   ].filter(Boolean).join(' ').toLowerCase();
 }
@@ -136,9 +139,13 @@ function TemplateCard({
           <div className="mt-1 flex flex-wrap items-center gap-1">
             <Badge variant="purple">{template.category}</Badge>
             <span className="text-xs text-white/30">{template.aspectRatio}</span>
+            {template.variantName && <span className="text-xs text-white/35">{template.variantName}</span>}
             {template.animationUrl && <span className="text-xs text-cyan-200/80">animado</span>}
             {template.source && <span className="text-xs text-white/30">{template.source}</span>}
           </div>
+          {template.layout && (
+            <p className="mt-1 truncate text-xs capitalize text-white/35">{template.layout.replace(/_/g, ' ')}</p>
+          )}
           <div className="mt-2 flex flex-wrap gap-1">
             {(template.effects || []).slice(0, 2).map(effect => (
               <span key={effect} className="flex items-center gap-0.5 text-xs text-white/40">

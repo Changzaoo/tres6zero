@@ -18,7 +18,23 @@ type LayoutKey =
   | 'confetti_arch'
   | 'event_badge'
   | 'chrome_frame'
-  | 'minimal_luxe';
+  | 'minimal_luxe'
+  | 'polaroid_stack'
+  | 'ticket_pass'
+  | 'social_story'
+  | 'tech_hud'
+  | 'orbital_focus'
+  | 'split_ribbon'
+  | 'magazine_cover'
+  | 'photo_strip'
+  | 'spotlight_stage'
+  | 'liquid_waves'
+  | 'sticker_burst'
+  | 'retro_vhs'
+  | 'minimal_editorial'
+  | 'brand_slate'
+  | 'romantic_lace'
+  | 'geometric_lux';
 
 type ThemePack = {
   title: string;
@@ -26,6 +42,44 @@ type ThemePack = {
   footer: string;
   palettes: [string, string, string][];
   layouts: LayoutKey[];
+};
+
+const COLOR_VARIANTS = [
+  { key: 'signature', label: 'Signature' },
+  { key: 'electric', label: 'Electric' },
+  { key: 'soft', label: 'Soft' },
+  { key: 'contrast', label: 'Contrast' },
+] as const;
+
+const LAYOUT_LABELS: Record<LayoutKey, string> = {
+  poster_clip: 'Clip Poster',
+  snap_filter: 'Snap Lens',
+  applay_flow: 'Applay Flow',
+  neon_corners: 'Neon Corners',
+  floral_crown: 'Floral Crown',
+  luxury_corners: 'Luxury Corners',
+  glitch_reel: 'Glitch Reel',
+  cinematic_band: 'Cinematic Band',
+  confetti_arch: 'Confetti Arch',
+  event_badge: 'Event Badge',
+  chrome_frame: 'Chrome Frame',
+  minimal_luxe: 'Minimal Luxe',
+  polaroid_stack: 'Polaroid Stack',
+  ticket_pass: 'Ticket Pass',
+  social_story: 'Social Story',
+  tech_hud: 'Tech HUD',
+  orbital_focus: 'Orbital Focus',
+  split_ribbon: 'Split Ribbon',
+  magazine_cover: 'Magazine Cover',
+  photo_strip: 'Photo Strip',
+  spotlight_stage: 'Spotlight Stage',
+  liquid_waves: 'Liquid Waves',
+  sticker_burst: 'Sticker Burst',
+  retro_vhs: 'Retro VHS',
+  minimal_editorial: 'Minimal Editorial',
+  brand_slate: 'Brand Slate',
+  romantic_lace: 'Romantic Lace',
+  geometric_lux: 'Geometric Luxe',
 };
 
 const EFFECTS_BY_CATEGORY: Record<TemplateCategory, string[]> = {
@@ -44,21 +98,21 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
       badge: 'HAPPY BIRTHDAY',
       footer: 'CELEBRATION MODE',
       palettes: [['#ff3d8d', '#ffd166', '#38f6ff'], ['#7c3aed', '#ffb703', '#f9fafb']],
-      layouts: ['poster_clip', 'confetti_arch', 'snap_filter'],
+      layouts: ['poster_clip', 'confetti_arch', 'sticker_burst', 'polaroid_stack', 'magazine_cover'],
     },
     {
       title: 'Cake Pop',
       badge: 'MAKE A WISH',
       footer: '360 PARTY MOMENT',
       palettes: [['#f43f5e', '#fef08a', '#60a5fa'], ['#fb7185', '#22d3ee', '#fde68a']],
-      layouts: ['event_badge', 'poster_clip', 'neon_corners'],
+      layouts: ['event_badge', 'ticket_pass', 'photo_strip', 'sticker_burst', 'split_ribbon'],
     },
     {
       title: 'Balloon Room',
       badge: 'BIRTHDAY VIBES',
       footer: 'SMILE SPIN SHARE',
       palettes: [['#ec4899', '#8b5cf6', '#facc15'], ['#0ea5e9', '#f97316', '#f8fafc']],
-      layouts: ['snap_filter', 'confetti_arch', 'applay_flow'],
+      layouts: ['snap_filter', 'liquid_waves', 'social_story', 'confetti_arch', 'spotlight_stage'],
     },
   ],
   party: [
@@ -67,21 +121,21 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
       badge: 'PARTY NIGHT',
       footer: 'LIGHTS CAMERA SPIN',
       palettes: [['#ff2d75', '#29f4d5', '#8b5cf6'], ['#00f5ff', '#f000ff', '#f8fafc']],
-      layouts: ['neon_corners', 'applay_flow', 'glitch_reel'],
+      layouts: ['neon_corners', 'applay_flow', 'spotlight_stage', 'orbital_focus', 'retro_vhs'],
     },
     {
       title: 'Disco Pulse',
       badge: 'DANCE FLOOR',
       footer: '360 EXPERIENCE',
       palettes: [['#f97316', '#22c55e', '#fef3c7'], ['#111827', '#f6c453', '#a78bfa']],
-      layouts: ['confetti_arch', 'event_badge', 'chrome_frame'],
+      layouts: ['confetti_arch', 'event_badge', 'ticket_pass', 'photo_strip', 'liquid_waves'],
     },
     {
       title: 'Festival Glow',
       badge: 'LIVE MOMENT',
       footer: 'POST READY',
       palettes: [['#7c3aed', '#00d4ff', '#f9fafb'], ['#db2777', '#84cc16', '#fefce8']],
-      layouts: ['poster_clip', 'neon_corners', 'applay_flow'],
+      layouts: ['poster_clip', 'neon_corners', 'split_ribbon', 'social_story', 'magazine_cover'],
     },
   ],
   wedding: [
@@ -90,21 +144,21 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
       badge: 'JUST MARRIED',
       footer: 'LOVE STORY 360',
       palettes: [['#f8fafc', '#d6b26e', '#f5d0fe'], ['#fff7ed', '#a16207', '#fb7185']],
-      layouts: ['floral_crown', 'luxury_corners', 'minimal_luxe'],
+      layouts: ['floral_crown', 'romantic_lace', 'minimal_luxe', 'polaroid_stack', 'minimal_editorial'],
     },
     {
       title: 'Garden Vows',
       badge: 'LOVE IN MOTION',
       footer: 'FOREVER MOMENT',
       palettes: [['#fef9c3', '#86efac', '#f9a8d4'], ['#f8fafc', '#94a3b8', '#f0abfc']],
-      layouts: ['floral_crown', 'snap_filter', 'cinematic_band'],
+      layouts: ['floral_crown', 'snap_filter', 'liquid_waves', 'romantic_lace', 'photo_strip'],
     },
     {
       title: 'Golden Toast',
       badge: 'CELEBRATE LOVE',
       footer: 'ELEGANT CAPTURE',
       palettes: [['#111827', '#facc15', '#f8fafc'], ['#2f1b45', '#f5c76b', '#fde68a']],
-      layouts: ['luxury_corners', 'minimal_luxe', 'event_badge'],
+      layouts: ['luxury_corners', 'minimal_luxe', 'event_badge', 'geometric_lux', 'ticket_pass'],
     },
   ],
   corporate: [
@@ -113,21 +167,21 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
       badge: 'BRAND EVENT',
       footer: 'PROFESSIONAL CAPTURE',
       palettes: [['#0f172a', '#38bdf8', '#e2e8f0'], ['#111827', '#a3e635', '#f8fafc']],
-      layouts: ['cinematic_band', 'chrome_frame', 'event_badge'],
+      layouts: ['cinematic_band', 'chrome_frame', 'event_badge', 'tech_hud', 'brand_slate'],
     },
     {
       title: 'Launch Grid',
       badge: 'PRODUCT LAUNCH',
       footer: 'READY TO SHARE',
       palettes: [['#020617', '#6366f1', '#f8fafc'], ['#172554', '#22d3ee', '#fefce8']],
-      layouts: ['chrome_frame', 'applay_flow', 'minimal_luxe'],
+      layouts: ['chrome_frame', 'applay_flow', 'minimal_luxe', 'orbital_focus', 'split_ribbon'],
     },
     {
       title: 'Expo Clean',
       badge: 'NETWORKING',
       footer: 'SIX3 360 STUDIO',
       palettes: [['#18181b', '#fafafa', '#60a5fa'], ['#0f172a', '#f59e0b', '#f9fafb']],
-      layouts: ['snap_filter', 'cinematic_band', 'chrome_frame'],
+      layouts: ['snap_filter', 'cinematic_band', 'chrome_frame', 'tech_hud', 'minimal_editorial'],
     },
   ],
   viral: [
@@ -136,21 +190,21 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
       badge: 'VIRAL READY',
       footer: 'CUT SPIN POST',
       palettes: [['#ff0050', '#00f2ea', '#f8fafc'], ['#7c3aed', '#22d3ee', '#fef08a']],
-      layouts: ['glitch_reel', 'applay_flow', 'neon_corners'],
+      layouts: ['glitch_reel', 'applay_flow', 'neon_corners', 'social_story', 'retro_vhs'],
     },
     {
       title: 'Speed Ramp',
       badge: 'FAST CUT',
       footer: 'AUTO EDIT ENERGY',
       palettes: [['#111827', '#f97316', '#e0f2fe'], ['#18181b', '#a855f7', '#22c55e']],
-      layouts: ['applay_flow', 'chrome_frame', 'glitch_reel'],
+      layouts: ['applay_flow', 'chrome_frame', 'glitch_reel', 'split_ribbon', 'spotlight_stage'],
     },
     {
       title: 'Creator Frame',
       badge: 'TREND MODE',
       footer: 'SHARE IN SECONDS',
       palettes: [['#0f172a', '#f43f5e', '#38bdf8'], ['#0a0a0a', '#facc15', '#ec4899']],
-      layouts: ['event_badge', 'glitch_reel', 'snap_filter'],
+      layouts: ['event_badge', 'glitch_reel', 'snap_filter', 'magazine_cover', 'orbital_focus'],
     },
   ],
   premium: [
@@ -159,21 +213,21 @@ const THEMES: Record<TemplateCategory, ThemePack[]> = {
       badge: 'PREMIUM NIGHT',
       footer: 'SIGNATURE EXPERIENCE',
       palettes: [['#050505', '#f6c453', '#fef3c7'], ['#160b2f', '#c084fc', '#f8fafc']],
-      layouts: ['luxury_corners', 'minimal_luxe', 'cinematic_band'],
+      layouts: ['luxury_corners', 'minimal_luxe', 'cinematic_band', 'geometric_lux', 'minimal_editorial'],
     },
     {
       title: 'Chrome Gala',
       badge: 'VIP MOMENT',
       footer: 'HIGH END CAPTURE',
       palettes: [['#030712', '#93c5fd', '#f8fafc'], ['#111111', '#d4af37', '#e5e7eb']],
-      layouts: ['chrome_frame', 'luxury_corners', 'applay_flow'],
+      layouts: ['chrome_frame', 'luxury_corners', 'applay_flow', 'orbital_focus', 'brand_slate'],
     },
     {
       title: 'Crystal Glow',
       badge: 'UNLIMITED STYLE',
       footer: 'SIX3 SIGNATURE',
       palettes: [['#1e1b4b', '#67e8f9', '#f5d0fe'], ['#09090b', '#a78bfa', '#fefce8']],
-      layouts: ['minimal_luxe', 'neon_corners', 'event_badge'],
+      layouts: ['minimal_luxe', 'neon_corners', 'event_badge', 'geometric_lux', 'liquid_waves'],
     },
   ],
 };
@@ -208,9 +262,46 @@ function rotation(index: number, min = -18, max = 18) {
   return min + ((index * 37) % span);
 }
 
-function templateName(theme: ThemePack, aspectRatio: TemplateAspect, index: number) {
+function componentFromHex(hex: string, start: number) {
+  return Number.parseInt(hex.slice(start, start + 2), 16);
+}
+
+function toHex(value: number) {
+  return Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
+}
+
+function blendHex(hex: string, target: string, amount: number) {
+  const cleanHex = hex.replace('#', '');
+  const cleanTarget = target.replace('#', '');
+  if (cleanHex.length !== 6 || cleanTarget.length !== 6) return hex;
+
+  const r = componentFromHex(cleanHex, 0) + (componentFromHex(cleanTarget, 0) - componentFromHex(cleanHex, 0)) * amount;
+  const g = componentFromHex(cleanHex, 2) + (componentFromHex(cleanTarget, 2) - componentFromHex(cleanHex, 2)) * amount;
+  const b = componentFromHex(cleanHex, 4) + (componentFromHex(cleanTarget, 4) - componentFromHex(cleanHex, 4)) * amount;
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function paletteVariant(base: [string, string, string], variantIndex: number): [string, string, string] {
+  const [primary, secondary, accent] = base;
+
+  if (variantIndex === 1) {
+    return [secondary, primary, blendHex(accent, '#ffffff', 0.2)];
+  }
+
+  if (variantIndex === 2) {
+    return [blendHex(primary, '#ffffff', 0.34), blendHex(secondary, '#ffffff', 0.28), blendHex(accent, '#ffffff', 0.18)];
+  }
+
+  if (variantIndex === 3) {
+    return [blendHex(primary, '#020617', 0.34), accent, blendHex(secondary, '#ffffff', 0.12)];
+  }
+
+  return base;
+}
+
+function templateName(theme: ThemePack, aspectRatio: TemplateAspect, index: number, layout: LayoutKey, variantLabel: string) {
   const suffix = aspectRatio === '16:9' ? 'Landscape' : 'Portrait';
-  return `${theme.title} ${suffix} ${String(index + 1).padStart(3, '0')}`;
+  return `${theme.title} ${LAYOUT_LABELS[layout]} ${suffix} ${variantLabel} ${String(index + 1).padStart(3, '0')}`;
 }
 
 type TemplateContext = {
@@ -514,6 +605,320 @@ function posterStrips(ctx: TemplateContext) {
   </g>`;
 }
 
+function polaroidStack(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme } = ctx;
+  const cardW = aspectRatio === '16:9' ? width * 0.17 : width * 0.24;
+  const cardH = cardW * 1.22;
+  const caption = fontSize(width, aspectRatio, 0.014);
+  const cards = [
+    { x: margin * 0.62, y: height * 0.18, r: -9, color: primary },
+    { x: width - margin * 0.62 - cardW, y: height * 0.2, r: 8, color: secondary },
+    { x: aspectRatio === '16:9' ? width - margin * 1.05 - cardW : margin * 0.88, y: height - margin - cardH * 1.1, r: aspectRatio === '16:9' ? -5 : 7, color: accent },
+  ];
+
+  return `<g filter="url(#shadow)">
+    ${cards.map((card, i) => `
+      <g transform="rotate(${card.r} ${card.x + cardW / 2} ${card.y + cardH / 2})">
+        <rect x="${round(card.x)}" y="${round(card.y)}" width="${round(cardW)}" height="${round(cardH)}" rx="${round(cardW * 0.08)}" fill="#ffffff" opacity="${i === 2 ? 0.82 : 0.9}"/>
+        <rect x="${round(card.x + cardW * 0.08)}" y="${round(card.y + cardW * 0.08)}" width="${round(cardW * 0.84)}" height="${round(cardW * 0.78)}" rx="${round(cardW * 0.045)}" fill="none" stroke="${card.color}" stroke-width="${Math.max(4, ctx.stroke * 0.24)}" opacity="0.88"/>
+        <path d="M${round(card.x + cardW * 0.14)} ${round(card.y + cardH * 0.8)} H${round(card.x + cardW * 0.86)}" stroke="${card.color}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" stroke-linecap="round" opacity="0.72"/>
+      </g>
+    `).join('')}
+    <text x="${width / 2}" y="${margin + caption * 1.2}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${caption}" font-weight="900" fill="${accent}" letter-spacing="0">${escapeXml(theme.footer)}</text>
+  </g>`;
+}
+
+function ticketPass(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme } = ctx;
+  const ticketW = aspectRatio === '16:9' ? width * 0.4 : width * 0.72;
+  const ticketH = aspectRatio === '16:9' ? height * 0.13 : height * 0.075;
+  const x = (width - ticketW) / 2;
+  const y = height - margin - ticketH * 1.45;
+  const holes = Array.from({ length: aspectRatio === '16:9' ? 8 : 6 }, (_, i) => {
+    const hx = x + ticketW * 0.12 + (ticketW * 0.76 * i) / ((aspectRatio === '16:9' ? 8 : 6) - 1);
+    return `<circle cx="${round(hx)}" cy="${round(y + ticketH * 0.22)}" r="${round(ticketH * 0.045)}" fill="${accent}" opacity="0.78"/>`;
+  }).join('');
+
+  return `<g filter="url(#shadow)">
+    <path d="M${x + ticketH * 0.28} ${y} H${x + ticketW - ticketH * 0.28} Q${x + ticketW} ${y} ${x + ticketW} ${y + ticketH * 0.28} V${y + ticketH * 0.72} Q${x + ticketW} ${y + ticketH} ${x + ticketW - ticketH * 0.28} ${y + ticketH} H${x + ticketH * 0.28} Q${x} ${y + ticketH} ${x} ${y + ticketH * 0.72} V${y + ticketH * 0.28} Q${x} ${y} ${x + ticketH * 0.28} ${y} Z" fill="#050505" opacity="0.58"/>
+    <path d="M${x + ticketH * 0.4} ${y + ticketH * 0.5} H${x + ticketW - ticketH * 0.4}" stroke="url(#strokeGradient)" stroke-width="${Math.max(4, ctx.stroke * 0.26)}" stroke-linecap="round" opacity="0.86"/>
+    ${holes}
+    <text x="${width / 2}" y="${y + ticketH * 0.67}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.025)}" font-weight="900" fill="#ffffff" letter-spacing="0">${escapeXml(theme.badge)}</text>
+    <path d="M${margin} ${margin + ticketH * 0.4} H${margin + ticketW * 0.22}" stroke="${primary}" stroke-width="${Math.max(4, ctx.stroke * 0.22)}" stroke-linecap="round" opacity="0.72"/>
+    <path d="M${width - margin - ticketW * 0.22} ${margin + ticketH * 0.4} H${width - margin}" stroke="${secondary}" stroke-width="${Math.max(4, ctx.stroke * 0.22)}" stroke-linecap="round" opacity="0.72"/>
+  </g>`;
+}
+
+function socialStory(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme, index } = ctx;
+  const bubbleW = aspectRatio === '16:9' ? width * 0.34 : width * 0.62;
+  const bubbleH = aspectRatio === '16:9' ? height * 0.09 : height * 0.055;
+  const x = margin;
+  const y = height - margin - bubbleH * 1.65;
+  const reactions = Array.from({ length: 5 }, (_, i) => {
+    const r = bubbleH * (0.22 + (i % 2) * 0.04);
+    const cx = width - margin - bubbleH * 0.5 - i * bubbleH * 0.75;
+    const cy = y + bubbleH * 0.45 + waveLike(index + i) * bubbleH * 0.18;
+    return `<circle cx="${round(cx)}" cy="${round(cy)}" r="${round(r)}" fill="${[primary, secondary, accent, '#ffffff', primary][i]}" opacity="${0.62 + i * 0.06}"/>`;
+  }).join('');
+
+  return `<g filter="url(#shadow)">
+    <rect x="${round(x)}" y="${round(y)}" width="${round(bubbleW)}" height="${round(bubbleH)}" rx="${round(bubbleH / 2)}" fill="#050505" opacity="0.62"/>
+    <circle cx="${round(x + bubbleH * 0.55)}" cy="${round(y + bubbleH * 0.5)}" r="${round(bubbleH * 0.25)}" fill="${primary}" opacity="0.94"/>
+    <text x="${round(x + bubbleH * 1.05)}" y="${round(y + bubbleH * 0.6)}" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.017)}" font-weight="900" fill="#ffffff" letter-spacing="0">${escapeXml(theme.footer)}</text>
+    ${reactions}
+    <path d="M${margin} ${margin + bubbleH * 0.65} H${margin + bubbleW * 0.62}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.16)}" stroke-linecap="round" opacity="0.7"/>
+    <path d="M${width - margin - bubbleW * 0.36} ${margin + bubbleH * 1.15} H${width - margin}" stroke="${secondary}" stroke-width="${Math.max(3, ctx.stroke * 0.16)}" stroke-linecap="round" opacity="0.56"/>
+  </g>`;
+}
+
+function waveLike(index: number) {
+  return Math.sin(index * 1.618);
+}
+
+function techHud(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, index } = ctx;
+  const reticle = (x: number, y: number, r: number, color: string) => `
+    <circle cx="${round(x)}" cy="${round(y)}" r="${round(r)}" fill="none" stroke="${color}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" opacity="0.76"/>
+    <path d="M${round(x - r * 1.45)} ${round(y)} H${round(x - r * 0.55)} M${round(x + r * 0.55)} ${round(y)} H${round(x + r * 1.45)} M${round(x)} ${round(y - r * 1.45)} V${round(y - r * 0.55)} M${round(x)} ${round(y + r * 0.55)} V${round(y + r * 1.45)}" stroke="${color}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}" stroke-linecap="round" opacity="0.58"/>
+  `;
+  const ticks = Array.from({ length: aspectRatio === '16:9' ? 16 : 14 }, (_, i) => {
+    const x = margin + (i * (width - margin * 2)) / ((aspectRatio === '16:9' ? 16 : 14) - 1);
+    const y = i % 2 ? margin * 0.82 : height - margin * 0.82;
+    return `<path d="M${round(x)} ${round(y)} V${round(y + (i % 2 ? 1 : -1) * margin * 0.42)}" stroke="${i % 3 ? secondary : primary}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}" opacity="0.5"/>`;
+  }).join('');
+
+  return `<g filter="url(#softGlow)">
+    ${reticle(margin * 1.65, margin * 1.65, Math.min(width, height) * 0.045, primary)}
+    ${reticle(width - margin * 1.65, height - margin * 1.65, Math.min(width, height) * 0.045, secondary)}
+    ${ticks}
+    <path d="M${margin} ${height * 0.5} H${margin + width * 0.12} M${width - margin - width * 0.12} ${height * 0.5} H${width - margin}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.12)}" opacity="0.48"/>
+    <text x="${width - margin}" y="${margin + fontSize(width, aspectRatio, 0.016)}" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.014)}" font-weight="900" fill="${accent}" letter-spacing="0">REC ${String((index % 97) + 3).padStart(2, '0')}</text>
+  </g>`;
+}
+
+function orbitalFocus(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, index } = ctx;
+  const cx = width / 2;
+  const cy = height / 2;
+  const rx = aspectRatio === '16:9' ? width * 0.29 : width * 0.39;
+  const ry = aspectRatio === '16:9' ? height * 0.28 : height * 0.24;
+  const dots = Array.from({ length: 8 }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / 8 + index * 0.19;
+    const x = cx + Math.cos(angle) * rx;
+    const y = cy + Math.sin(angle) * ry;
+    return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(Math.min(width, height) * (0.008 + (i % 3) * 0.003))}" fill="${[primary, secondary, accent][i % 3]}" opacity="0.78"/>`;
+  }).join('');
+
+  return `<g filter="url(#softGlow)">
+    <ellipse cx="${cx}" cy="${cy}" rx="${round(rx)}" ry="${round(ry)}" fill="none" stroke="${primary}" stroke-width="${Math.max(4, ctx.stroke * 0.18)}" opacity="0.36" transform="rotate(-12 ${cx} ${cy})"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${round(rx * 0.86)}" ry="${round(ry * 1.08)}" fill="none" stroke="${secondary}" stroke-width="${Math.max(4, ctx.stroke * 0.18)}" opacity="0.32" transform="rotate(18 ${cx} ${cy})"/>
+    ${dots}
+    <path d="M${margin} ${margin} C${width * 0.22} ${height * 0.08}, ${width * 0.28} ${height * 0.16}, ${width * 0.36} ${height * 0.1}" fill="none" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" stroke-linecap="round" opacity="0.72"/>
+    <path d="M${width - margin} ${height - margin} C${width * 0.78} ${height * 0.92}, ${width * 0.72} ${height * 0.84}, ${width * 0.64} ${height * 0.9}" fill="none" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" stroke-linecap="round" opacity="0.72"/>
+  </g>`;
+}
+
+function splitRibbon(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const band = aspectRatio === '16:9' ? height * 0.085 : width * 0.115;
+  const labelSize = fontSize(width, aspectRatio, 0.019);
+
+  return `<g filter="url(#shadow)">
+    <path d="M${-band} ${margin + band * 0.8} L${width * 0.42} ${margin - band * 0.65} L${width * 0.48} ${margin + band * 0.02} L${band * 0.35} ${margin + band * 1.6} Z" fill="${primary}" opacity="0.82"/>
+    <path d="M${width + band} ${height - margin - band * 0.8} L${width * 0.58} ${height - margin + band * 0.65} L${width * 0.52} ${height - margin - band * 0.02} L${width - band * 0.35} ${height - margin - band * 1.6} Z" fill="${secondary}" opacity="0.82"/>
+    <path d="M${margin} ${height * 0.5} H${margin + band * 1.8}" stroke="${accent}" stroke-width="${Math.max(4, ctx.stroke * 0.2)}" stroke-linecap="round" opacity="0.74"/>
+    <path d="M${width - margin - band * 1.8} ${height * 0.5} H${width - margin}" stroke="${accent}" stroke-width="${Math.max(4, ctx.stroke * 0.2)}" stroke-linecap="round" opacity="0.74"/>
+    <text x="${width / 2}" y="${margin + band * 0.75}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${labelSize}" font-weight="900" fill="#ffffff" opacity="0.9" letter-spacing="0">SIX3</text>
+  </g>`;
+}
+
+function magazineCover(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme } = ctx;
+  const titleSize = fontSize(width, aspectRatio, aspectRatio === '16:9' ? 0.04 : 0.055);
+  const sideSize = fontSize(width, aspectRatio, 0.017);
+  const topY = margin + titleSize * 0.95;
+
+  return `<g filter="url(#shadow)">
+    <text x="${margin}" y="${topY}" font-family="Inter, Arial, sans-serif" font-size="${titleSize}" font-weight="950" fill="#ffffff" opacity="0.94" letter-spacing="0">${escapeXml(theme.badge)}</text>
+    <path d="M${margin} ${topY + titleSize * 0.34} H${Math.min(width - margin, margin + width * 0.48)}" stroke="${primary}" stroke-width="${Math.max(5, ctx.stroke * 0.24)}" stroke-linecap="round"/>
+    <g transform="translate(${width - margin * 0.78} ${height * 0.5}) rotate(90)">
+      <text text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${sideSize}" font-weight="900" fill="${secondary}" opacity="0.88" letter-spacing="0">${escapeXml(theme.footer)}</text>
+    </g>
+    <rect x="${margin}" y="${height - margin - titleSize * 1.35}" width="${width * 0.24}" height="${titleSize * 0.32}" rx="${titleSize * 0.16}" fill="${accent}" opacity="0.82"/>
+    <rect x="${margin}" y="${height - margin - titleSize * 0.78}" width="${width * 0.38}" height="${titleSize * 0.22}" rx="${titleSize * 0.11}" fill="#ffffff" opacity="0.72"/>
+  </g>`;
+}
+
+function photoStrip(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const stripW = aspectRatio === '16:9' ? width * 0.095 : width * 0.16;
+  const frameH = aspectRatio === '16:9' ? height * 0.17 : height * 0.12;
+  const x = margin * 0.62;
+  const y = margin * 1.1;
+  const gap = frameH * 0.18;
+  const frames = Array.from({ length: 4 }, (_, i) => {
+    const fy = y + i * (frameH + gap);
+    return `<rect x="${round(x + stripW * 0.12)}" y="${round(fy)}" width="${round(stripW * 0.76)}" height="${round(frameH)}" rx="${round(stripW * 0.06)}" fill="none" stroke="${[primary, secondary, accent, '#ffffff'][i]}" stroke-width="${Math.max(4, ctx.stroke * 0.18)}" opacity="0.76"/>`;
+  }).join('');
+  const holes = Array.from({ length: 10 }, (_, i) => {
+    const fy = y + (i * (frameH * 4 + gap * 3)) / 9;
+    return `<rect x="${round(x + stripW * 0.03)}" y="${round(fy)}" width="${round(stripW * 0.05)}" height="${round(stripW * 0.08)}" rx="${round(stripW * 0.02)}" fill="#ffffff" opacity="0.52"/>
+      <rect x="${round(x + stripW * 0.92)}" y="${round(fy)}" width="${round(stripW * 0.05)}" height="${round(stripW * 0.08)}" rx="${round(stripW * 0.02)}" fill="#ffffff" opacity="0.52"/>`;
+  }).join('');
+
+  return `<g filter="url(#shadow)">
+    <rect x="${round(x)}" y="${round(y - gap * 0.6)}" width="${round(stripW)}" height="${round(frameH * 4 + gap * 3 + gap * 1.2)}" rx="${round(stripW * 0.16)}" fill="#050505" opacity="0.5"/>
+    ${frames}
+    ${holes}
+    <path d="M${width - margin - stripW * 1.4} ${margin} V${margin + frameH}" stroke="${secondary}" stroke-width="${Math.max(4, ctx.stroke * 0.18)}" stroke-linecap="round" opacity="0.58"/>
+    <circle cx="${width - margin - stripW * 1.4}" cy="${margin + frameH * 1.24}" r="${stripW * 0.16}" fill="${accent}" opacity="0.8"/>
+  </g>`;
+}
+
+function spotlightStage(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const floorY = height - margin - (aspectRatio === '16:9' ? height * 0.075 : height * 0.055);
+  const beamTop = margin * 0.72;
+  const beams = [
+    `<path d="M${width * 0.18} ${beamTop} L${width * 0.38} ${floorY} L${width * 0.28} ${floorY} Z" fill="${primary}" opacity="0.16"/>`,
+    `<path d="M${width * 0.82} ${beamTop} L${width * 0.62} ${floorY} L${width * 0.72} ${floorY} Z" fill="${secondary}" opacity="0.16"/>`,
+    `<path d="M${width * 0.5} ${beamTop * 0.85} L${width * 0.57} ${floorY} L${width * 0.43} ${floorY} Z" fill="${accent}" opacity="0.13"/>`,
+  ].join('');
+
+  return `<g filter="url(#softGlow)">
+    ${beams}
+    <path d="M${margin} ${floorY} H${width - margin}" stroke="url(#strokeGradient)" stroke-width="${Math.max(6, ctx.stroke * 0.3)}" stroke-linecap="round" opacity="0.74"/>
+    ${Array.from({ length: 8 }, (_, i) => `<circle cx="${round(margin + (i * (width - margin * 2)) / 7)}" cy="${round(floorY)}" r="${round(Math.min(width, height) * 0.012)}" fill="${[primary, secondary, accent][i % 3]}" opacity="0.78"/>`).join('')}
+  </g>`;
+}
+
+function liquidWaves(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const amp = aspectRatio === '16:9' ? height * 0.055 : width * 0.08;
+  const top = margin + amp * 0.65;
+  const bottom = height - margin - amp * 0.65;
+
+  return `<g fill="none" filter="url(#softGlow)">
+    <path d="M${margin} ${top} C${width * 0.22} ${top - amp}, ${width * 0.38} ${top + amp}, ${width * 0.5} ${top} S${width * 0.78} ${top - amp}, ${width - margin} ${top}" stroke="${primary}" stroke-width="${Math.max(6, ctx.stroke * 0.28)}" stroke-linecap="round" opacity="0.7"/>
+    <path d="M${margin} ${bottom} C${width * 0.22} ${bottom + amp}, ${width * 0.38} ${bottom - amp}, ${width * 0.5} ${bottom} S${width * 0.78} ${bottom + amp}, ${width - margin} ${bottom}" stroke="${secondary}" stroke-width="${Math.max(6, ctx.stroke * 0.28)}" stroke-linecap="round" opacity="0.68"/>
+    <circle cx="${margin + amp * 0.45}" cy="${height * 0.5}" r="${amp * 0.24}" fill="${accent}" opacity="0.72"/>
+    <circle cx="${width - margin - amp * 0.45}" cy="${height * 0.5}" r="${amp * 0.18}" fill="${primary}" opacity="0.64"/>
+  </g>`;
+}
+
+function stickerBurst(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme } = ctx;
+  const burst = (x: number, y: number, r: number, color: string) => {
+    const points = Array.from({ length: 18 }, (_, i) => {
+      const angle = (Math.PI * 2 * i) / 18;
+      const radius = r * (i % 2 ? 0.58 : 1);
+      return `${round(x + Math.cos(angle) * radius)},${round(y + Math.sin(angle) * radius)}`;
+    }).join(' ');
+    return `<polygon points="${points}" fill="${color}" opacity="0.72"/>`;
+  };
+  const labelW = aspectRatio === '16:9' ? width * 0.22 : width * 0.34;
+  const labelH = aspectRatio === '16:9' ? height * 0.075 : height * 0.052;
+
+  return `<g filter="url(#shadow)">
+    ${burst(margin + labelW * 0.24, margin + labelH * 0.8, labelH * 0.82, primary)}
+    ${burst(width - margin - labelW * 0.18, height - margin - labelH * 0.7, labelH * 0.72, secondary)}
+    ${sparkles(ctx, 16)}
+    <rect x="${round((width - labelW) / 2)}" y="${round(height - margin - labelH * 1.6)}" width="${round(labelW)}" height="${round(labelH)}" rx="${round(labelH * 0.24)}" fill="${accent}" opacity="0.86"/>
+    <text x="${width / 2}" y="${round(height - margin - labelH * 1.04)}" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.018)}" font-weight="950" fill="#050505" letter-spacing="0">${escapeXml(theme.badge)}</text>
+  </g>`;
+}
+
+function retroVhs(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, index } = ctx;
+  const rows = aspectRatio === '16:9' ? 9 : 13;
+  const scan = Array.from({ length: rows }, (_, i) => {
+    const y = margin + (i * (height - margin * 2)) / (rows - 1);
+    return `<path d="M${margin} ${round(y)} H${width - margin}" stroke="${i % 2 ? primary : secondary}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}" opacity="${0.16 + (i % 3) * 0.05}"/>`;
+  }).join('');
+
+  return `<g filter="url(#softGlow)">
+    ${scan}
+    <text x="${margin}" y="${margin + fontSize(width, aspectRatio, 0.02)}" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.02)}" font-weight="950" fill="${accent}" letter-spacing="0">REC</text>
+    <circle cx="${margin + fontSize(width, aspectRatio, 0.062)}" cy="${margin + fontSize(width, aspectRatio, 0.014)}" r="${Math.min(width, height) * 0.012}" fill="${primary}" opacity="0.9"/>
+    <text x="${width - margin}" y="${height - margin}" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.018)}" font-weight="900" fill="#ffffff" opacity="0.78" letter-spacing="0">00:${String((index * 7) % 60).padStart(2, '0')}:SIX3</text>
+    ${glitchBars({ ...ctx, index: index + 13 })}
+  </g>`;
+}
+
+function minimalEditorial(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme } = ctx;
+  const small = fontSize(width, aspectRatio, 0.015);
+  const title = fontSize(width, aspectRatio, aspectRatio === '16:9' ? 0.034 : 0.044);
+
+  return `<g filter="url(#shadow)">
+    <path d="M${margin} ${margin} H${width - margin}" stroke="${primary}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" opacity="0.74"/>
+    <path d="M${margin} ${height - margin} H${width - margin}" stroke="${secondary}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" opacity="0.74"/>
+    <text x="${margin}" y="${margin + title * 1.15}" font-family="Inter, Arial, sans-serif" font-size="${title}" font-weight="950" fill="#ffffff" opacity="0.92" letter-spacing="0">${escapeXml(theme.title)}</text>
+    <text x="${margin}" y="${margin + title * 1.65}" font-family="Inter, Arial, sans-serif" font-size="${small}" font-weight="900" fill="${accent}" opacity="0.86" letter-spacing="0">${escapeXml(theme.footer)}</text>
+    <circle cx="${width - margin - title * 0.35}" cy="${margin + title * 0.7}" r="${title * 0.28}" fill="${accent}" opacity="0.78"/>
+  </g>`;
+}
+
+function brandSlate(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio, theme } = ctx;
+  const panelW = aspectRatio === '16:9' ? width * 0.25 : width * 0.42;
+  const panelH = aspectRatio === '16:9' ? height * 0.16 : height * 0.095;
+  const x = width - margin - panelW;
+  const y = margin;
+
+  return `<g filter="url(#shadow)">
+    <rect x="${round(x)}" y="${round(y)}" width="${round(panelW)}" height="${round(panelH)}" rx="${round(panelH * 0.18)}" fill="#050505" opacity="0.58"/>
+    <path d="M${round(x + panelW * 0.1)} ${round(y + panelH * 0.32)} H${round(x + panelW * 0.9)}" stroke="${primary}" stroke-width="${Math.max(4, ctx.stroke * 0.18)}" stroke-linecap="round"/>
+    <text x="${round(x + panelW * 0.1)}" y="${round(y + panelH * 0.7)}" font-family="Inter, Arial, sans-serif" font-size="${fontSize(width, aspectRatio, 0.017)}" font-weight="900" fill="#ffffff" letter-spacing="0">${escapeXml(theme.badge)}</text>
+    ${corporateGrid(ctx)}
+    <path d="M${margin} ${height - margin - panelH * 0.36} H${margin + panelW * 0.7}" stroke="${secondary}" stroke-width="${Math.max(4, ctx.stroke * 0.18)}" stroke-linecap="round" opacity="0.7"/>
+    <rect x="${margin}" y="${height - margin - panelH * 0.18}" width="${panelW * 0.44}" height="${Math.max(7, ctx.stroke * 0.28)}" rx="${Math.max(3, ctx.stroke * 0.14)}" fill="${accent}" opacity="0.78"/>
+  </g>`;
+}
+
+function romanticLace(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const beads = aspectRatio === '16:9' ? 22 : 18;
+  const r = Math.min(width, height) * 0.012;
+  const top = Array.from({ length: beads }, (_, i) => {
+    const x = margin + (i * (width - margin * 2)) / (beads - 1);
+    const y = margin + Math.sin(i * 0.8) * r * 1.2;
+    return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(r * (i % 2 ? 0.74 : 1))}" fill="${i % 3 ? secondary : primary}" opacity="0.66"/>`;
+  }).join('');
+  const bottom = Array.from({ length: beads }, (_, i) => {
+    const x = margin + (i * (width - margin * 2)) / (beads - 1);
+    const y = height - margin + Math.sin(i * 0.8) * r * 1.2;
+    return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(r * (i % 2 ? 0.74 : 1))}" fill="${i % 3 ? primary : accent}" opacity="0.56"/>`;
+  }).join('');
+
+  return `<g filter="url(#shadow)">
+    ${top}
+    ${bottom}
+    <path d="M${margin} ${margin + r * 2.6} C${width * 0.28} ${margin + r * 7}, ${width * 0.72} ${margin - r * 3}, ${width - margin} ${margin + r * 2.6}" fill="none" stroke="${secondary}" stroke-width="${Math.max(3, ctx.stroke * 0.12)}" stroke-linecap="round" opacity="0.54"/>
+    <path d="M${margin} ${height - margin - r * 2.6} C${width * 0.28} ${height - margin - r * 7}, ${width * 0.72} ${height - margin + r * 3}, ${width - margin} ${height - margin - r * 2.6}" fill="none" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.12)}" stroke-linecap="round" opacity="0.54"/>
+  </g>`;
+}
+
+function geometricLux(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const size = aspectRatio === '16:9' ? height * 0.07 : width * 0.09;
+  const diamond = (x: number, y: number, s: number, color: string, fill = false) => `<path d="M${round(x)} ${round(y - s)} L${round(x + s)} ${round(y)} L${round(x)} ${round(y + s)} L${round(x - s)} ${round(y)} Z" fill="${fill ? color : 'none'}" stroke="${color}" stroke-width="${Math.max(3, ctx.stroke * 0.16)}" opacity="${fill ? 0.24 : 0.74}"/>`;
+  const leftX = margin + size;
+  const rightX = width - margin - size;
+
+  return `<g filter="url(#softGlow)">
+    ${diamond(leftX, margin + size, size * 0.65, primary)}
+    ${diamond(leftX, margin + size, size * 1.1, accent, true)}
+    ${diamond(rightX, height - margin - size, size * 0.65, secondary)}
+    ${diamond(rightX, height - margin - size, size * 1.1, primary, true)}
+    ${diamond(width / 2, margin + size * 0.8, size * 0.38, accent)}
+    ${diamond(width / 2, height - margin - size * 0.8, size * 0.38, secondary)}
+    <path d="M${margin + size * 2.1} ${margin + size} H${margin + size * 4.4}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" stroke-linecap="round" opacity="0.7"/>
+    <path d="M${width - margin - size * 4.4} ${height - margin - size} H${width - margin - size * 2.1}" stroke="${primary}" stroke-width="${Math.max(3, ctx.stroke * 0.14)}" stroke-linecap="round" opacity="0.7"/>
+  </g>`;
+}
+
 function renderLayout(ctx: TemplateContext) {
   const common = [lineFrame(ctx)];
 
@@ -567,6 +972,70 @@ function renderLayout(ctx: TemplateContext) {
 
   if (ctx.layout === 'chrome_frame') {
     return [...common, chromeCurves(ctx), corporateGrid(ctx), glitchBars({ ...ctx, index: ctx.index + 7 }), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'polaroid_stack') {
+    return [...common, polaroidStack(ctx), sparkles(ctx, 8), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'ticket_pass') {
+    return [...common, ticketPass(ctx), eventDots(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'social_story') {
+    return [...common, socialStory(ctx), sideRails(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'tech_hud') {
+    return [...common, techHud(ctx), corporateGrid(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'orbital_focus') {
+    return [...common, orbitalFocus(ctx), sparkles(ctx, 10), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'split_ribbon') {
+    return [...common, splitRibbon(ctx), eventDots(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'magazine_cover') {
+    return [...common, magazineCover(ctx), cakeOrCategoryMark(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'photo_strip') {
+    return [...common, photoStrip(ctx), sparkles(ctx, 8), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'spotlight_stage') {
+    return [...common, spotlightStage(ctx), equalizer(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'liquid_waves') {
+    return [...common, liquidWaves(ctx), eventDots(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'sticker_burst') {
+    return [...common, stickerBurst(ctx), confetti(ctx, 14, 'sides'), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'retro_vhs') {
+    return [...common, retroVhs(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'minimal_editorial') {
+    return [...common, minimalEditorial(ctx), sparkles(ctx, 6), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'brand_slate') {
+    return [...common, brandSlate(ctx), techHud({ ...ctx, index: ctx.index + 5 }), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'romantic_lace') {
+    return [...common, romanticLace(ctx), flowerCluster(ctx, ctx.margin * 0.8, ctx.margin * 1.1, ctx.aspectRatio === '16:9' ? ctx.height * 0.09 : ctx.width * 0.12), rings(ctx), badge(ctx, true)].join('');
+  }
+
+  if (ctx.layout === 'geometric_lux') {
+    return [...common, geometricLux(ctx), luxuryOrnaments(ctx), badge(ctx, true)].join('');
   }
 
   return [...common, luxuryOrnaments(ctx), sideRails(ctx), sparkles(ctx, 12), badge(ctx, true)].join('');
@@ -661,21 +1130,36 @@ export function buildGeneratedTemplates(count = 720, offset = 0, options: BuildG
   const now = new Date().toISOString();
   return Array.from({ length: count }, (_, batchIndex) => {
     const index = offset + batchIndex;
-    const category = CATEGORIES[index % CATEGORIES.length];
-    const aspectRatio = ASPECTS[Math.floor(index / CATEGORIES.length) % ASPECTS.length];
-    const theme = pick(THEMES[category], Math.floor(index / (CATEGORIES.length * ASPECTS.length)));
-    const [primary, secondary, accent] = pick(theme.palettes, Math.floor(index / (CATEGORIES.length * ASPECTS.length * THEMES[category].length)) + index);
-    const layout = pick(theme.layouts, Math.floor(index / (CATEGORIES.length * ASPECTS.length)) + index);
-    const name = templateName(theme, aspectRatio, index);
+    const colorVariantIndex = index % COLOR_VARIANTS.length;
+    const colorVariant = COLOR_VARIANTS[colorVariantIndex];
+    const familyIndex = Math.floor(index / COLOR_VARIANTS.length);
+    const category = CATEGORIES[familyIndex % CATEGORIES.length];
+    const aspectRatio = ASPECTS[Math.floor(familyIndex / CATEGORIES.length) % ASPECTS.length];
+    const categoryFamilyIndex = Math.floor(familyIndex / (CATEGORIES.length * ASPECTS.length));
+    const themes = THEMES[category];
+    const themeIndex = categoryFamilyIndex % themes.length;
+    const theme = themes[themeIndex];
+    const layoutIndex = Math.floor(categoryFamilyIndex / themes.length) % theme.layouts.length;
+    const layout = theme.layouts[layoutIndex];
+    const designCycle = Math.floor(categoryFamilyIndex / (themes.length * theme.layouts.length));
+    const designNumber = designCycle * themes.length * theme.layouts.length + themeIndex * theme.layouts.length + layoutIndex;
+    const basePalette = pick(theme.palettes, designCycle + themeIndex + layoutIndex);
+    const [primary, secondary, accent] = paletteVariant(basePalette, colorVariantIndex);
+    const name = templateName(theme, aspectRatio, designNumber, layout, colorVariant.label);
     const svg = (includeSvg || includeDataUrl) ? templateSvg({ name, category, primary, secondary, accent, aspectRatio, index, theme, layout }) : '';
     const id = `generated-${index + 1}`;
+    const designId = `${category}-${aspectRatio.replace(':', 'x')}-${themeIndex + 1}-${layout}-${designCycle + 1}`;
 
     return {
       id,
+      designId,
       name,
       category,
       colors: { primary, secondary },
       font: 'Inter',
+      layout,
+      variantKey: colorVariant.key,
+      variantName: colorVariant.label,
       overlayUrl: includeDataUrl ? `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}` : undefined,
       storagePath: generatedTemplatePath({ id, category, aspectRatio }),
       aspectRatio,
