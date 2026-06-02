@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -45,19 +44,19 @@ export function ToastContainer() {
   const { toasts, remove } = useToastStore();
   return (
     <div className="fixed right-4 top-4 z-[100] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 sm:w-full">
-      <AnimatePresence>
-        {toasts.map(t => {
-          const Icon = icons[t.type];
-          return (
-            <motion.div key={t.id} initial={{ opacity: 0, x: 100 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 100 }}
-              className={`flex items-start gap-3 rounded-[18px] border p-4 shadow-2xl shadow-black/35 backdrop-blur-xl ${colors[t.type]}`}>
-              <Icon className="w-5 h-5 shrink-0 mt-0.5" />
-              <span className="text-sm text-white/90 flex-1">{t.message}</span>
-              <button onClick={() => remove(t.id)} className="text-white/40 hover:text-white/70"><X className="w-4 h-4" /></button>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+      {toasts.map(t => {
+        const Icon = icons[t.type];
+        return (
+          <div
+            key={t.id}
+            className={`flex items-start gap-3 rounded-[18px] border p-4 shadow-2xl shadow-black/35 backdrop-blur-xl transition duration-200 ease-out ${colors[t.type]}`}
+          >
+            <Icon className="w-5 h-5 shrink-0 mt-0.5" />
+            <span className="text-sm text-white/90 flex-1">{t.message}</span>
+            <button onClick={() => remove(t.id)} className="text-white/40 hover:text-white/70"><X className="w-4 h-4" /></button>
+          </div>
+        );
+      })}
     </div>
   );
 }

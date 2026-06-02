@@ -1,49 +1,51 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/ui/LoadingState';
-import { AppShell } from '@/components/layout/AppShell';
+
+const AppShell = lazy(() => import('@/components/layout/AppShell').then((module) => ({ default: module.AppShell })));
 
 // Public
-import LandingPage from '@/pages/public/LandingPage';
-import PricingPage from '@/pages/public/PricingPage';
-import GalleryPage from '@/pages/public/GalleryPage';
-import VideoPage from '@/pages/public/VideoPage';
+const LandingPage = lazy(() => import('@/pages/public/LandingPage'));
+const PricingPage = lazy(() => import('@/pages/public/PricingPage'));
+const GalleryPage = lazy(() => import('@/pages/public/GalleryPage'));
+const VideoPage = lazy(() => import('@/pages/public/VideoPage'));
 
 // Auth
-import LoginPage from '@/pages/auth/LoginPage';
-import RegisterPage from '@/pages/auth/RegisterPage';
-import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 
 // App
-import DashboardPage from '@/pages/app/DashboardPage';
-import EventsPage from '@/pages/app/EventsPage';
-import EventFormPage from '@/pages/app/EventFormPage';
-import OperatorPage from '@/pages/app/OperatorPage';
-import VideosPage from '@/pages/app/VideosPage';
-import TemplatesPage from '@/pages/app/TemplatesPage';
-import LeadsPage from '@/pages/app/LeadsPage';
-import AnalyticsPage from '@/pages/app/AnalyticsPage';
-import SettingsPage from '@/pages/app/SettingsPage';
-import AdminPage from '@/pages/app/AdminPage';
-import BillingPage from '@/pages/app/BillingPage';
-import LockedFeaturePage from '@/pages/app/LockedFeaturePage';
-import SupportPage from '@/pages/app/SupportPage';
+const DashboardPage = lazy(() => import('@/pages/app/DashboardPage'));
+const EventsPage = lazy(() => import('@/pages/app/EventsPage'));
+const EventFormPage = lazy(() => import('@/pages/app/EventFormPage'));
+const OperatorPage = lazy(() => import('@/pages/app/OperatorPage'));
+const VideosPage = lazy(() => import('@/pages/app/VideosPage'));
+const TemplatesPage = lazy(() => import('@/pages/app/TemplatesPage'));
+const LeadsPage = lazy(() => import('@/pages/app/LeadsPage'));
+const AnalyticsPage = lazy(() => import('@/pages/app/AnalyticsPage'));
+const SettingsPage = lazy(() => import('@/pages/app/SettingsPage'));
+const AdminPage = lazy(() => import('@/pages/app/AdminPage'));
+const BillingPage = lazy(() => import('@/pages/app/BillingPage'));
+const LockedFeaturePage = lazy(() => import('@/pages/app/LockedFeaturePage'));
+const SupportPage = lazy(() => import('@/pages/app/SupportPage'));
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
+function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
-function AuthRoute({ children }: { children: React.ReactNode }) {
+function AuthRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (user) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 
-function PaidRoute({ children }: { children: React.ReactNode }) {
+function PaidRoute({ children }: { children: ReactNode }) {
   const { user, initialized, hasActiveSubscription } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
@@ -51,7 +53,7 @@ function PaidRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AdminRoute({ children }: { children: React.ReactNode }) {
+function AdminRoute({ children }: { children: ReactNode }) {
   const { user, initialized, isAdmin } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
@@ -60,42 +62,41 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { initialized } = useAuth();
-  if (!initialized) return <LoadingScreen />;
-
   return (
-    <Routes>
-      {/* Public */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/plans" element={<PricingPage />} />
-      <Route path="/g/:eventSlug" element={<GalleryPage />} />
-      <Route path="/g/:eventSlug/:videoId" element={<VideoPage />} />
+    <Suspense fallback={<LoadingScreen />}>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/plans" element={<PricingPage />} />
+        <Route path="/g/:eventSlug" element={<GalleryPage />} />
+        <Route path="/g/:eventSlug/:videoId" element={<VideoPage />} />
 
-      {/* Auth */}
-      <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
-      <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        {/* Auth */}
+        <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+        <Route path="/register" element={<AuthRoute><RegisterPage /></AuthRoute>} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-      {/* App (private) */}
-      <Route path="/app" element={<PrivateRoute><AppShell /></PrivateRoute>}>
-        <Route index element={<Navigate to="billing" replace />} />
-        <Route path="dashboard" element={<PaidRoute><DashboardPage /></PaidRoute>} />
-        <Route path="events" element={<PaidRoute><EventsPage /></PaidRoute>} />
-        <Route path="events/new" element={<PaidRoute><EventFormPage /></PaidRoute>} />
-        <Route path="events/:id" element={<PaidRoute><EventsPage /></PaidRoute>} />
-        <Route path="events/:id/edit" element={<PaidRoute><EventFormPage /></PaidRoute>} />
-        <Route path="operator" element={<PaidRoute><OperatorPage /></PaidRoute>} />
-        <Route path="videos" element={<VideosPage />} />
-        <Route path="templates" element={<PaidRoute><TemplatesPage /></PaidRoute>} />
-        <Route path="leads" element={<PaidRoute><LeadsPage /></PaidRoute>} />
-        <Route path="analytics" element={<PaidRoute><AnalyticsPage /></PaidRoute>} />
-        <Route path="billing" element={<BillingPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="support" element={<SupportPage />} />
-        <Route path="admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-      </Route>
+        {/* App (private) */}
+        <Route path="/app" element={<PrivateRoute><AppShell /></PrivateRoute>}>
+          <Route index element={<Navigate to="billing" replace />} />
+          <Route path="dashboard" element={<PaidRoute><DashboardPage /></PaidRoute>} />
+          <Route path="events" element={<PaidRoute><EventsPage /></PaidRoute>} />
+          <Route path="events/new" element={<PaidRoute><EventFormPage /></PaidRoute>} />
+          <Route path="events/:id" element={<PaidRoute><EventsPage /></PaidRoute>} />
+          <Route path="events/:id/edit" element={<PaidRoute><EventFormPage /></PaidRoute>} />
+          <Route path="operator" element={<PaidRoute><OperatorPage /></PaidRoute>} />
+          <Route path="videos" element={<VideosPage />} />
+          <Route path="templates" element={<PaidRoute><TemplatesPage /></PaidRoute>} />
+          <Route path="leads" element={<PaidRoute><LeadsPage /></PaidRoute>} />
+          <Route path="analytics" element={<PaidRoute><AnalyticsPage /></PaidRoute>} />
+          <Route path="billing" element={<BillingPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }

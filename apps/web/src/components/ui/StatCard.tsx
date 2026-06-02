@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { TrendingUp } from 'lucide-react';
 
 interface StatCardProps {
@@ -12,11 +11,7 @@ interface StatCardProps {
 
 export function StatCard({ title, value, icon, trend, color = 'text-brand-400', loading }: StatCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="six3-glass six3-card-hover flex flex-col gap-4 p-5"
-    >
+    <div className="six3-glass six3-card-hover flex flex-col gap-4 p-5">
       <div className="flex items-center justify-between">
         <span className="text-sm text-white/50 font-medium">{title}</span>
         <div className={`p-2 rounded-xl bg-white/5 ${color}`}>{icon}</div>
@@ -34,6 +29,6 @@ export function StatCard({ title, value, icon, trend, color = 'text-brand-400', 
           )}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
