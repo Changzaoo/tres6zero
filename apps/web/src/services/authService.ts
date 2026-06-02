@@ -126,7 +126,6 @@ function canCacheApiResponse(path: string, options: RequestInit) {
     '/api/support/',
     '/api/notifications/',
     '/api/upload/',
-    '/api/video/process',
     '/api/events/admin/',
   ].some((blockedPath) => path.includes(blockedPath));
 }

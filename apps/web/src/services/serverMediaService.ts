@@ -21,18 +21,6 @@ export type MediaUploadResult = {
   createdAt: string;
 };
 
-export type VideoProcessResult = {
-  videoId: string;
-  status: 'processed' | 'failed';
-  outputUrl?: string;
-  storagePath?: string;
-  effect?: string;
-  musicTheme?: string;
-  aiRationale?: string;
-  error?: string;
-  processedAt: string;
-};
-
 function authHeader() {
   const token = getAuthToken();
   return token ? `Bearer ${token}` : '';
@@ -174,26 +162,6 @@ export function uploadTemplateToServer(file: File | Blob, onProgress?: (pct: num
 
 export function uploadMusicToServer(file: File | Blob, onProgress?: (pct: number) => void) {
   return uploadMultipart('/api/upload/music', file, onProgress);
-}
-
-export function processVideoOnServer(config: {
-  videoId: string;
-  inputUrl: string;
-  storagePath?: string;
-  templateId?: string;
-  overlayUrl?: string;
-  animationUrl?: string;
-  effect?: string;
-  effectSegments?: { effect: string; start: number; end: number }[];
-  musicTheme?: string;
-  musicUrl?: string;
-  eventType?: string;
-  durationSeconds?: number;
-}) {
-  return authedJson<VideoProcessResult>('/api/video/process', {
-    method: 'POST',
-    body: JSON.stringify(config),
-  });
 }
 
 export async function getGeneratedTemplates() {
