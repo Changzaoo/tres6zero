@@ -91,23 +91,25 @@ export async function renderTemplatePng(svg: string) {
     .toBuffer();
 }
 
-export function buildGeneratedTemplates(count = 360) {
+export function buildGeneratedTemplates(count = 360, offset = 0) {
   const now = new Date().toISOString();
-  return Array.from({ length: count }, (_, index) => {
+  return Array.from({ length: count }, (_, batchIndex) => {
+    const index = offset + batchIndex;
     const category = CATEGORIES[index % CATEGORIES.length];
     const aspectRatio = ASPECTS[index % ASPECTS.length];
     const [primary, secondary] = PALETTES[index % PALETTES.length];
     const name = templateName(category, index);
     const svg = templateSvg({ name, category, primary, secondary, aspectRatio, index });
+    const id = `generated-${index + 1}`;
 
     return {
-      id: `generated-${index + 1}`,
+      id,
       name,
       category,
       colors: { primary, secondary },
       font: 'Inter',
       overlayUrl: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
-      storagePath: generatedTemplatePath({ id: `generated-${index + 1}`, category }),
+      storagePath: generatedTemplatePath({ id, category }),
       aspectRatio,
       effects: EFFECTS_BY_CATEGORY[category],
       isGlobal: true,

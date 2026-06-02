@@ -12,7 +12,8 @@ export const templatesRouter = Router();
 
 const seedSchema = z.object({
   count: z.number().int().min(1).max(500).optional(),
-  musicCount: z.number().int().min(1).max(120).optional(),
+  offset: z.number().int().min(0).max(5000).optional(),
+  musicCount: z.number().int().min(0).max(120).optional(),
 });
 
 templatesRouter.get('/generated', requireActiveSubscription, (_req, res) => {
@@ -50,9 +51,9 @@ function requireSeedSecret(req: Request, res: Response, next: NextFunction) {
   res.status(403).json({ error: 'SEED_SECRET_REQUIRED' });
 }
 
-async function uploadProjectTemplates(count: number) {
+async function uploadProjectTemplates(count: number, offset = 0) {
   await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
-  const templates = buildGeneratedTemplates(count);
+  const templates = buildGeneratedTemplates(count, offset);
   const uploaded = [];
 
   for (const template of templates) {
@@ -108,22 +109,20 @@ async function uploadProjectMusic(count: number) {
 
 templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) => {
   try {
-    const { count = 360 } = seedSchema.parse(req.body || {});
-    const templates = await uploadProjectTemplates(count);
+    const { count = 360, offset = 0 } = seedSchema.parse(req.body || {});
+    const templates = await uploadProjectTemplates(count, offset);
     res.json({ templates });
   } catch (e) { next(e); }
 });
 
 templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) => {
   try {
-    const { count = 360, musicCount = 72 } = seedSchema.parse(req.body || {});
+    const { count = 360, offset = 0, musicCount = 72 } = seedSchema.parse(req.body || {});
     await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
     await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
 
-    const [templates, music] = await Promise.all([
-      uploadProjectTemplates(count),
-      uploadProjectMusic(musicCount),
-    ]);
+    const templates = await uploadProjectTemplates(count, offset);
+    const music = musicCount > 0 ? await uploadProjectMusic(musicCount) : [];
 
     res.json({
       ok: true,
@@ -135,6 +134,7 @@ templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) =
       },
       templateCount: templates.length,
       musicCount: music.length,
+      offset,
       templates,
       music,
     });
