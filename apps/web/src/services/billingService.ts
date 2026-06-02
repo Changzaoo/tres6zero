@@ -1,5 +1,5 @@
 import { API_URL } from '@/config/api';
-import { getAuthToken } from '@/services/authService';
+import { deviceHeaders, getAuthToken } from '@/services/authService';
 import type { PlanId } from '@/config/plans';
 
 type CheckoutResponse = {
@@ -12,6 +12,7 @@ export async function createCheckout(planId: PlanId) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...deviceHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ planId }),
@@ -29,6 +30,7 @@ export async function getPaidCustomers() {
   const token = getAuthToken();
   const response = await fetch(`${API_URL}/api/billing/admin/customers`, {
     headers: {
+      ...deviceHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });

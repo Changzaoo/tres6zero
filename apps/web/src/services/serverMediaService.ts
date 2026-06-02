@@ -1,5 +1,5 @@
 import { API_URL } from '@/config/api';
-import { getAuthToken } from '@/services/authService';
+import { deviceHeaders, getAuthToken } from '@/services/authService';
 import type { AppTemplate } from '@/types';
 import type { AppMusic } from '@/types';
 
@@ -45,6 +45,7 @@ function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: num
     xhr.open('POST', `${API_URL}${path}`);
     const token = authHeader();
     if (token) xhr.setRequestHeader('Authorization', token);
+    Object.entries(deviceHeaders()).forEach(([key, value]) => xhr.setRequestHeader(key, value));
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
         onProgress(Math.round((event.loaded / event.total) * 100));
@@ -68,6 +69,7 @@ async function authedJson<T>(path: string, options: RequestInit = {}): Promise<T
   headers.set('Content-Type', 'application/json');
   const token = authHeader();
   if (token) headers.set('Authorization', token);
+  Object.entries(deviceHeaders()).forEach(([key, value]) => headers.set(key, value));
 
   const response = await fetch(`${API_URL}${path}`, { ...options, headers });
   const payload = await response.json().catch(() => ({}));

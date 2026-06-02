@@ -14,10 +14,19 @@ export interface UserProfile {
   };
   currentPeriodEnd?: string | null;
   renewalDay?: number | null;
+  trustedDevices?: TrustedDevice[];
   companyName?: string;
   avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TrustedDevice {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastSeenAt: string;
+  isCurrent: boolean;
 }
 
 export type EventStatus = 'draft' | 'active' | 'closed' | 'archived';

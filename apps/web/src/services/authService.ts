@@ -3,9 +3,12 @@ import type { UserProfile } from '@/types';
 
 const TOKEN_KEY = 'six3.authToken';
 const REFRESH_TOKEN_KEY = 'six3.refreshToken';
+const DEVICE_ID_KEY = 'six3.deviceId';
 const TOKEN_COOKIE_KEY = 'six3_auth_token';
 const REFRESH_COOKIE_KEY = 'six3_refresh_token';
+const DEVICE_COOKIE_KEY = 'six3_device_id';
 const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 60;
+const DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export type AuthSession = {
   token: string;
@@ -70,6 +73,40 @@ function deleteCookie(name: string) {
   document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
 }
 
+function createDeviceId() {
+  if (!isBrowser()) return 'server-device-unavailable';
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function getDeviceId() {
+  const existing = storageGet(DEVICE_ID_KEY) || getCookie(DEVICE_COOKIE_KEY);
+  if (existing) return existing;
+
+  const deviceId = createDeviceId();
+  storageSet(DEVICE_ID_KEY, deviceId);
+  setCookie(DEVICE_COOKIE_KEY, deviceId, DEVICE_COOKIE_MAX_AGE);
+  return deviceId;
+}
+
+function getDeviceName() {
+  if (!isBrowser()) return 'Servidor';
+  const nav = window.navigator as Navigator & {
+    userAgentData?: { platform?: string; brands?: { brand: string; version: string }[] };
+  };
+  const platform = nav.userAgentData?.platform || nav.platform || 'Dispositivo';
+  const brand = nav.userAgentData?.brands?.find((item) => !/not/i.test(item.brand))?.brand;
+  return `${platform}${brand ? ` - ${brand}` : ''}`;
+}
+
+export function deviceHeaders() {
+  return {
+    'X-SIX3-Device-ID': getDeviceId(),
+    'X-SIX3-Device-Name': getDeviceName(),
+  };
+}
+
 function persistAuthTokens(token: string, refreshToken?: string, expiresIn = 3600) {
   storageSet(TOKEN_KEY, token);
   setCookie(TOKEN_COOKIE_KEY, token, Math.max(60, expiresIn));
@@ -126,6 +163,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
     Object.entries(authHeaders(token)).forEach(([key, value]) => headers.set(key, value));
+    Object.entries(deviceHeaders()).forEach(([key, value]) => headers.set(key, value));
 
     return fetch(`${API_URL}${path}`, {
       ...options,
@@ -194,6 +232,15 @@ export async function resetPassword(email: string) {
   });
 }
 
+export async function changePassword(newPassword: string): Promise<AuthSession> {
+  const session = await request<AuthSession>('/api/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ newPassword }),
+  });
+  setAuthSession(session);
+  return session;
+}
+
 export async function getCurrentUser(): Promise<UserProfile | null> {
   if (!getAuthToken()) {
     const refreshedToken = await refreshAuthToken();
@@ -226,6 +273,9 @@ const FIREBASE_ERRORS: Record<string, string> = {
   TOO_MANY_ATTEMPTS_TRY_LATER: 'Muitas tentativas. Tente novamente mais tarde.',
   AUTH_REQUIRED: 'Faça login para continuar.',
   PAYMENT_REQUIRED: 'Assinatura necessária para liberar este recurso.',
+  DEVICE_ID_REQUIRED: 'Nao foi possivel identificar este dispositivo.',
+  DEVICE_LIMIT_REACHED: 'Essa conta ja esta vinculada aos dois primeiros dispositivos.',
+  DEVICE_SECURITY_NOT_CONFIGURED: 'Seguranca por dispositivo nao configurada no servidor.',
 };
 
 export function parseFirebaseError(code?: string): string {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 import { getFirebaseAdminAuth, toFirebaseUserRecord } from '../services/firebaseAdmin';
+import { assertTrustedDevice, ensureTrustedDeviceSecurityConfigured, getRequestDeviceHash, publicTrustedDevices } from '../services/trustedDevices';
 
 export const authRouter = Router();
 
@@ -24,6 +25,10 @@ const resetSchema = z.object({
 const profileSchema = z.object({
   name: z.string().min(2).optional(),
   companyName: z.string().optional(),
+});
+
+const passwordSchema = z.object({
+  newPassword: z.string().min(8),
 });
 
 type FirebaseAuthResponse = {
@@ -94,6 +99,11 @@ export async function getAuthenticatedUser(req: Request) {
 
   const user = await getUserFromIdToken(idToken);
   if (!user) authError();
+
+  const updatedDevice = await assertTrustedDevice(req, user);
+  if (updatedDevice) {
+    return await getUserFromIdToken(idToken) || user;
+  }
 
   return user;
 }
@@ -197,23 +207,35 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
   };
 }
 
-async function sessionFromAuthResponse(auth: FirebaseAuthResponse, fallbackName?: string) {
-  const user = await getUserFromIdToken(auth.idToken) || {
+async function userProfileForRequest(req: Request, user: FirebaseUserRecord, fallbackName?: string) {
+  return {
+    ...(await userProfile(user, fallbackName)),
+    trustedDevices: publicTrustedDevices(user, getRequestDeviceHash(req)),
+  };
+}
+
+async function sessionFromAuthResponse(auth: FirebaseAuthResponse, req: Request, fallbackName?: string) {
+  const initialUser = await getUserFromIdToken(auth.idToken) || {
     localId: auth.localId,
     email: auth.email,
     displayName: auth.displayName || fallbackName,
   };
 
+  const updatedDevice = await assertTrustedDevice(req, initialUser);
+
+  const user = updatedDevice ? await getUserFromIdToken(auth.idToken) || initialUser : initialUser;
+
   return {
     token: auth.idToken,
     refreshToken: auth.refreshToken,
     expiresIn: Number(auth.expiresIn || 3600),
-    user: await userProfile(user, fallbackName),
+    user: await userProfileForRequest(req, user, fallbackName),
   };
 }
 
 authRouter.post('/register', async (req, res, next) => {
   try {
+    ensureTrustedDeviceSecurityConfigured();
     const data = registerSchema.parse(req.body);
     const auth = await firebaseAuthRequest<FirebaseAuthResponse>('accounts:signUp', {
       email: data.email,
@@ -230,7 +252,7 @@ authRouter.post('/register', async (req, res, next) => {
       });
     }
 
-    res.status(201).json(await sessionFromAuthResponse(auth, data.name));
+    res.status(201).json(await sessionFromAuthResponse(auth, req, data.name));
   } catch (e) {
     next(e);
   }
@@ -238,6 +260,7 @@ authRouter.post('/register', async (req, res, next) => {
 
 authRouter.post('/login', async (req, res, next) => {
   try {
+    ensureTrustedDeviceSecurityConfigured();
     const data = loginSchema.parse(req.body);
     const auth = await firebaseAuthRequest<FirebaseAuthResponse>('accounts:signInWithPassword', {
       email: data.email,
@@ -245,7 +268,7 @@ authRouter.post('/login', async (req, res, next) => {
       returnSecureToken: true,
     });
 
-    res.json(await sessionFromAuthResponse(auth));
+    res.json(await sessionFromAuthResponse(auth, req));
   } catch (e) {
     next(e);
   }
@@ -267,7 +290,7 @@ authRouter.post('/password-reset', async (req, res, next) => {
 authRouter.get('/me', async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
-    res.json({ user: await userProfile(user) });
+    res.json({ user: await userProfileForRequest(req, user) });
   } catch (e) {
     next(e);
   }
@@ -287,15 +310,35 @@ authRouter.put('/profile', async (req, res, next) => {
       });
     }
 
-    const user = await getUserFromIdToken(idToken);
+    const user = await getAuthenticatedUser(req);
     if (!user) authError();
 
     res.json({
       user: {
-        ...(await userProfile(user)),
+        ...(await userProfileForRequest(req, user)),
         companyName: data.companyName,
       },
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.put('/password', async (req, res, next) => {
+  try {
+    const idToken = getBearerToken(req.headers.authorization);
+    if (!idToken) authError();
+
+    const data = passwordSchema.parse(req.body);
+    await getAuthenticatedUser(req);
+
+    const auth = await firebaseAuthRequest<FirebaseAuthResponse>('accounts:update', {
+      idToken,
+      password: data.newPassword,
+      returnSecureToken: true,
+    });
+
+    res.json(await sessionFromAuthResponse(auth, req));
   } catch (e) {
     next(e);
   }
