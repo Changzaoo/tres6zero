@@ -646,7 +646,7 @@ export function generatedTemplatePath(template: { id: string; category: string; 
 
 export async function renderTemplatePng(svg: string) {
   return sharp(Buffer.from(svg))
-    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();
 }
 
