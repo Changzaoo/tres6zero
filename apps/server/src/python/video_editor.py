@@ -92,9 +92,11 @@ def main():
     parser.add_argument("--music-file")
     parser.add_argument("--event-type", default="")
     parser.add_argument("--ffmpeg", default="ffmpeg")
+    parser.add_argument("--duration-seconds", type=float, default=0)
     args = parser.parse_args()
 
     effect = chosen_effect(args.effect, args.event_type)
+    duration_seconds = args.duration_seconds if args.duration_seconds and args.duration_seconds > 0 else None
     overlay_ext = os.path.splitext(args.overlay.lower())[1] if args.overlay else ""
     animated_overlay = overlay_ext in [".webm", ".mp4", ".mov", ".gif"]
     graph = build_graph(effect, bool(args.overlay), animated_overlay)
@@ -123,6 +125,9 @@ def main():
         cmd += ["-map", f"{audio_index}:a", "-shortest", "-c:a", "aac", "-b:a", "128k"]
     else:
         cmd += ["-an"]
+
+    if duration_seconds:
+        cmd += ["-t", f"{duration_seconds:.3f}"]
 
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-movflags", "+faststart", args.output]
     run(cmd)

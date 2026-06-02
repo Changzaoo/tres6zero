@@ -7,6 +7,8 @@ import { requireActiveSubscription } from './auth';
 
 export const videoRouter = Router();
 
+const allowedDurations: readonly number[] = [5, 15, 25, 35, 45];
+
 const processSchema = z.object({
   videoId: z.string(),
   inputUrl: z.string().min(1),
@@ -17,6 +19,9 @@ const processSchema = z.object({
   musicTheme: z.string().optional(),
   musicUrl: z.string().min(1).optional(),
   eventType: z.string().optional(),
+  durationSeconds: z.number().int().refine((value) => allowedDurations.includes(value), {
+    message: 'INVALID_DURATION_SECONDS',
+  }).optional(),
 });
 
 function allowedSupabaseHost() {

@@ -19,6 +19,7 @@ export type ProcessingConfig = {
   musicTheme?: string;
   musicUrl?: string;
   eventType?: string;
+  durationSeconds?: number;
 };
 
 export type ProcessingResult = {
@@ -185,6 +186,7 @@ export async function processVideo(config: ProcessingConfig): Promise<Processing
 
     if (overlayTemp) args.push('--overlay', await rasterOverlayIfNeeded(overlayTemp.filePath));
     if (musicTemp) args.push('--music-file', musicTemp.filePath);
+    if (config.durationSeconds) args.push('--duration-seconds', String(config.durationSeconds));
 
     const editor = await runPythonEditor(args);
     const output = await readFile(outputPath);

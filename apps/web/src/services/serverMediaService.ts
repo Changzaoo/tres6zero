@@ -108,6 +108,7 @@ export function processVideoOnServer(config: {
   musicTheme?: string;
   musicUrl?: string;
   eventType?: string;
+  durationSeconds?: number;
 }) {
   return authedJson<VideoProcessResult>('/api/video/process', {
     method: 'POST',

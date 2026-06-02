@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2 } from 'lucide-react';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -16,6 +16,13 @@ import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
 
+const DURATION_OPTIONS = [5, 15, 25, 35, 45] as const;
+
+const durationOptions = DURATION_OPTIONS.map((seconds) => ({
+  value: String(seconds),
+  label: `${seconds}s`,
+}));
+
 const musicOptions = [
   { value: 'none', label: 'Sem trilha' },
   { value: 'ambient', label: 'Ambient leve' },
@@ -24,6 +31,118 @@ const musicOptions = [
   { value: 'wedding', label: 'Wedding soft' },
   { value: 'corporate', label: 'Corporate clean' },
 ];
+
+const effectPreviewText: Record<string, string> = {
+  clean: 'Contraste leve e cores mais vivas.',
+  slow_motion: 'Movimento suavizado para entradas e giros.',
+  boomerang: 'Vai e volta para clipes curtos e virais.',
+  speed_ramp: 'Acelera o giro para mais impacto.',
+  cinematic: 'Contraste, nitidez e acabamento de filme.',
+  neon: 'Cores intensas com brilho moderno.',
+  party: 'Saturacao alta e clima de festa.',
+  luxury: 'Tons mais quentes e acabamento premium.',
+  glitch_flash: 'Flash e falhas rapidas para impacto.',
+  wedding_soft: 'Visual suave para eventos delicados.',
+  corporate_sharp: 'Nitidez limpa para marcas e empresas.',
+  ai_auto: 'A IA escolhe corte, efeito e clima no servidor.',
+};
+
+const effectPreviewFilters: Record<string, string> = {
+  clean: 'contrast(1.05) saturate(1.08) brightness(1.01)',
+  slow_motion: 'contrast(1.04) saturate(1.08)',
+  boomerang: 'contrast(1.08) saturate(1.12)',
+  speed_ramp: 'contrast(1.1) saturate(1.18)',
+  cinematic: 'contrast(1.12) saturate(0.95) brightness(0.94)',
+  neon: 'contrast(1.18) saturate(1.55) hue-rotate(8deg)',
+  party: 'contrast(1.12) saturate(1.35)',
+  luxury: 'contrast(1.08) saturate(1.05) sepia(0.12)',
+  glitch_flash: 'contrast(1.25) saturate(1.35)',
+  wedding_soft: 'contrast(0.98) saturate(1.05) brightness(1.05) blur(0.25px)',
+  corporate_sharp: 'contrast(1.08) saturate(0.92)',
+  ai_auto: 'contrast(1.1) saturate(1.12)',
+};
+
+function getEffectPreviewStyle(effect: string): CSSProperties {
+  return { filter: effectPreviewFilters[effect] || effectPreviewFilters.clean };
+}
+
+function templateSource(template?: AppTemplate) {
+  return template?.animationUrl || template?.overlayUrl || template?.previewUrl;
+}
+
+function isVideoOverlay(src?: string) {
+  return /\.(webm|mp4|mov)(\?|$)/i.test(src || '');
+}
+
+function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
+  const src = templateSource(template);
+  if (!src) return null;
+
+  const className = 'absolute inset-0 h-full w-full object-cover opacity-95 pointer-events-none';
+  if (isVideoOverlay(src)) {
+    return <video src={src} className={className} muted autoPlay loop playsInline preload="metadata" />;
+  }
+
+  return <img src={src} alt="" className={className} loading="lazy" decoding="async" />;
+}
+
+function EffectPreviewLayer({ effect }: { effect: string }) {
+  const layers: Record<string, string> = {
+    neon: 'bg-[linear-gradient(135deg,rgba(14,165,233,0.16),rgba(139,92,246,0.18),rgba(236,72,153,0.1))] mix-blend-screen',
+    party: 'bg-[linear-gradient(135deg,rgba(34,197,94,0.12),rgba(59,130,246,0.14),rgba(236,72,153,0.12))] mix-blend-screen',
+    luxury: 'bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(255,255,255,0.04),rgba(88,28,135,0.08))] mix-blend-screen',
+    glitch_flash: 'bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_2px,transparent_2px,transparent_18px)] mix-blend-screen',
+    wedding_soft: 'bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(244,114,182,0.08),transparent)] mix-blend-screen',
+    cinematic: 'bg-[linear-gradient(180deg,rgba(0,0,0,0.24),transparent_18%,transparent_82%,rgba(0,0,0,0.28))]',
+    ai_auto: 'bg-[linear-gradient(135deg,rgba(59,130,246,0.14),rgba(139,92,246,0.16),rgba(255,255,255,0.04))] mix-blend-screen',
+  };
+
+  const className = layers[effect];
+  return className ? <div className={`absolute inset-0 pointer-events-none ${className}`} /> : null;
+}
+
+function MockVideoPreview({ effect }: { effect: string }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden" style={getEffectPreviewStyle(effect)}>
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,#171923_0%,#0b0d13_42%,#17101f_100%)]" />
+      <div className="absolute inset-x-6 bottom-8 h-28 rounded-t-[80px] border border-white/10 bg-white/[0.055]" />
+      <div className="absolute left-[24%] top-[22%] h-16 w-16 rounded-full border border-white/10 bg-white/[0.08]" />
+      <div className="absolute right-6 top-7 h-16 w-24 rounded-xl border border-white/10 bg-black/20" />
+    </div>
+  );
+}
+
+function VideoPreviewFrame({
+  children,
+  template,
+  effect,
+  label,
+  className = '',
+}: {
+  children?: ReactNode;
+  template?: AppTemplate;
+  effect: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div className={`relative w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black ${className}`}>
+      {children ? (
+        <div className="absolute inset-0" style={getEffectPreviewStyle(effect)}>
+          {children}
+        </div>
+      ) : (
+        <MockVideoPreview effect={effect} />
+      )}
+      <TemplateOverlayPreview template={template} />
+      <EffectPreviewLayer effect={effect} />
+      <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-md">
+        <Eye className="h-3.5 w-3.5" />
+        {label}
+      </div>
+    </div>
+  );
+}
 
 export default function OperatorPage() {
   const { user, isAdmin } = useAuth();
@@ -42,7 +161,7 @@ export default function OperatorPage() {
   const [processingLabel, setProcessingLabel] = useState('Preparando video...');
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [duration, setDuration] = useState(10);
+  const [duration, setDuration] = useState(15);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -103,6 +222,21 @@ export default function OperatorPage() {
 
   const selectedMusicUrl = musicTheme.startsWith('url:') ? musicTheme.slice(4) : undefined;
   const selectedMusicLabel = resolvedMusicOptions.find(o => o.value === musicTheme)?.label || 'Sem trilha';
+  const selectedMusicTrack = useMemo(() => {
+    if (selectedMusicUrl) {
+      return musicCatalog.find((track) => track.musicUrl === selectedMusicUrl);
+    }
+    if (musicTheme === 'none') return undefined;
+    return musicCatalog.find((track) =>
+      track.theme === musicTheme
+      || track.category === musicTheme
+      || track.name.toLowerCase().includes(musicTheme.toLowerCase())
+    );
+  }, [musicCatalog, musicTheme, selectedMusicUrl]);
+  const musicPreviewUrl = selectedMusicUrl || selectedMusicTrack?.musicUrl;
+  const processingMusicUrl = musicTheme === 'none' ? undefined : musicPreviewUrl;
+  const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
+  const effectDescription = effectPreviewText[effect] || 'Acabamento aplicado pelo servidor.';
 
   async function startCamera() {
     try {
@@ -180,8 +314,9 @@ export default function OperatorPage() {
         size: videoBlob.size, format: videoBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
         effect,
-        musicTheme: selectedMusicUrl ? 'custom' : musicTheme,
-        musicUrl: selectedMusicUrl,
+        musicTheme: storedMusicTheme,
+        musicUrl: processingMusicUrl,
+        duration,
       });
 
       createdVideoId = video.id;
@@ -195,9 +330,10 @@ export default function OperatorPage() {
         templateId: selectedTemplateId || undefined,
         overlayUrl: selectedTemplate?.animationUrl || selectedTemplate?.overlayUrl,
         effect,
-        musicTheme: selectedMusicUrl ? 'none' : musicTheme,
-        musicUrl: selectedMusicUrl,
+        musicTheme: processingMusicUrl ? 'none' : musicTheme,
+        musicUrl: processingMusicUrl,
         eventType: selectedEvent.type,
+        durationSeconds: duration,
       });
 
       if (processed.status !== 'processed' || !processed.outputUrl) {
@@ -210,8 +346,9 @@ export default function OperatorPage() {
         videoUrl: processed.outputUrl,
         status: 'published',
         effect: processed.effect || effect,
-        musicTheme: processed.musicTheme || musicTheme,
-        musicUrl: selectedMusicUrl,
+        musicTheme: storedMusicTheme || processed.musicTheme || musicTheme,
+        musicUrl: processingMusicUrl,
+        duration,
       });
 
       setProgress(100);
@@ -279,6 +416,56 @@ export default function OperatorPage() {
                 Recurso bloqueado pelo plano atual. O servidor tambem valida antes de processar.
               </div>
             )}
+            <div className="grid gap-4 border-t border-white/[0.08] pt-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+              <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Preview" className="mx-auto aspect-[9/16] max-w-[220px]" />
+              <div className="min-w-0 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Sparkles className="h-4 w-4 text-brand-300" />
+                    {effectMeta?.label || 'Efeito'}
+                  </div>
+                  <p className="text-sm leading-relaxed text-white/50">{effectDescription}</p>
+                  <p className="text-xs text-white/30">{selectedTemplate?.name || 'Sem template transparente'}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Clock className="h-4 w-4 text-brand-300" />
+                    Duracao final
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {DURATION_OPTIONS.map((seconds) => (
+                      <button
+                        key={seconds}
+                        type="button"
+                        onClick={() => setDuration(seconds)}
+                        className={`h-10 rounded-full border text-sm font-bold transition-all ${
+                          duration === seconds
+                            ? 'border-brand-300/70 bg-brand-500/25 text-white shadow-glow'
+                            : 'border-white/10 bg-white/[0.045] text-white/60 hover:border-white/20 hover:text-white'
+                        }`}
+                      >
+                        {seconds}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Volume2 className="h-4 w-4 text-brand-300" />
+                    Previa da musica
+                  </div>
+                  {musicPreviewUrl ? (
+                    <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />
+                  ) : (
+                    <p className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/40">
+                      {musicTheme === 'none' ? 'Sem trilha selecionada.' : 'Essa trilha sera gerada no processamento do servidor.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}
@@ -286,8 +473,10 @@ export default function OperatorPage() {
       {step === 'capture' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[minmax(320px,520px)_1fr] gap-4">
           <div className="space-y-4">
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-[9/16] max-h-[68vh]">
-              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <div className="relative">
+              <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Ao vivo" className="aspect-[9/16] max-h-[68vh]">
+                <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+              </VideoPreviewFrame>
               {countdown > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <motion.span key={countdown} initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
@@ -303,7 +492,7 @@ export default function OperatorPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Select label="" options={[{value:'5',label:'5s'},{value:'10',label:'10s'},{value:'15',label:'15s'},{value:'30',label:'30s'}]}
+              <Select label="" options={durationOptions}
                 value={String(duration)} onChange={e => setDuration(Number(e.target.value))} className="w-24" />
               <Button className="flex-1 justify-center" size="xl" onClick={startCountdown} disabled={recording}
                 icon={<Video className="w-5 h-5" />}>
@@ -319,23 +508,27 @@ export default function OperatorPage() {
             <p className="text-sm font-semibold text-white">Configuracao aplicada</p>
             <p className="text-sm text-white/50">{selectedTemplate?.name || 'Sem overlay'}</p>
             <p className="text-sm text-white/50">{effectMeta?.label || effect}</p>
+            <p className="text-sm text-white/50 flex items-center gap-2"><Clock className="w-4 h-4" />{duration} segundos</p>
             <p className="text-sm text-white/50 flex items-center gap-2"><Music2 className="w-4 h-4" />{selectedMusicLabel}</p>
+            {musicPreviewUrl && <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />}
           </div>
         </motion.div>
       )}
 
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[minmax(320px,560px)_1fr] gap-4">
-          <div className="rounded-2xl overflow-hidden bg-black">
-            <video ref={previewRef} src={videoUrl} controls className="w-full" />
-          </div>
+          <VideoPreviewFrame template={selectedTemplate} effect={effect} label="Preview aplicado" className="aspect-[9/16] max-h-[70vh]">
+            <video ref={previewRef} src={videoUrl} controls className="h-full w-full object-contain" />
+          </VideoPreviewFrame>
           <div className="space-y-4">
             <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 space-y-3">
               <p className="text-sm font-semibold text-white">Pronto para processar</p>
               <p className="text-sm text-white/50">O video sera enviado para o backend, editado com Python/FFmpeg e salvo no Supabase.</p>
               <p className="text-xs text-white/35">Template: {selectedTemplate?.name || 'Sem overlay'}</p>
               <p className="text-xs text-white/35">Efeito: {effectMeta?.label || effect}</p>
+              <p className="text-xs text-white/35">Duracao final: {duration} segundos</p>
               <p className="text-xs text-white/35">Trilha: {selectedMusicLabel}</p>
+              {musicPreviewUrl && <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
