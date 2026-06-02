@@ -1,5 +1,6 @@
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth, UserRecord } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 type ServiceAccount = {
   project_id: string;
@@ -29,18 +30,26 @@ function parseServiceAccount() {
   }
 }
 
-export function getFirebaseAdminAuth() {
+function getFirebaseAdminApp(): App | null {
   const serviceAccount = parseServiceAccount();
   if (!serviceAccount) return null;
 
-  if (getApps().length === 0) {
-    initializeApp({
-      credential: cert(serviceAccount),
-      projectId: serviceAccount.projectId,
-    });
-  }
+  if (getApps().length > 0) return getApps()[0];
 
-  return getAuth();
+  return initializeApp({
+    credential: cert(serviceAccount),
+    projectId: serviceAccount.projectId,
+  });
+}
+
+export function getFirebaseAdminAuth() {
+  const app = getFirebaseAdminApp();
+  return app ? getAuth(app) : null;
+}
+
+export function getFirebaseAdminFirestore() {
+  const app = getFirebaseAdminApp();
+  return app ? getFirestore(app) : null;
 }
 
 export function toFirebaseUserRecord(record: UserRecord) {

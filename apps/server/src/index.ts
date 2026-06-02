@@ -12,6 +12,7 @@ import { leadRouter } from './routes/leads';
 import { trackRouter } from './routes/track';
 import { authRouter } from './routes/auth';
 import { billingRouter, stripeWebhookHandler } from './routes/billing';
+import { supportRouter } from './routes/support';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -77,6 +78,7 @@ app.use('/api/templates', templatesRouter);
 app.use('/api/qr', qrRouter);
 app.use('/api/leads', leadRouter);
 app.use('/api/track', trackRouter);
+app.use('/api/support', supportRouter);
 
 app.use(errorHandler);
 

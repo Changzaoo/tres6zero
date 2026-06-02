@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { StatCard } from '@/components/ui/StatCard';
 import { toast } from '@/components/ui/Toast';
+import { AdminSupportPanel } from '@/components/support/AdminSupportPanel';
 import type { PlanId } from '@/config/plans';
 import type { UserProfile } from '@/types';
 
@@ -110,6 +111,8 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      <AdminSupportPanel />
     </div>
   );
 }

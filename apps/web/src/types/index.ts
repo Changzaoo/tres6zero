@@ -29,6 +29,31 @@ export interface TrustedDevice {
   isCurrent: boolean;
 }
 
+export interface SupportConversation {
+  id: string;
+  ownerUid: string;
+  userName: string;
+  userEmail: string;
+  subject: string;
+  status: 'open' | 'answered' | 'closed';
+  lastMessagePreview: string;
+  lastMessageAt: string;
+  unreadForAdmin: number;
+  unreadForUser: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  conversationId: string;
+  senderUid: string;
+  senderRole: 'admin' | 'user';
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
+
 export type EventStatus = 'draft' | 'active' | 'closed' | 'archived';
 export type EventType = 'wedding' | 'birthday' | 'graduation' | 'corporate' | 'club' | 'inauguration' | 'church' | 'store' | 'other';
 

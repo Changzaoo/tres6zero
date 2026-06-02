@@ -27,6 +27,7 @@ import SettingsPage from '@/pages/app/SettingsPage';
 import AdminPage from '@/pages/app/AdminPage';
 import BillingPage from '@/pages/app/BillingPage';
 import LockedFeaturePage from '@/pages/app/LockedFeaturePage';
+import SupportPage from '@/pages/app/SupportPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, initialized } = useAuth();
@@ -90,6 +91,7 @@ export default function App() {
         <Route path="analytics" element={<PaidRoute><AnalyticsPage /></PaidRoute>} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="support" element={<SupportPage />} />
         <Route path="admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
       </Route>
 

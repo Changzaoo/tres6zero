@@ -6,6 +6,7 @@ import {
   Camera,
   CreditCard,
   Layers,
+  LifeBuoy,
   LayoutDashboard,
   Lock,
   Menu,
@@ -28,6 +29,7 @@ const moreItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/leads', label: 'Leads', icon: Users },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
+  { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
   { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
 ];
 

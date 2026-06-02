@@ -13,6 +13,7 @@ import {
   Lock,
   CreditCard,
   Bell,
+  LifeBuoy,
 } from 'lucide-react';
 import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
   { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
+  { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
 export function Sidebar({ onClose }: SidebarProps) {
