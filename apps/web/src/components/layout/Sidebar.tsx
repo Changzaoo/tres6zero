@@ -18,7 +18,6 @@ import { logout } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
-import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface SidebarProps {
@@ -52,8 +51,15 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const content = (
     <div className="flex h-full w-64 flex-col border-r border-white/[0.08] bg-[#0e1016]/90 backdrop-blur-2xl">
-      <div className="flex h-[68px] items-center border-b border-white/[0.08] px-5">
-        <BrandWordmark className="text-4xl" />
+      <div className="flex h-[68px] items-center overflow-hidden border-b border-white/[0.08] px-5">
+        <div className="relative h-full w-full overflow-hidden">
+          <img
+            src="/brand/six3.png"
+            alt="SIX3"
+            className="absolute left-1/2 top-1/2 w-[430px] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+            draggable={false}
+          />
+        </div>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">

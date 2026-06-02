@@ -88,7 +88,6 @@ export default function App() {
         <Route path="/termos-de-uso" element={<PublicDocsPage pageId="termos" />} />
         <Route path="/privacidade" element={<PublicDocsPage pageId="privacidade" />} />
         <Route path="/politica-de-privacidade" element={<PublicDocsPage pageId="privacidade" />} />
-        <Route path="/beta" element={<PublicDocsPage pageId="beta" />} />
         <Route path="/roadmap" element={<PublicDocsPage pageId="roadmap" />} />
         <Route path="/materiais" element={<PublicDocsPage pageId="materiais" />} />
         <Route path="/g/:eventSlug" element={<GalleryPage />} />

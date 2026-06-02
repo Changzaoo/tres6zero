@@ -70,7 +70,6 @@ const footerGroups = [
     items: [
       { label: 'Termos de uso', href: '/termos' },
       { label: 'Privacidade', href: '/privacidade' },
-      { label: 'Beta pago', href: '/beta' },
     ],
   },
 ];

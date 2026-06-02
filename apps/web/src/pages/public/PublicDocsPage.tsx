@@ -13,7 +13,6 @@ import {
   LifeBuoy,
   LockKeyhole,
   Map,
-  MessageCircle,
   Music2,
   QrCode,
   Scale,
@@ -29,7 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { GlassCard, RevealOnScroll } from '@/components/landing/LandingPrimitives';
 import { MouseAura } from '@/components/landing/MouseAura';
 
-export type PublicDocsPageId = 'faq' | 'termos' | 'privacidade' | 'beta' | 'roadmap' | 'materiais';
+export type PublicDocsPageId = 'faq' | 'termos' | 'privacidade' | 'roadmap' | 'materiais';
 
 type DocCard = {
   icon?: LucideIcon;
@@ -136,7 +135,7 @@ const legalClauses: DocCard[] = [
   { title: '9. Conteúdo enviado', description: 'O usuário é responsável por vídeos, templates, músicas, marcas, textos e imagens enviados, declarando ter autorização para usá-los.' },
   { title: '10. Músicas e direitos autorais', description: 'Não é recomendado usar músicas comerciais famosas sem licença. Use músicas próprias, livres, royalty-free ou licenciadas.' },
   { title: '11. Imagem de convidados', description: 'Em eventos, o operador deve informar participantes sobre gravação, uso de imagem, publicação de vídeo e coleta de leads quando aplicável.' },
-  { title: '12. Disponibilidade', description: 'Falhas podem ocorrer por internet, navegador, aparelho, serviços de terceiros, manutenção ou limitações técnicas, especialmente durante beta.' },
+  { title: '12. Disponibilidade', description: 'Falhas podem ocorrer por internet, navegador, aparelho, serviços de terceiros, manutenção ou limitações técnicas.' },
   { title: '13. Propriedade intelectual', description: 'Marca, interface, códigos, textos, templates oficiais e estrutura pertencem ao SIX3 ou seus licenciadores.' },
   { title: '14. Dados e privacidade', description: 'O tratamento de dados segue a Política de Privacidade e é necessário para funcionamento da plataforma.' },
   { title: '15. Mudanças e contato', description: 'Os termos podem ser atualizados. Os canais oficiais são suporte dentro do app, e-mail e WhatsApp quando disponíveis.' },
@@ -264,75 +263,6 @@ const docs: Record<PublicDocsPageId, DocPage> = {
       },
     ],
   },
-  beta: {
-    kicker: 'Estratégia',
-    title: 'Beta pago e critérios de sucesso',
-    lead: 'Plano de lançamento para validar o MVP com operadores reais, suporte próximo e metas mensuráveis.',
-    icon: Target,
-    heroGradient: 'from-violet-500/18 via-blue-500/14 to-cyan-400/14',
-    primaryAction: { label: 'Começar a jornada', to: '/plans' },
-    secondaryAction: { label: 'Ver FAQ', to: '/faq' },
-    stats: [
-      ['30 vagas', 'Beta Fundadores'],
-      ['5 a 10', 'pagantes beta'],
-      ['3 eventos', 'testes reais'],
-    ],
-    sections: [
-      {
-        title: 'Posicionamento',
-        cards: [
-          {
-            icon: Users,
-            title: 'Público',
-            description: 'Operadores de Photo Booth 360, empresas de eventos, casamentos, formaturas, DJs, buffets, fotógrafos e agências.',
-          },
-          {
-            icon: QrCode,
-            title: 'Promessa operacional',
-            description: 'Do vídeo bruto ao QR Code em poucos minutos, usando evento, template, música, publicação e métricas em um fluxo só.',
-          },
-          {
-            icon: MessageCircle,
-            title: 'Suporte próximo',
-            description: 'Atendimento pelo app, e-mail ou WhatsApp quando disponível, com grupo fechado de feedback e sugestões de templates prioritários.',
-          },
-        ],
-      },
-      {
-        title: 'O que prometer e o que não prometer',
-        columns: ['Prometer', 'Não prometer ainda'],
-        rows: [
-          ['Criar eventos, gravar ou enviar vídeos.', 'Estabilidade perfeita em todos os celulares.'],
-          ['Aplicar template, efeito, música e duração.', 'Renderização em nuvem ilimitada.'],
-          ['Gerar vídeo final, link e QR Code.', 'Biblioteca com músicas famosas.'],
-          ['Ver métricas básicas e receber suporte.', 'Editor avançado igual app profissional ou viralização garantida.'],
-        ],
-      },
-      {
-        title: 'Metas de 30 dias',
-        columns: ['Métrica', 'Meta'],
-        rows: [
-          ['Leads abordados', '150'],
-          ['Conversas iniciadas', '40'],
-          ['Demos enviadas', '25'],
-          ['Contas criadas', '15'],
-          ['Pagantes beta', '5 a 10'],
-          ['Eventos reais testados', '3'],
-          ['Depoimentos coletados', '2'],
-        ],
-      },
-      {
-        title: 'Canais de aquisição',
-        columns: ['Canal', 'Como usar'],
-        rows: [
-          ['Instagram/TikTok', 'Antes/depois, demonstração de QR Code, erros comuns de operador 360 e prova do fluxo em 60s.'],
-          ['WhatsApp/Facebook', 'Grupos de Photo Booth 360, eventos, casamentos, formaturas, DJs e buffets.'],
-          ['Parcerias', 'Vendedores de plataforma 360, fotógrafos, DJs, cerimonialistas e agências.'],
-          ['Venda direta', 'Lista de operadores no Instagram com abordagem individual.'],
-        ],
-      },
-    ],
-  },
   roadmap: {
     kicker: 'Operação',
     title: 'QA, riscos e plano de 30 dias',
@@ -389,8 +319,8 @@ const docs: Record<PublicDocsPageId, DocPage> = {
         rows: [
           ['Semana 1', 'Preparar venda e segurança', 'Landing, termos, privacidade, checkout, teste em desktop/Android/iPhone e 10 templates fortes.'],
           ['Semana 2', 'Material comercial e captação', 'Demo 60s, prints, QR demo, lista de 100 operadores, DMs e grupos.'],
-          ['Semana 3', 'Beta com operadores reais', 'Onboarding individual, correções críticas, evento simulado, templates pedidos e depoimento.'],
-          ['Semana 4', 'Converter e estabilizar', 'Follow-up, case beta, oferta Fundadores, 3-5 novos clientes, análise de métricas e decisão de escala.'],
+          ['Semana 3', 'Validação com operadores reais', 'Onboarding individual, correções críticas, evento simulado, templates pedidos e depoimento.'],
+          ['Semana 4', 'Converter e estabilizar', 'Follow-up, case real, 3-5 novos clientes, análise de métricas e decisão de escala.'],
         ],
       },
       {
@@ -406,11 +336,6 @@ const docs: Record<PublicDocsPageId, DocPage> = {
     ],
     visuals: [
       {
-        src: '/docs/roadmap-30-dias.png',
-        title: 'Plano visual de 30 dias',
-        description: 'Resumo visual das quatro semanas de preparação, captação, beta real e conversão.',
-      },
-      {
         src: '/docs/matriz-riscos.png',
         title: 'Matriz visual de riscos',
         description: 'Mapa de impacto e probabilidade com mitigações prioritárias.',
@@ -420,15 +345,15 @@ const docs: Record<PublicDocsPageId, DocPage> = {
   materiais: {
     kicker: 'Materiais',
     title: 'Pranchas visuais do MVP',
-    lead: 'Canvas do MVP, fluxo do primeiro vídeo, roadmap de 30 dias e matriz de riscos para apresentação, parceiros e operação interna.',
+    lead: 'Fluxo do primeiro vídeo e matriz de riscos para apresentação, parceiros e operação interna.',
     icon: ImageIcon,
     heroGradient: 'from-blue-500/18 via-violet-500/18 to-cyan-400/12',
     primaryAction: { label: 'Ver roadmap', to: '/roadmap' },
     secondaryAction: { label: 'Ver FAQ', to: '/faq' },
     stats: [
-      ['4 pranchas', 'materiais visuais'],
-      ['MVP', 'canvas vendável'],
+      ['2 pranchas', 'materiais visuais'],
       ['Fluxo', 'primeiro vídeo'],
+      ['Matriz', 'riscos principais'],
     ],
     sections: [
       {
@@ -437,7 +362,7 @@ const docs: Record<PublicDocsPageId, DocPage> = {
           {
             icon: Target,
             title: 'Apresentação comercial',
-            description: 'Use o canvas e o fluxo do primeiro vídeo para explicar o produto sem depender de documentação extensa.',
+            description: 'Use o fluxo do primeiro vídeo para explicar o produto sem depender de documentação extensa.',
           },
           {
             icon: ShieldCheck,
@@ -454,19 +379,9 @@ const docs: Record<PublicDocsPageId, DocPage> = {
     ],
     visuals: [
       {
-        src: '/docs/mvp-canvas.png',
-        title: 'Canvas visual do MVP vendável',
-        description: 'Cliente, dor, promessa, MVP, venda e sucesso em uma visão única.',
-      },
-      {
         src: '/docs/fluxo-primeiro-video.png',
         title: 'Fluxo do primeiro vídeo',
         description: 'Passo a passo do primeiro vídeo, de criar conta até ver métricas.',
-      },
-      {
-        src: '/docs/roadmap-30-dias.png',
-        title: 'Roadmap visual de 30 dias',
-        description: 'Plano semanal para preparar, captar leads, rodar beta real e converter.',
       },
       {
         src: '/docs/matriz-riscos.png',
