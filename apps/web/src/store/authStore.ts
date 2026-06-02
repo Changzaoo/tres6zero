@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { clearAuthSession, getCurrentUser } from '@/services/authService';
+import { clearAuthSession, getAuthToken, getCachedUser, getCurrentUser } from '@/services/authService';
 import type { UserProfile } from '@/types';
 
 interface AuthState {
@@ -12,10 +12,12 @@ interface AuthState {
   reset: () => void;
 }
 
+const cachedUser = getCachedUser();
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  loading: true,
-  initialized: false,
+  user: cachedUser,
+  loading: Boolean(getAuthToken()) && !cachedUser,
+  initialized: true,
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
   setInitialized: (initialized) => set({ initialized }),
@@ -27,12 +29,27 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 async function initializeAuth() {
   const { setUser, setLoading, setInitialized, reset } = useAuthStore.getState();
+  const hasToken = Boolean(getAuthToken());
+
+  setInitialized(true);
+
+  if (!hasToken) {
+    setLoading(false);
+    setUser(null);
+    return;
+  }
 
   try {
+    setLoading(!useAuthStore.getState().user);
     const user = await getCurrentUser();
     setUser(user);
-  } catch {
-    reset();
+  } catch (error) {
+    if (getCachedUser() && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setUser(getCachedUser());
+    } else {
+      reset();
+      console.warn('[auth] Session refresh failed:', error);
+    }
   } finally {
     setLoading(false);
     setInitialized(true);

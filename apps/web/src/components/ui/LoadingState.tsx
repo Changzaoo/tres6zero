@@ -1,9 +1,18 @@
 import { BrandLogo } from '@/components/brand/BrandLogo';
 
+function Six3Loader({ className = 'h-10 w-10' }: { className?: string }) {
+  return (
+    <svg className={`six3-loader ${className}`} viewBox="0 0 50 50" aria-hidden="true">
+      <circle className="six3-loader-track" cx="25" cy="25" r="20" fill="none" />
+      <circle className="six3-loader-path" cx="25" cy="25" r="20" fill="none" />
+    </svg>
+  );
+}
+
 export function LoadingState({ message = 'Carregando...' }: { message?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <div className="w-10 h-10 animate-spin rounded-full border-2 border-white/10 border-t-brand-500" />
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4" role="status" aria-live="polite">
+      <Six3Loader />
       <p className="text-white/40 text-sm">{message}</p>
     </div>
   );
@@ -11,7 +20,7 @@ export function LoadingState({ message = 'Carregando...' }: { message?: string }
 
 export function LoadingScreen() {
   return (
-    <div className="fixed inset-0 z-50 flex min-h-screen w-screen items-center justify-center overflow-hidden bg-surface px-4 text-center">
+    <div className="fixed inset-0 z-50 flex min-h-screen w-screen items-center justify-center overflow-hidden bg-surface px-4 text-center" role="status" aria-live="polite">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.18]"
@@ -23,8 +32,8 @@ export function LoadingScreen() {
         }}
       />
       <div className="relative z-10 flex flex-col items-center justify-center gap-6">
-        <div className="relative">
-          <div className="h-28 w-28 animate-spin rounded-full border-2 border-white/10 border-t-brand-500" />
+        <div className="relative h-28 w-28">
+          <Six3Loader className="h-28 w-28" />
           <div className="absolute inset-0 flex items-center justify-center">
             <BrandLogo className="items-center" wordmarkClassName="text-xl" />
           </div>

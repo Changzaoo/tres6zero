@@ -1,7 +1,10 @@
 import { API_URL } from '@/config/api';
-import { deviceHeaders, getAuthToken } from '@/services/authService';
+import { deviceHeaders, getAuthToken, getCachedUser } from '@/services/authService';
 import type { AppTemplate } from '@/types';
 import type { AppMusic } from '@/types';
+
+const JSON_CACHE_PREFIX = 'six3.mediaJsonCache.';
+const JSON_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 14;
 
 export type MediaUploadResult = {
   id: string;
@@ -35,6 +38,64 @@ function authHeader() {
   return token ? `Bearer ${token}` : '';
 }
 
+function isBrowser() {
+  return typeof window !== 'undefined';
+}
+
+function storageGet(key: string) {
+  if (!isBrowser()) return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key: string, value: string) {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage can be full on some installed browsers.
+  }
+}
+
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function isCacheableJson(path: string, options: RequestInit) {
+  return (!options.method || options.method.toUpperCase() === 'GET')
+    && ['/api/templates/generated', '/api/templates/generated-music'].includes(path);
+}
+
+function cacheKey(path: string) {
+  const scope = getCachedUser()?.uid || 'public';
+  return `${JSON_CACHE_PREFIX}${hashString(`${scope}|${path}`)}`;
+}
+
+function readJsonCache<T>(path: string) {
+  const raw = storageGet(cacheKey(path));
+  if (!raw) return null;
+
+  try {
+    const cached = JSON.parse(raw) as { value: T; savedAt: number };
+    if (!cached?.savedAt || Date.now() - cached.savedAt > JSON_CACHE_MAX_AGE_MS) return null;
+    return cached.value;
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonCache<T>(path: string, value: T) {
+  storageSet(cacheKey(path), JSON.stringify({ value, savedAt: Date.now() }));
+}
+
 function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: number) => void): Promise<MediaUploadResult> {
   return new Promise((resolve, reject) => {
     const body = new FormData();
@@ -65,17 +126,35 @@ function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: num
 }
 
 async function authedJson<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const cacheable = isCacheableJson(path, options);
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
   const token = authHeader();
   if (token) headers.set('Authorization', token);
   Object.entries(deviceHeaders()).forEach(([key, value]) => headers.set(key, value));
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch (error) {
+    const cached = cacheable ? readJsonCache<T>(path) : null;
+    if (cached) return cached;
+    throw error;
+  }
+
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    const cached = cacheable && (response.status === 503 || (isBrowser() && !window.navigator.onLine))
+      ? readJsonCache<T>(path)
+      : null;
+    if (cached) return cached;
+
     throw new Error(payload?.error || payload?.code || 'REQUEST_FAILED');
+  }
+
+  if (cacheable) {
+    writeJsonCache(path, payload as T);
   }
 
   return payload as T;

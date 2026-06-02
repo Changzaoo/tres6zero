@@ -355,6 +355,29 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  .six3-loader {
+    display: block;
+    animation: six3-loader-rotate 1.35s linear infinite;
+    filter: drop-shadow(0 0 18px color-mix(in oklab, var(--glow) 28%, transparent));
+    transform-origin: center;
+  }
+  .six3-loader-track,
+  .six3-loader-path {
+    stroke-width: 2.8;
+  }
+  .six3-loader-track {
+    stroke: color-mix(in oklab, var(--text) 10%, transparent);
+  }
+  .six3-loader-path {
+    stroke: var(--a1);
+    stroke-linecap: round;
+    stroke-dasharray: 1, 126;
+    stroke-dashoffset: 0;
+    transform-origin: center;
+    animation:
+      six3-loader-dash 1.35s cubic-bezier(.35,0,.25,1) infinite,
+      six3-loader-color 5.4s ease-in-out infinite;
+  }
 }
 
 @keyframes six3-degree-pulse {
@@ -399,5 +422,42 @@
 @keyframes six3-shimmer {
   to {
     transform: translateX(100%);
+  }
+}
+
+@keyframes six3-loader-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes six3-loader-dash {
+  0% {
+    stroke-dasharray: 1, 126;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 86, 126;
+    stroke-dashoffset: -34;
+  }
+  100% {
+    stroke-dasharray: 86, 126;
+    stroke-dashoffset: -124;
+  }
+}
+
+@keyframes six3-loader-color {
+  0%,
+  100% {
+    stroke: #3b6dff;
+  }
+  25% {
+    stroke: #14b8ff;
+  }
+  50% {
+    stroke: #8b5cf6;
+  }
+  75% {
+    stroke: #22c55e;
   }
 }

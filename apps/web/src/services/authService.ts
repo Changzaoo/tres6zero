@@ -4,11 +4,14 @@ import type { UserProfile } from '@/types';
 const TOKEN_KEY = 'six3.authToken';
 const REFRESH_TOKEN_KEY = 'six3.refreshToken';
 const DEVICE_ID_KEY = 'six3.deviceId';
+const USER_CACHE_KEY = 'six3.cachedUser';
+const API_CACHE_PREFIX = 'six3.apiCache.';
 const TOKEN_COOKIE_KEY = 'six3_auth_token';
 const REFRESH_COOKIE_KEY = 'six3_refresh_token';
 const DEVICE_COOKIE_KEY = 'six3_device_id';
 const REFRESH_COOKIE_MAX_AGE = 60 * 60 * 24 * 60;
 const DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const API_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 14;
 
 export type AuthSession = {
   token: string;
@@ -50,6 +53,15 @@ function storageRemove(key: string) {
   }
 }
 
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function cookieOptions(maxAge: number) {
   const secure = isBrowser() && window.location.protocol === 'https:' ? '; Secure' : '';
   return `; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
@@ -78,6 +90,70 @@ function createDeviceId() {
   const bytes = new Uint8Array(32);
   window.crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function cacheUserProfile(user: UserProfile | null) {
+  if (!user) {
+    storageRemove(USER_CACHE_KEY);
+    return;
+  }
+
+  storageSet(USER_CACHE_KEY, JSON.stringify(user));
+}
+
+export function getCachedUser() {
+  const raw = storageGet(USER_CACHE_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as UserProfile;
+  } catch {
+    storageRemove(USER_CACHE_KEY);
+    return null;
+  }
+}
+
+function isGetRequest(options: RequestInit) {
+  return !options.method || options.method.toUpperCase() === 'GET';
+}
+
+function canCacheApiResponse(path: string, options: RequestInit) {
+  if (!isGetRequest(options)) return false;
+  if (!path.startsWith('/api/')) return false;
+  return ![
+    '/api/auth/',
+    '/api/billing/',
+    '/api/support/',
+    '/api/upload/',
+    '/api/video/process',
+    '/api/events/admin/',
+  ].some((blockedPath) => path.includes(blockedPath));
+}
+
+function apiCacheKey(path: string) {
+  const userScope = getCachedUser()?.uid || 'public';
+  return `${API_CACHE_PREFIX}${hashString(`${userScope}|${path}`)}`;
+}
+
+function readApiCache<T>(path: string): T | null {
+  const raw = storageGet(apiCacheKey(path));
+  if (!raw) return null;
+
+  try {
+    const cached = JSON.parse(raw) as { value: T; savedAt: number };
+    if (!cached?.savedAt || Date.now() - cached.savedAt > API_CACHE_MAX_AGE_MS) {
+      storageRemove(apiCacheKey(path));
+      return null;
+    }
+    return cached.value;
+  } catch {
+    storageRemove(apiCacheKey(path));
+    return null;
+  }
+}
+
+function writeApiCache<T>(path: string, value: T) {
+  storageSet(apiCacheKey(path), JSON.stringify({ value, savedAt: Date.now() }));
 }
 
 export function getDeviceId() {
@@ -159,6 +235,8 @@ async function refreshAuthToken() {
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const cacheable = canCacheApiResponse(path, options);
+
   async function send(token = getAuthToken()) {
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
@@ -171,18 +249,37 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     });
   }
 
-  let response = await send();
+  let response: Response;
+
+  try {
+    response = await send();
+  } catch (error) {
+    const cached = cacheable ? readApiCache<T>(path) : null;
+    if (cached) return cached;
+    throw error;
+  }
 
   if (response.status === 401 && getRefreshToken()) {
     const refreshedToken = await refreshAuthToken();
     if (refreshedToken) {
-      response = await send(refreshedToken);
+      try {
+        response = await send(refreshedToken);
+      } catch (error) {
+        const cached = cacheable ? readApiCache<T>(path) : null;
+        if (cached) return cached;
+        throw error;
+      }
     }
   }
 
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    const cached = cacheable && (response.status === 503 || !isBrowser() || !window.navigator.onLine)
+      ? readApiCache<T>(path)
+      : null;
+    if (cached) return cached;
+
     if (payload?.code === 'DEVICE_DISCONNECTED' || payload?.error === 'DEVICE_DISCONNECTED') {
       clearAuthSession();
     }
@@ -193,6 +290,10 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     throw error;
   }
 
+  if (cacheable) {
+    writeApiCache(path, payload as T);
+  }
+
   return payload as T;
 }
 
@@ -200,11 +301,13 @@ const request = apiRequest;
 
 export function setAuthSession(session: AuthSession) {
   persistAuthTokens(session.token, session.refreshToken, session.expiresIn || 3600);
+  cacheUserProfile(session.user);
 }
 
 export function clearAuthSession() {
   storageRemove(TOKEN_KEY);
   storageRemove(REFRESH_TOKEN_KEY);
+  storageRemove(USER_CACHE_KEY);
   deleteCookie(TOKEN_COOKIE_KEY);
   deleteCookie(REFRESH_COOKIE_KEY);
 }
@@ -254,6 +357,7 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
   }
 
   const { user } = await request<{ user: UserProfile }>('/api/auth/me');
+  cacheUserProfile(user);
   return user;
 }
 
@@ -262,6 +366,7 @@ export async function updateUserProfile(_uid: string, data: Partial<UserProfile>
     method: 'PUT',
     body: JSON.stringify(data),
   });
+  cacheUserProfile(user);
   return user;
 }
 
