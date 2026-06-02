@@ -94,7 +94,7 @@ function localMessage(visitorId: string, body: string, pending = true): SupportM
   };
 }
 
-export function LoginSupportChat({ emailHint: _emailHint = '' }: { emailHint?: string }) {
+export function LoginSupportChat() {
   const [open, setOpen] = useState(false);
   const [visitorId] = useState(() => getVisitorId());
   const [conversation, setConversation] = useState<SupportConversation | null>(null);

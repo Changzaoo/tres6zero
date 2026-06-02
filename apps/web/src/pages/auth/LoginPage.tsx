@@ -25,7 +25,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
   const setUser = useAuthStore((state) => state.setUser);
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   async function onSubmit(data: FormData) {
     try {
@@ -36,8 +36,6 @@ export default function LoginPage() {
       toast.error(parseFirebaseError(error.code));
     }
   }
-
-  const emailHint = watch('email') || '';
 
   return (
     <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
@@ -73,7 +71,7 @@ export default function LoginPage() {
             <Link to="/register" className="font-medium text-brand-300 hover:text-white">Começar a jornada</Link>
           </p>
 
-          <LoginSupportChat emailHint={emailHint} />
+          <LoginSupportChat />
         </div>
       </motion.div>
     </div>
