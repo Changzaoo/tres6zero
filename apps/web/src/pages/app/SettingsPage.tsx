@@ -357,14 +357,10 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-white/70">E-mail</label>
                   <p className="truncate rounded-[18px] border border-white/[0.08] bg-white/5 px-4 py-3 text-sm text-white/42">{user?.email}</p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-white/70">Cargo</label>
-                  <p className="rounded-[18px] border border-white/[0.08] bg-white/5 px-4 py-3 text-sm capitalize text-white/42">{user?.role}</p>
                 </div>
               </div>
 
