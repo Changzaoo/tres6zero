@@ -1637,7 +1637,7 @@ export default function OperatorPage() {
 
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+          <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
             <VideoPreviewFrame template={selectedTemplate} effect={editorPreviewEffect} label="Editor" className={videoPreviewFrameClass}>
               <video
                 ref={previewRef}
@@ -1650,7 +1650,8 @@ export default function OperatorPage() {
               />
             </VideoPreviewFrame>
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
+            {/* Sidebar — sticky, scrollable */}
+            <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
               {/* Header */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-white">
@@ -1683,14 +1684,18 @@ export default function OperatorPage() {
               <Select label="Template" options={templateOptions} value={selectedTemplateId}
                 onChange={e => setSelectedTemplateId(e.target.value)} />
 
-              {/* Effect */}
-              <EffectSelector
-                value={effect}
-                onChange={setEffect}
-                isEffectLocked={isEffectLocked}
-                compact
-                onApply={(selected) => toast.success(`${selected.name} aplicado.`)}
-              />
+              {/* Effect — minimal: only dropdown, no detail panel */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-white/52">Efeito</p>
+                <EffectSelector
+                  value={effect}
+                  onChange={setEffect}
+                  isEffectLocked={isEffectLocked}
+                  compact
+                  minimal
+                  onApply={(selected) => toast.success(`${selected.name} aplicado.`)}
+                />
+              </div>
 
               {/* Music */}
               <div className="space-y-2">
@@ -1742,13 +1747,13 @@ export default function OperatorPage() {
 
               {(!canUseEffect || !canUseTemplate) && (
                 <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-2.5 text-xs text-amber-100">
-                  <Lock className="h-3.5 w-3.5 shrink-0 mt-px" />
+                  <Lock className="h-3.5 w-3.5 mt-px shrink-0" />
                   Recurso bloqueado pelo plano.
                 </div>
               )}
 
               {/* Actions */}
-              <div className="mt-auto grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-2 gap-3 pt-1">
                 <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
                 <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>Processar</Button>
               </div>

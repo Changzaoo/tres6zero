@@ -21,7 +21,11 @@ const seedSchema = z.object({
   animatedCount: z.number().int().min(0).max(300).optional(),
 });
 
-const templateCategories = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium', 'graduation', 'store', 'church'] as const;
+const templateCategories = [
+  'party', 'wedding', 'corporate', 'birthday', 'viral', 'premium',
+  'graduation', 'store', 'church',
+  'infantil', 'esportivo', 'natal', 'carnaval', 'cha_revelacao', 'halloween',
+] as const;
 const aspectRatios = ['9:16', '1:1', '16:9'] as const;
 
 const templateSchema = z.object({

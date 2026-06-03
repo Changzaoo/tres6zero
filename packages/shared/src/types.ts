@@ -86,7 +86,22 @@ export interface Lead {
   createdAt: string;
 }
 
-export type TemplateCategory = 'party' | 'wedding' | 'corporate' | 'birthday' | 'viral' | 'premium';
+export type TemplateCategory =
+  | 'party'
+  | 'wedding'
+  | 'corporate'
+  | 'birthday'
+  | 'viral'
+  | 'premium'
+  | 'graduation'
+  | 'store'
+  | 'church'
+  | 'infantil'
+  | 'esportivo'
+  | 'natal'
+  | 'carnaval'
+  | 'cha_revelacao'
+  | 'halloween';
 export type AspectRatio = '9:16' | '1:1' | '16:9';
 
 export interface Template {

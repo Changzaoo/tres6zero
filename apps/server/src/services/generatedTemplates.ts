@@ -1,6 +1,9 @@
 import { Buffer } from 'node:buffer';
 
-const LEGACY_CATEGORIES = ['party', 'wedding', 'corporate', 'birthday', 'viral', 'premium'] as const;
+const LEGACY_CATEGORIES = [
+  'party', 'wedding', 'corporate', 'birthday', 'viral', 'premium',
+  'infantil', 'esportivo', 'natal', 'carnaval', 'cha_revelacao', 'halloween',
+] as const;
 const CATEGORIES = [...LEGACY_CATEGORIES, 'graduation', 'store', 'church'] as const;
 const ASPECTS = ['9:16', '16:9'] as const;
 
@@ -93,6 +96,12 @@ const EFFECTS_BY_CATEGORY: Record<TemplateCategory, string[]> = {
   graduation: ['luxury', 'cinematic', 'party'],
   store: ['corporate_sharp', 'clean', 'neon'],
   church: ['wedding_soft', 'cinematic', 'clean'],
+  infantil: ['party', 'boomerang', 'neon'],
+  esportivo: ['speed_ramp', 'corporate_sharp', 'neon'],
+  natal: ['cinematic', 'wedding_soft', 'luxury'],
+  carnaval: ['party', 'neon', 'boomerang'],
+  cha_revelacao: ['wedding_soft', 'slow_motion', 'cinematic'],
+  halloween: ['glitch_flash', 'neon', 'party'],
 };
 
 const THEMES: Record<LegacyTemplateCategory, ThemePack[]> = {
@@ -232,6 +241,144 @@ const THEMES: Record<LegacyTemplateCategory, ThemePack[]> = {
       footer: 'SIX3 SIGNATURE',
       palettes: [['#1e1b4b', '#67e8f9', '#f5d0fe'], ['#09090b', '#a78bfa', '#fefce8']],
       layouts: ['minimal_luxe', 'neon_corners', 'event_badge', 'geometric_lux', 'liquid_waves'],
+    },
+  ],
+  infantil: [
+    {
+      title: 'Candy Land',
+      badge: 'FESTA KIDS',
+      footer: 'MOMENTO MAGICO',
+      palettes: [['#f472b6', '#facc15', '#86efac'], ['#818cf8', '#fb923c', '#fde68a']],
+      layouts: ['poster_clip', 'confetti_arch', 'sticker_burst', 'liquid_waves', 'snap_filter'],
+    },
+    {
+      title: 'Little Star',
+      badge: 'HAPPY BIRTHDAY',
+      footer: 'BRILHE MUITO',
+      palettes: [['#60a5fa', '#f9a8d4', '#fde68a'], ['#a78bfa', '#34d399', '#fef9c3']],
+      layouts: ['sticker_burst', 'orbital_focus', 'polaroid_stack', 'social_story', 'liquid_waves'],
+    },
+    {
+      title: 'Rainbow Fun',
+      badge: 'CELEBRACAO',
+      footer: 'SMILE AND SPIN',
+      palettes: [['#f43f5e', '#22d3ee', '#facc15'], ['#84cc16', '#f97316', '#818cf8']],
+      layouts: ['confetti_arch', 'snap_filter', 'magazine_cover', 'ticket_pass', 'sticker_burst'],
+    },
+  ],
+  esportivo: [
+    {
+      title: 'Arena Night',
+      badge: 'GAME DAY',
+      footer: 'BORN TO WIN',
+      palettes: [['#1e40af', '#fbbf24', '#f8fafc'], ['#991b1b', '#fbbf24', '#f8fafc']],
+      layouts: ['spotlight_stage', 'chrome_frame', 'brand_slate', 'ticket_pass', 'cinematic_band'],
+    },
+    {
+      title: 'Champion Cup',
+      badge: 'CAMPEONATO',
+      footer: 'VITORIA TOTAL',
+      palettes: [['#065f46', '#fbbf24', '#f8fafc'], ['#111827', '#ef4444', '#fbbf24']],
+      layouts: ['event_badge', 'tech_hud', 'split_ribbon', 'magazine_cover', 'photo_strip'],
+    },
+    {
+      title: 'Energy Rush',
+      badge: 'SUPERA LIMITES',
+      footer: 'MOVE FASTER NOW',
+      palettes: [['#b45309', '#0ea5e9', '#f8fafc'], ['#7c3aed', '#22c55e', '#fef9c3']],
+      layouts: ['applay_flow', 'glitch_reel', 'neon_corners', 'orbital_focus', 'sticker_burst'],
+    },
+  ],
+  natal: [
+    {
+      title: 'Winter Glow',
+      badge: 'FELIZ NATAL',
+      footer: 'NOITE DE LUZ',
+      palettes: [['#b91c1c', '#fbbf24', '#f8fafc'], ['#1e3a5f', '#c0a060', '#f8fafc']],
+      layouts: ['floral_crown', 'luxury_corners', 'minimal_luxe', 'romantic_lace', 'geometric_lux'],
+    },
+    {
+      title: 'Festive Gold',
+      badge: 'HAPPY NEW YEAR',
+      footer: 'CELEBRE CADA MOMENTO',
+      palettes: [['#050505', '#d4af37', '#fef3c7'], ['#1a0a2e', '#f6c453', '#f8fafc']],
+      layouts: ['luxury_corners', 'geometric_lux', 'minimal_luxe', 'magazine_cover', 'brand_slate'],
+    },
+    {
+      title: 'Silver Eve',
+      badge: 'ANO NOVO',
+      footer: 'CONTAGEM REGRESSIVA',
+      palettes: [['#0f172a', '#94a3b8', '#f8fafc'], ['#0c1a35', '#67e8f9', '#fbbf24']],
+      layouts: ['orbital_focus', 'split_ribbon', 'snap_filter', 'sticker_burst', 'spotlight_stage'],
+    },
+  ],
+  carnaval: [
+    {
+      title: 'Tropical Boom',
+      badge: 'CARNAVAL',
+      footer: 'ALEGRIA PURA',
+      palettes: [['#f97316', '#8b5cf6', '#22d3ee'], ['#f43f5e', '#84cc16', '#fbbf24']],
+      layouts: ['confetti_arch', 'sticker_burst', 'poster_clip', 'neon_corners', 'social_story'],
+    },
+    {
+      title: 'Street Party',
+      badge: 'FOLIA TOTAL',
+      footer: 'BLOCO NA VEIA',
+      palettes: [['#16a34a', '#fbbf24', '#1e40af'], ['#dc2626', '#fbbf24', '#1e40af']],
+      layouts: ['snap_filter', 'liquid_waves', 'applay_flow', 'split_ribbon', 'magazine_cover'],
+    },
+    {
+      title: 'Samba Night',
+      badge: 'FESTA BRASIL',
+      footer: 'PURA ENERGIA',
+      palettes: [['#b91c1c', '#16a34a', '#fbbf24'], ['#7c3aed', '#f97316', '#fef9c3']],
+      layouts: ['glitch_reel', 'ticket_pass', 'event_badge', 'polaroid_stack', 'retro_vhs'],
+    },
+  ],
+  cha_revelacao: [
+    {
+      title: 'Sweet Reveal',
+      badge: 'CHA REVELACAO',
+      footer: 'AMOR QUE CHEGA',
+      palettes: [['#fbcfe8', '#93c5fd', '#fef9c3'], ['#f9a8d4', '#bfdbfe', '#fde68a']],
+      layouts: ['floral_crown', 'romantic_lace', 'liquid_waves', 'orbital_focus', 'minimal_luxe'],
+    },
+    {
+      title: 'Baby Clouds',
+      badge: 'BABY SHOWER',
+      footer: 'NOVA VIDA',
+      palettes: [['#e0f2fe', '#fce7f3', '#fefce8'], ['#ddd6fe', '#fae8ff', '#fef9c3']],
+      layouts: ['liquid_waves', 'snap_filter', 'social_story', 'minimal_editorial', 'orbital_focus'],
+    },
+    {
+      title: 'Dream Bundle',
+      badge: 'MENINO OU MENINA',
+      footer: 'DOCE ESPERA',
+      palettes: [['#f8fafc', '#f472b6', '#60a5fa'], ['#fff7ed', '#e879f9', '#38bdf8']],
+      layouts: ['romantic_lace', 'polaroid_stack', 'ticket_pass', 'photo_strip', 'geometric_lux'],
+    },
+  ],
+  halloween: [
+    {
+      title: 'Dark Night',
+      badge: 'HALLOWEEN',
+      footer: 'HAUNTED MOMENT',
+      palettes: [['#1c0030', '#f97316', '#a855f7'], ['#0c0015', '#fb923c', '#8b5cf6']],
+      layouts: ['glitch_reel', 'retro_vhs', 'neon_corners', 'orbital_focus', 'chrome_frame'],
+    },
+    {
+      title: 'Haunted Glow',
+      badge: 'DARK PARTY',
+      footer: 'TRICK OR TREAT',
+      palettes: [['#050505', '#f97316', '#86efac'], ['#111827', '#f59e0b', '#a3e635']],
+      layouts: ['neon_corners', 'applay_flow', 'glitch_reel', 'spotlight_stage', 'magazine_cover'],
+    },
+    {
+      title: 'Neon Spook',
+      badge: 'FESTA FANTASIA',
+      footer: 'NOITE ASSOMBRADA',
+      palettes: [['#3b0764', '#22d3ee', '#fb923c'], ['#1c1917', '#a855f7', '#f97316']],
+      layouts: ['orbital_focus', 'sticker_burst', 'ticket_pass', 'social_story', 'tech_hud'],
     },
   ],
 };
@@ -413,6 +560,138 @@ const TEMPLATE_IDEA_GROUPS: Partial<Record<TemplateCategory, string[]>> = {
     'Luxury wedding',
     'Signature event',
   ],
+  infantil: [
+    'Baloes suaves pastel',
+    'Arco iris colorido clean',
+    'Bichinho fofo generico',
+    'Brinquedo minimalista',
+    'Festa clean infantil',
+    'Astronauta kids',
+    'Unicornio sem marca',
+    'Dinossauro fofo',
+    'Aventura espacial',
+    'Fundo candy colorido',
+    'Circo clean moderno',
+    'Jardim encantado',
+    'Bolhas animadas',
+    'Estrelas infantis',
+    'Aniversario kids premium',
+    'Baby blue minimal',
+    'Baby pink suave',
+    'Safari clean kids',
+    'Fazendinha moderna',
+    'Super heroi generico',
+  ],
+  esportivo: [
+    'Futebol generico clean',
+    'Corrida atletismo',
+    'Academia fitness neon',
+    'Bike ciclismo',
+    'Campeonato trophy',
+    'Medalha dourada',
+    'Energia fitness motivacional',
+    'Scoreboard placar',
+    'Torcida celebrate',
+    'Trophy night premium',
+    'Quadra esportiva',
+    'Campo verde arena',
+    'Arena iluminada',
+    'Esportes radicais',
+    'Surf wave',
+    'Skate street',
+    'Cross training grid',
+    'Time vencedor gold',
+    'Challenge day neon',
+    'Sports neon energy',
+  ],
+  natal: [
+    'Neve suave elegante',
+    'Dourado festivo natalino',
+    'Feliz Natal clean',
+    'Happy New Year premium',
+    'Fogos de artificio',
+    'Contagem regressiva neon',
+    'Arvore natalina minimal',
+    'Luzes natalinas douradas',
+    'Champagne new year',
+    'Vermelho e dourado luxo',
+    'Prata e azul moderno',
+    'Familia reunida',
+    'Confraternizacao empresa',
+    'Empresa fim de ano',
+    'Reveillon praia',
+    'Fogos animados neon',
+    'Glitter festivo premium',
+    'Estrela natalina dourada',
+    'Luxo de ano novo',
+    'Welcome 2026 minimal',
+  ],
+  carnaval: [
+    'Confete tropical colorido',
+    'Fitas coloridas festa',
+    'Samba clean moderno',
+    'Bloquinho sem marca',
+    'Neon brasilidade vibrante',
+    'Festa de rua alegre',
+    'Tropical glam premium',
+    'Mascara decorativa generica',
+    'Carnaval premium luxo',
+    'Verao brasileiro energia',
+    'Sunset brasileiro tropical',
+    'Energia colorida vibrante',
+    'Ritmo visual animado',
+    'Purpurina brilhante',
+    'Abada generico colorido',
+    'Micareta neon',
+    'Festa tropical premium',
+    'Brasil neon colorido',
+    'Alegria visual festa',
+    'Serpentina animada',
+  ],
+  cha_revelacao: [
+    'Azul e rosa pastel suave',
+    'Nuvens suaves bebe',
+    'Ursinho generico fofo',
+    'Baby shower elegante',
+    'Reveal moment premium',
+    'Menino ou menina',
+    'Baloes pastel suaves',
+    'Chuva de coracoes',
+    'Estrelinhas bebe',
+    'Minimal baby clean',
+    'Family love suave',
+    'Doce espera elegante',
+    'Cha revelacao premium luxo',
+    'Nome do bebe minimal',
+    'Mamae e papai',
+    'Carrinho minimalista',
+    'Sapatinhos line art',
+    'Confete rosa azul animado',
+    'Ceu de bebe pastel',
+    'Algodao doce suave',
+  ],
+  halloween: [
+    'Halloween neon escuro',
+    'Aboboras genericas neon',
+    'Dark party premium',
+    'Fog horror leve',
+    'Bruxa minimalista',
+    'Morcegos voando',
+    'Lua cheia dramatica',
+    'Caveira decorativa chic',
+    'Festa fantasia elegante',
+    'Suspense elegante dark',
+    'Roxo e laranja neon',
+    'Horror clean moderno',
+    'Gothic party premium',
+    'Spider web dark',
+    'Haunted frame escuro',
+    'Dark luxury premium',
+    'Monster party generico',
+    'Glitch horror digital',
+    'Sombras animadas misterio',
+    'Neon spooky dark',
+  ],
 };
 
 type TemplateIdea = {
@@ -429,7 +708,7 @@ const TEMPLATE_IDEAS: TemplateIdea[] = Object.entries(TEMPLATE_IDEA_GROUPS).flat
   }))
 );
 
-const LEGACY_GENERATED_TEMPLATE_COUNT = 720;
+const LEGACY_GENERATED_TEMPLATE_COUNT = 1440;
 const IDEA_COLOR_VARIANTS = [COLOR_VARIANTS[0], COLOR_VARIANTS[3]] as const;
 export const GENERATED_TEMPLATE_CATALOG_SIZE = LEGACY_GENERATED_TEMPLATE_COUNT + TEMPLATE_IDEAS.length * ASPECTS.length * IDEA_COLOR_VARIANTS.length;
 
@@ -516,6 +795,12 @@ function defaultBadge(category: TemplateCategory) {
     church: 'BEM-VINDO',
     premium: 'VIP MOMENT',
     viral: 'VIRAL READY',
+    infantil: 'FESTA KIDS',
+    esportivo: 'GAME DAY',
+    natal: 'FELIZ NATAL',
+    carnaval: 'CARNAVAL',
+    cha_revelacao: 'BABY SHOWER',
+    halloween: 'HALLOWEEN',
   };
   return labels[category];
 }
@@ -549,6 +834,12 @@ function ideaLayout(category: TemplateCategory, title: string, index: number): L
     church: ['minimal_luxe', 'romantic_lace', 'orbital_focus', 'floral_crown'],
     premium: ['luxury_corners', 'minimal_luxe', 'geometric_lux', 'chrome_frame'],
     viral: ['glitch_reel', 'applay_flow', 'social_story', 'retro_vhs'],
+    infantil: ['confetti_arch', 'sticker_burst', 'liquid_waves', 'social_story'],
+    esportivo: ['spotlight_stage', 'chrome_frame', 'brand_slate', 'tech_hud'],
+    natal: ['luxury_corners', 'floral_crown', 'minimal_luxe', 'geometric_lux'],
+    carnaval: ['confetti_arch', 'neon_corners', 'sticker_burst', 'applay_flow'],
+    cha_revelacao: ['romantic_lace', 'floral_crown', 'liquid_waves', 'orbital_focus'],
+    halloween: ['glitch_reel', 'retro_vhs', 'neon_corners', 'orbital_focus'],
   };
 
   return pick(byCategory[category], index);
@@ -575,6 +866,12 @@ function ideaPalettes(category: TemplateCategory, title: string): [string, strin
     church: [['#f8fafc', '#d6b26e', '#93c5fd'], ['#1e3a8a', '#facc15', '#f8fafc']],
     premium: [['#050505', '#f6c453', '#fef3c7'], ['#160b2f', '#c084fc', '#f8fafc']],
     viral: [['#ff0050', '#00f2ea', '#f8fafc'], ['#7c3aed', '#22d3ee', '#fef08a']],
+    infantil: [['#f472b6', '#facc15', '#86efac'], ['#818cf8', '#fb923c', '#fde68a']],
+    esportivo: [['#1e40af', '#fbbf24', '#f8fafc'], ['#991b1b', '#fbbf24', '#f8fafc']],
+    natal: [['#b91c1c', '#fbbf24', '#f8fafc'], ['#050505', '#d4af37', '#fef3c7']],
+    carnaval: [['#f97316', '#8b5cf6', '#22d3ee'], ['#f43f5e', '#84cc16', '#fbbf24']],
+    cha_revelacao: [['#fbcfe8', '#93c5fd', '#fef9c3'], ['#f8fafc', '#f472b6', '#60a5fa']],
+    halloween: [['#1c0030', '#f97316', '#a855f7'], ['#050505', '#f97316', '#86efac']],
   };
 
   return defaults[category];
@@ -1391,6 +1688,12 @@ function cakeOrCategoryMark(ctx: TemplateContext) {
   if (ctx.category === 'store') return storeMark(ctx);
   if (ctx.category === 'church') return churchMark(ctx);
   if (ctx.category === 'viral') return glitchBars(ctx);
+  if (ctx.category === 'infantil') return balloonCluster(ctx);
+  if (ctx.category === 'esportivo') return corporateGrid(ctx);
+  if (ctx.category === 'natal') return luxuryOrnaments(ctx);
+  if (ctx.category === 'carnaval') return confetti(ctx, 28, 'top');
+  if (ctx.category === 'cha_revelacao') return rings(ctx);
+  if (ctx.category === 'halloween') return glitchBars(ctx);
   return sparkles(ctx, 10);
 }
 

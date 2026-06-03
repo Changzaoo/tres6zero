@@ -20,15 +20,21 @@ const TEMPLATE_BATCH_SIZE = 32;
 
 const categoryOptions = [
   { value: 'all', label: 'Todas' },
-  { value: 'party', label: 'Festa' },
+  { value: 'birthday', label: 'Aniversario' },
   { value: 'wedding', label: 'Casamento' },
   { value: 'corporate', label: 'Corporativo' },
-  { value: 'birthday', label: 'Aniversario' },
   { value: 'graduation', label: 'Formatura' },
-  { value: 'store', label: 'Loja' },
+  { value: 'party', label: 'Balada / Festa' },
+  { value: 'store', label: 'Loja / Inauguracao' },
   { value: 'church', label: 'Igreja' },
+  { value: 'premium', label: 'Premium / Luxo' },
+  { value: 'infantil', label: 'Infantil' },
+  { value: 'esportivo', label: 'Esportivo' },
+  { value: 'natal', label: 'Natal / Ano Novo' },
+  { value: 'carnaval', label: 'Carnaval' },
+  { value: 'cha_revelacao', label: 'Cha Revelacao' },
+  { value: 'halloween', label: 'Halloween' },
   { value: 'viral', label: 'Viral' },
-  { value: 'premium', label: 'Premium' },
 ];
 
 const aspectOptions = [
