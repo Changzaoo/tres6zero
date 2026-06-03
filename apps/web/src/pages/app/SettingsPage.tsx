@@ -370,6 +370,26 @@ export default function SettingsPage() {
 
               <Button type="submit" size="sm" loading={profileForm.formState.isSubmitting}>Salvar perfil</Button>
             </form>
+
+            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="mt-4 border-t border-white/10 pt-4">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <Input
+                  label="Nova senha"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Digite a nova senha"
+                  icon={<KeyRound className="h-4 w-4" />}
+                  error={passwordForm.formState.errors.newPassword?.message}
+                  {...passwordForm.register('newPassword', {
+                    required: 'Digite a nova senha.',
+                    minLength: { value: 8, message: 'Use pelo menos 8 caracteres.' },
+                  })}
+                />
+                <Button type="submit" size="sm" loading={passwordForm.formState.isSubmitting}>
+                  Alterar senha
+                </Button>
+              </div>
+            </form>
           </Card>
 
           <Card padding="sm">
@@ -475,26 +495,6 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          <Card padding="sm">
-            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
-              <KeyRound className="h-5 w-5 text-brand-400" />
-              Senha
-            </h2>
-            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <Input
-                label="Nova senha"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Digite a nova senha"
-                error={passwordForm.formState.errors.newPassword?.message}
-                {...passwordForm.register('newPassword', {
-                  required: 'Digite a nova senha.',
-                  minLength: { value: 8, message: 'Use pelo menos 8 caracteres.' },
-                })}
-              />
-              <Button type="submit" size="sm" loading={passwordForm.formState.isSubmitting}>Alterar senha</Button>
-            </form>
-          </Card>
         </div>
 
         <Card padding="sm" className="lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto">
