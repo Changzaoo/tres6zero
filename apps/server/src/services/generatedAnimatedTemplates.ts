@@ -6,6 +6,8 @@ import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplat
 
 type BaseTemplate = ReturnType<typeof buildGeneratedTemplates>[number];
 
+export const GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE = 480;
+
 export type GeneratedAnimatedTemplate = Omit<BaseTemplate, 'id' | 'name' | 'storagePath' | 'overlayUrl'> & {
   id: string;
   name: string;
@@ -349,7 +351,7 @@ type BuildGeneratedAnimatedTemplatesOptions = {
   includeDataUrl?: boolean;
 };
 
-export function buildGeneratedAnimatedTemplates(count = 144, offset = 0, options: BuildGeneratedAnimatedTemplatesOptions = {}): GeneratedAnimatedTemplate[] {
+export function buildGeneratedAnimatedTemplates(count = GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, offset = 0, options: BuildGeneratedAnimatedTemplatesOptions = {}): GeneratedAnimatedTemplate[] {
   const stride = count < GENERATED_TEMPLATE_CATALOG_SIZE
     ? Math.max(1, Math.floor(GENERATED_TEMPLATE_CATALOG_SIZE / count))
     : 1;

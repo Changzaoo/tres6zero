@@ -18,15 +18,15 @@ function bucketName(name: string, fallback: string) {
   return env(name) || fallback;
 }
 
-const defaultTemplatesBucket = bucketName('SUPABASE_TEMPLATES_BUCKET', 'templates');
+const defaultTemplatesBucket = bucketName('SUPABASE_TEMPLATES_BUCKET', 'six3-project-templates');
 
 export const SUPABASE_BUCKETS = {
   videos: bucketName('SUPABASE_VIDEOS_BUCKET', 'videos'),
   legacyTemplates: defaultTemplatesBucket,
-  projectTemplates: bucketName('SUPABASE_PROJECT_TEMPLATES_BUCKET', defaultTemplatesBucket),
-  projectMusic: bucketName('SUPABASE_PROJECT_MUSIC_BUCKET', defaultTemplatesBucket),
-  userTemplates: bucketName('SUPABASE_USER_TEMPLATES_BUCKET', defaultTemplatesBucket),
-  userMusic: bucketName('SUPABASE_USER_MUSIC_BUCKET', defaultTemplatesBucket),
+  projectTemplates: bucketName('SUPABASE_PROJECT_TEMPLATES_BUCKET', 'six3-project-templates'),
+  projectMusic: bucketName('SUPABASE_PROJECT_MUSIC_BUCKET', 'six3-project-music'),
+  userTemplates: bucketName('SUPABASE_USER_TEMPLATES_BUCKET', 'six3-user-templates'),
+  userMusic: bucketName('SUPABASE_USER_MUSIC_BUCKET', 'six3-user-music'),
   profileAvatars: bucketName('SUPABASE_PROFILE_AVATARS_BUCKET', 'profile-photos'),
 } as const;
 

@@ -6,7 +6,7 @@ import { Buffer } from 'node:buffer';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { requireAdmin, requireActiveSubscription, requirePlanFeature } from './auth';
 import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
-import { buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
+import { GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
 import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
@@ -18,7 +18,7 @@ const seedSchema = z.object({
   count: z.number().int().min(1).max(2200).optional(),
   offset: z.number().int().min(0).max(10000).optional(),
   musicCount: z.number().int().min(0).max(120).optional(),
-  animatedCount: z.number().int().min(0).max(300).optional(),
+  animatedCount: z.number().int().min(0).max(600).optional(),
 });
 
 const templateCategories = [
@@ -220,10 +220,11 @@ templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
     previewUrl: generatedRenderUrl(req, template.id),
     overlayUrl: generatedRenderUrl(req, template.id),
   }));
-  const animatedTemplates = buildGeneratedAnimatedTemplates(240, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
+  const animatedTemplates = buildGeneratedAnimatedTemplates(GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
     ...template,
     previewUrl: generatedRenderUrl(req, template.id),
     overlayUrl: generatedRenderUrl(req, template.id),
+    animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
   }));
 
   res.json({ templates: [...animatedTemplates, ...templates] });
@@ -565,7 +566,7 @@ templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) =
   try {
     if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
 
-    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, animatedCount = 240, musicCount = 0 } = seedSchema.parse(req.body || {});
+    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, animatedCount = GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, musicCount = 0 } = seedSchema.parse(req.body || {});
     const templates = await uploadProjectTemplates(count, offset);
     const animatedTemplates = animatedCount > 0 ? await uploadProjectAnimatedTemplates(animatedCount, offset) : [];
     const music = musicCount > 0 ? await uploadProjectMusic(musicCount) : [];
@@ -587,7 +588,7 @@ templatesRouter.post('/seed-assets', requireSeedSecret, async (req, res, next) =
   try {
     if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
 
-    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 72, animatedCount = 240 } = seedSchema.parse(req.body || {});
+    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 72, animatedCount = GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE } = seedSchema.parse(req.body || {});
     await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
     await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
 
@@ -617,7 +618,7 @@ templatesRouter.post('/seed-assets-job', requireSeedSecret, async (req, res, nex
   try {
     if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
 
-    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 0, animatedCount = 240 } = seedSchema.parse(req.body || {});
+    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 0, animatedCount = GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE } = seedSchema.parse(req.body || {});
     const now = new Date().toISOString();
     const job: SeedJob = {
       id: randomUUID(),
@@ -654,7 +655,7 @@ templatesRouter.post('/seed-transparent-job', requireAdmin, async (req, res, nex
   try {
     if (!heavyAssetJobsEnabled()) return rejectHeavyAssetJob(res);
 
-    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 72, animatedCount = 240 } = seedSchema.parse(req.body || {});
+    const { count = GENERATED_TEMPLATE_CATALOG_SIZE, offset = 0, musicCount = 72, animatedCount = GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE } = seedSchema.parse(req.body || {});
     const now = new Date().toISOString();
     const job: SeedJob = {
       id: randomUUID(),

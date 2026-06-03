@@ -1562,126 +1562,304 @@ function geometricLux(ctx: TemplateContext) {
   </g>`;
 }
 
+function edgeTrace(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent } = ctx;
+  const inset = Math.max(14, ctx.stroke * 0.72);
+
+  return `<g fill="none" filter="url(#softGlow)">
+    <rect x="${round(margin - inset * 0.36)}" y="${round(margin - inset * 0.36)}" width="${round(width - (margin - inset * 0.36) * 2)}" height="${round(height - (margin - inset * 0.36) * 2)}" rx="${round(inset * 0.9)}" stroke="${primary}" stroke-width="${Math.max(2, ctx.stroke * 0.09)}" opacity="0.32"/>
+    <rect x="${round(margin + inset * 0.72)}" y="${round(margin + inset * 0.72)}" width="${round(width - (margin + inset * 0.72) * 2)}" height="${round(height - (margin + inset * 0.72) * 2)}" rx="${round(inset * 0.55)}" stroke="${secondary}" stroke-width="${Math.max(2, ctx.stroke * 0.07)}" opacity="0.18"/>
+    <path d="M${margin} ${margin + inset * 2.2} V${margin} H${margin + inset * 2.2}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.13)}" stroke-linecap="round" opacity="0.78"/>
+    <path d="M${width - margin - inset * 2.2} ${height - margin} H${width - margin} V${height - margin - inset * 2.2}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.13)}" stroke-linecap="round" opacity="0.7"/>
+  </g>`;
+}
+
+function cornerFans(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const r = aspectRatio === '16:9' ? height * 0.105 : width * 0.14;
+  const sw = Math.max(4, ctx.stroke * 0.14);
+  const fan = (x: number, y: number, sx: number, sy: number, colorA: string, colorB: string) => `
+    <g transform="translate(${round(x)} ${round(y)}) scale(${sx} ${sy})" filter="url(#softGlow)">
+      <path d="M0 ${r * 0.9} C${r * 0.34} ${r * 0.42}, ${r * 0.42} ${r * 0.34}, ${r * 0.9} 0" fill="none" stroke="${colorA}" stroke-width="${sw}" stroke-linecap="round" opacity="0.82"/>
+      <path d="M0 ${r * 0.56} C${r * 0.22} ${r * 0.28}, ${r * 0.28} ${r * 0.22}, ${r * 0.56} 0" fill="none" stroke="${colorB}" stroke-width="${Math.max(3, sw * 0.58)}" stroke-linecap="round" opacity="0.72"/>
+      ${Array.from({ length: 5 }, (_, i) => {
+        const a = (i + 1) / 6;
+        return `<path d="M${r * a} 0 C${r * a * 0.82} ${r * 0.28}, ${r * 0.28} ${r * a * 0.82}, 0 ${r * a}" fill="none" stroke="${i % 2 ? accent : colorA}" stroke-width="${Math.max(2, sw * 0.28)}" opacity="${0.34 + i * 0.07}"/>`;
+      }).join('')}
+    </g>`;
+
+  return [
+    fan(margin, margin, 1, 1, primary, secondary),
+    fan(width - margin, margin, -1, 1, secondary, accent),
+    fan(margin, height - margin, 1, -1, accent, primary),
+    fan(width - margin, height - margin, -1, -1, primary, secondary),
+  ].join('');
+}
+
+function edgeRibbons(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const band = aspectRatio === '16:9' ? height * 0.07 : width * 0.105;
+  const topY = margin * 0.72;
+  const bottomY = height - margin * 0.72;
+
+  return `<g filter="url(#shadow)">
+    <path d="M${-band} ${topY + band * 0.65} L${width * 0.24} ${topY - band * 0.28} L${width * 0.36} ${topY + band * 0.08} L${band * 0.32} ${topY + band * 1.16} Z" fill="${primary}" opacity="0.78"/>
+    <path d="M${width + band} ${bottomY - band * 0.65} L${width * 0.76} ${bottomY + band * 0.28} L${width * 0.64} ${bottomY - band * 0.08} L${width - band * 0.32} ${bottomY - band * 1.16} Z" fill="${secondary}" opacity="0.78"/>
+    <path d="M${margin} ${topY + band * 1.12} H${margin + band * 2.4}" stroke="${accent}" stroke-width="${Math.max(4, ctx.stroke * 0.16)}" stroke-linecap="round" opacity="0.72"/>
+    <path d="M${width - margin - band * 2.4} ${bottomY - band * 1.12} H${width - margin}" stroke="${accent}" stroke-width="${Math.max(4, ctx.stroke * 0.16)}" stroke-linecap="round" opacity="0.68"/>
+  </g>`;
+}
+
+function perimeterDots(ctx: TemplateContext, density = 18) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const colors = [primary, secondary, accent, '#ffffff'];
+  const horizontal = Array.from({ length: density }, (_, i) => {
+    const x = margin + (i * (width - margin * 2)) / Math.max(1, density - 1);
+    const r = Math.max(4, Math.min(width, height) * (0.005 + (i % 3) * 0.0018));
+    return `<circle cx="${round(x)}" cy="${round(margin * 0.78)}" r="${round(r)}" fill="${colors[(i + index) % colors.length]}" opacity="${0.4 + (i % 4) * 0.08}"/>
+      <circle cx="${round(x)}" cy="${round(height - margin * 0.78)}" r="${round(r * 0.82)}" fill="${colors[(i + index + 2) % colors.length]}" opacity="${0.34 + (i % 4) * 0.07}"/>`;
+  }).join('');
+  const vertical = Array.from({ length: Math.max(8, Math.round(density * 0.72)) }, (_, i) => {
+    const y = margin + (i * (height - margin * 2)) / Math.max(1, Math.round(density * 0.72) - 1);
+    const r = Math.max(4, Math.min(width, height) * (0.004 + (i % 3) * 0.0015));
+    return `<circle cx="${round(margin * 0.78)}" cy="${round(y)}" r="${round(r)}" fill="${colors[(i + index + 1) % colors.length]}" opacity="${0.3 + (i % 4) * 0.08}"/>
+      <circle cx="${round(width - margin * 0.78)}" cy="${round(y)}" r="${round(r * 0.9)}" fill="${colors[(i + index + 3) % colors.length]}" opacity="${0.32 + (i % 4) * 0.07}"/>`;
+  }).join('');
+
+  return `<g filter="url(#softGlow)">${horizontal}${vertical}</g>`;
+}
+
+function glassShards(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const colors = [primary, secondary, accent, '#ffffff'];
+  const shard = (x: number, y: number, s: number, color: string, flip = 1) => `<path d="M${round(x)} ${round(y)} L${round(x + s * 1.42 * flip)} ${round(y + s * 0.28)} L${round(x + s * 0.36 * flip)} ${round(y + s * 1.72)} Z" fill="${color}" opacity="0.2" stroke="${color}" stroke-width="${Math.max(2, ctx.stroke * 0.06)}" stroke-opacity="0.42"/>`;
+  const items = Array.from({ length: 16 }, (_, i) => {
+    const side = i % 2 === 0 ? 1 : -1;
+    const x = side > 0
+      ? margin * 0.52 + ((i * 37 + index) % Math.round(width * 0.12))
+      : width - margin * 0.52 - ((i * 37 + index) % Math.round(width * 0.12));
+    const y = margin + ((i * 131 + index * 17) % Math.round(height - margin * 2));
+    const s = Math.min(width, height) * (0.026 + (i % 4) * 0.006);
+    return shard(x, y, s, colors[(i + index) % colors.length], side);
+  }).join('');
+
+  return `<g filter="url(#shadow)">${items}</g>`;
+}
+
+function filmEdge(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const stripW = aspectRatio === '16:9' ? width * 0.055 : width * 0.105;
+  const holes = Math.max(8, aspectRatio === '16:9' ? 7 : 12);
+  const holeH = (height - margin * 2) / (holes * 1.8);
+  const left = Array.from({ length: holes }, (_, i) => {
+    const y = margin + (i * (height - margin * 2)) / holes + holeH * 0.22;
+    return `<rect x="${round(margin * 0.42)}" y="${round(y)}" width="${round(stripW * 0.28)}" height="${round(holeH)}" rx="${round(holeH * 0.22)}" fill="#ffffff" opacity="0.42"/>
+      <rect x="${round(width - margin * 0.42 - stripW * 0.28)}" y="${round(y)}" width="${round(stripW * 0.28)}" height="${round(holeH)}" rx="${round(holeH * 0.22)}" fill="#ffffff" opacity="0.36"/>`;
+  }).join('');
+
+  return `<g filter="url(#shadow)">
+    <path d="M${margin * 0.32} ${margin} V${height - margin}" stroke="${primary}" stroke-width="${Math.max(5, ctx.stroke * 0.22)}" stroke-linecap="round" opacity="0.58"/>
+    <path d="M${width - margin * 0.32} ${margin} V${height - margin}" stroke="${secondary}" stroke-width="${Math.max(5, ctx.stroke * 0.22)}" stroke-linecap="round" opacity="0.58"/>
+    ${left}
+    <path d="M${margin + stripW * 0.8} ${margin * 0.68} H${width - margin - stripW * 0.8}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.1)}" opacity="0.48"/>
+    <path d="M${margin + stripW * 0.8} ${height - margin * 0.68} H${width - margin - stripW * 0.8}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.1)}" opacity="0.42"/>
+  </g>`;
+}
+
+function hudFrame(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const tickCount = ctx.aspectRatio === '16:9' ? 22 : 18;
+  const ticks = Array.from({ length: tickCount }, (_, i) => {
+    const x = margin + (i * (width - margin * 2)) / Math.max(1, tickCount - 1);
+    const topLen = margin * (0.18 + (i % 3) * 0.09);
+    return `<path d="M${round(x)} ${round(margin * 0.72)} V${round(margin * 0.72 + topLen)}" stroke="${i % 2 ? primary : secondary}" stroke-width="${Math.max(2, ctx.stroke * 0.06)}" opacity="${0.38 + (i % 4) * 0.07}"/>
+      <path d="M${round(x)} ${round(height - margin * 0.72)} V${round(height - margin * 0.72 - topLen)}" stroke="${i % 2 ? secondary : accent}" stroke-width="${Math.max(2, ctx.stroke * 0.06)}" opacity="${0.34 + (i % 4) * 0.06}"/>`;
+  }).join('');
+  const reticle = (x: number, y: number, r: number, color: string) => `<g fill="none" stroke="${color}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}" opacity="0.62">
+    <circle cx="${round(x)}" cy="${round(y)}" r="${round(r)}"/>
+    <path d="M${round(x - r * 1.45)} ${round(y)} H${round(x - r * 0.58)} M${round(x + r * 0.58)} ${round(y)} H${round(x + r * 1.45)} M${round(x)} ${round(y - r * 1.45)} V${round(y - r * 0.58)} M${round(x)} ${round(y + r * 0.58)} V${round(y + r * 1.45)}"/>
+  </g>`;
+
+  return `<g filter="url(#softGlow)">
+    ${ticks}
+    ${reticle(margin * 1.55, margin * 1.55, Math.min(width, height) * 0.035, primary)}
+    ${reticle(width - margin * 1.55, height - margin * 1.55, Math.min(width, height) * 0.035, secondary)}
+    <path d="M${margin * 0.86} ${height * 0.5} H${margin * 1.78} M${width - margin * 1.78} ${height * 0.5} H${width - margin * 0.86}" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.1)}" opacity="${0.42 + (index % 3) * 0.08}"/>
+  </g>`;
+}
+
+function floralEdge(ctx: TemplateContext) {
+  const s = ctx.aspectRatio === '16:9' ? ctx.height * 0.1 : ctx.width * 0.135;
+  return [
+    flowerCluster(ctx, ctx.margin * 0.78, ctx.margin * 0.62, s),
+    flowerCluster(ctx, ctx.width - ctx.margin * 0.78, ctx.margin * 0.62, s, -1),
+    flowerCluster(ctx, ctx.margin * 0.78, ctx.height - ctx.margin - s * 1.58, s * 0.76),
+    flowerCluster(ctx, ctx.width - ctx.margin * 0.78, ctx.height - ctx.margin - s * 1.58, s * 0.76, -1),
+    romanticLace(ctx),
+  ].join('');
+}
+
+function waveFrame(ctx: TemplateContext) {
+  return [
+    liquidWaves(ctx),
+    perimeterDots(ctx, ctx.aspectRatio === '16:9' ? 24 : 18),
+    sparkles(ctx, 10),
+  ].join('');
+}
+
+function premiumFrame(ctx: TemplateContext) {
+  return [
+    luxuryOrnaments(ctx),
+    geometricLux(ctx),
+    cornerFans(ctx),
+    perimeterDots(ctx, ctx.aspectRatio === '16:9' ? 18 : 14),
+  ].join('');
+}
+
+function storeAccent(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, aspectRatio } = ctx;
+  const s = aspectRatio === '16:9' ? height * 0.1 : width * 0.14;
+  const awning = (x: number, y: number, flip = 1) => `<g transform="translate(${round(x)} ${round(y)}) scale(${flip} 1)" filter="url(#shadow)">
+    <path d="M0 ${s * 0.46} H${s * 1.84} L${s * 1.58} 0 H${s * 0.26} Z" fill="#050505" opacity="0.42" stroke="${secondary}" stroke-width="${Math.max(2, ctx.stroke * 0.08)}"/>
+    ${Array.from({ length: 5 }, (_, i) => {
+      const sx = (i * s * 1.84) / 5;
+      return `<path d="M${sx} ${s * 0.46} H${sx + s * 0.37} V${s * 0.66} C${sx + s * 0.3} ${s * 0.84}, ${sx + s * 0.07} ${s * 0.84}, ${sx} ${s * 0.66} Z" fill="${i % 2 ? secondary : primary}" opacity="0.82"/>`;
+    }).join('')}
+    <rect x="${s * 0.24}" y="${s * 0.82}" width="${s * 1.36}" height="${s * 0.58}" rx="${s * 0.1}" fill="none" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.1)}" opacity="0.68"/>
+  </g>`;
+
+  return `${awning(width - margin - s * 1.84, margin + s * 0.25)}${awning(margin + s * 1.84, height - margin - s * 1.76, -1)}`;
+}
+
+function categoryAccent(ctx: TemplateContext) {
+  if (ctx.category === 'birthday') return cakeIcon(ctx);
+  if (ctx.category === 'wedding') return rings(ctx);
+  if (ctx.category === 'corporate') return hudFrame(ctx);
+  if (ctx.category === 'graduation') return graduationMark(ctx);
+  if (ctx.category === 'store') return storeAccent(ctx);
+  if (ctx.category === 'church') return churchMark(ctx);
+  if (ctx.category === 'viral') return glitchBars(ctx);
+  if (ctx.category === 'infantil') return balloonCluster(ctx);
+  if (ctx.category === 'esportivo') return hudFrame(ctx);
+  if (ctx.category === 'natal') return premiumFrame(ctx);
+  if (ctx.category === 'carnaval') return confetti(ctx, 42, 'top') + confetti(ctx, 18, 'sides');
+  if (ctx.category === 'cha_revelacao') return rings(ctx) + balloonCluster(ctx);
+  if (ctx.category === 'halloween') return glitchBars(ctx) + glassShards(ctx);
+  return sparkles(ctx, 12);
+}
+
 function renderLayout(ctx: TemplateContext) {
-  const common = [lineFrame(ctx)];
+  const common = [edgeTrace(ctx), lineFrame(ctx)];
 
   if (ctx.layout === 'poster_clip') {
-    return [...common, posterStrips(ctx), balloonCluster(ctx), confetti(ctx, ctx.aspectRatio === '16:9' ? 26 : 36, 'top'), badge(ctx)].join('');
+    return [...common, filmEdge(ctx), cornerFans(ctx), confetti(ctx, ctx.aspectRatio === '16:9' ? 30 : 42, 'top'), categoryAccent(ctx)].join('');
   }
 
   if (ctx.layout === 'snap_filter') {
-    return [...common, topRibbon(ctx), sideRails(ctx), eventDots(ctx), sparkles(ctx, 12), badge(ctx, true)].join('');
+    return [...common, sideRails(ctx), perimeterDots(ctx, 18), sparkles(ctx, 18), categoryAccent(ctx)].join('');
   }
 
   if (ctx.layout === 'applay_flow') {
-    return [...common, chromeCurves(ctx), equalizer(ctx), topRibbon(ctx), sparkles(ctx, 10), badge(ctx, true)].join('');
+    return [...common, chromeCurves(ctx), equalizer(ctx), glassShards(ctx), sparkles(ctx, 12)].join('');
   }
 
   if (ctx.layout === 'neon_corners') {
-    return [...common, sideRails(ctx), sparkles(ctx, 18), confetti(ctx, 18, 'sides'), badge(ctx)].join('');
+    return [...common, sideRails(ctx), cornerFans(ctx), sparkles(ctx, 22), confetti(ctx, 24, 'sides')].join('');
   }
 
   if (ctx.layout === 'floral_crown') {
-    const s = ctx.aspectRatio === '16:9' ? ctx.height * 0.12 : ctx.width * 0.16;
-    return [
-      ...common,
-      flowerCluster(ctx, ctx.margin * 0.8, ctx.margin * 0.7, s),
-      flowerCluster(ctx, ctx.width - ctx.margin * 0.8, ctx.margin * 0.7, s, -1),
-      flowerCluster(ctx, ctx.margin * 0.8, ctx.height - ctx.margin - s * 1.65, s * 0.8),
-      rings(ctx),
-      badge(ctx, true),
-    ].join('');
+    return [...common, floralEdge(ctx), rings(ctx), sparkles(ctx, 8)].join('');
   }
 
   if (ctx.layout === 'luxury_corners') {
-    return [...common, luxuryOrnaments(ctx), sparkles(ctx, 8), badge(ctx, true)].join('');
+    return [...common, premiumFrame(ctx), sparkles(ctx, 10)].join('');
   }
 
   if (ctx.layout === 'glitch_reel') {
-    return [...common, glitchBars(ctx), equalizer(ctx), topRibbon(ctx), badge(ctx, true)].join('');
+    return [...common, glitchBars(ctx), equalizer(ctx), hudFrame(ctx), glassShards(ctx)].join('');
   }
 
   if (ctx.layout === 'cinematic_band') {
-    return [...common, topRibbon(ctx), chromeCurves(ctx), corporateGrid(ctx), badge(ctx)].join('');
+    return [...common, filmEdge(ctx), chromeCurves(ctx), corporateGrid(ctx), perimeterDots(ctx, 14)].join('');
   }
 
   if (ctx.layout === 'confetti_arch') {
-    return [...common, confetti(ctx, ctx.aspectRatio === '16:9' ? 42 : 58, 'top'), confetti(ctx, 18, 'bottom'), balloonCluster(ctx), cakeOrCategoryMark(ctx), badge(ctx)].join('');
+    return [...common, confetti(ctx, ctx.aspectRatio === '16:9' ? 48 : 66, 'top'), confetti(ctx, 24, 'bottom'), balloonCluster(ctx), categoryAccent(ctx)].join('');
   }
 
   if (ctx.layout === 'event_badge') {
-    return [...common, topRibbon(ctx), eventDots(ctx), cakeOrCategoryMark(ctx), badge(ctx)].join('');
+    return [...common, eventDots(ctx), perimeterDots(ctx, 20), categoryAccent(ctx), sparkles(ctx, 10)].join('');
   }
 
   if (ctx.layout === 'chrome_frame') {
-    return [...common, chromeCurves(ctx), corporateGrid(ctx), glitchBars({ ...ctx, index: ctx.index + 7 }), badge(ctx, true)].join('');
+    return [...common, chromeCurves(ctx), glassShards(ctx), corporateGrid(ctx), glitchBars({ ...ctx, index: ctx.index + 7 })].join('');
   }
 
   if (ctx.layout === 'polaroid_stack') {
-    return [...common, polaroidStack(ctx), sparkles(ctx, 8), badge(ctx, true)].join('');
+    return [...common, filmEdge(ctx), glassShards(ctx), sparkles(ctx, 12), categoryAccent(ctx)].join('');
   }
 
   if (ctx.layout === 'ticket_pass') {
-    return [...common, ticketPass(ctx), eventDots(ctx), badge(ctx, true)].join('');
+    return [...common, filmEdge(ctx), perimeterDots(ctx, 24), eventDots(ctx), edgeRibbons(ctx)].join('');
   }
 
   if (ctx.layout === 'social_story') {
-    return [...common, socialStory(ctx), sideRails(ctx), badge(ctx, true)].join('');
+    return [...common, sideRails(ctx), perimeterDots(ctx, 22), confetti(ctx, 12, 'sides'), sparkles(ctx, 16)].join('');
   }
 
   if (ctx.layout === 'tech_hud') {
-    return [...common, techHud(ctx), corporateGrid(ctx), badge(ctx, true)].join('');
+    return [...common, hudFrame(ctx), corporateGrid(ctx), glassShards(ctx)].join('');
   }
 
   if (ctx.layout === 'orbital_focus') {
-    return [...common, orbitalFocus(ctx), sparkles(ctx, 10), badge(ctx, true)].join('');
+    return [...common, orbitalFocus(ctx), cornerFans(ctx), sparkles(ctx, 12)].join('');
   }
 
   if (ctx.layout === 'split_ribbon') {
-    return [...common, splitRibbon(ctx), eventDots(ctx), badge(ctx, true)].join('');
+    return [...common, edgeRibbons(ctx), eventDots(ctx), perimeterDots(ctx, 16)].join('');
   }
 
   if (ctx.layout === 'magazine_cover') {
-    return [...common, magazineCover(ctx), cakeOrCategoryMark(ctx), badge(ctx, true)].join('');
+    return [...common, filmEdge(ctx), edgeRibbons(ctx), categoryAccent(ctx), sparkles(ctx, 8)].join('');
   }
 
   if (ctx.layout === 'photo_strip') {
-    return [...common, photoStrip(ctx), sparkles(ctx, 8), badge(ctx, true)].join('');
+    return [...common, filmEdge(ctx), perimeterDots(ctx, 12), sparkles(ctx, 10), categoryAccent(ctx)].join('');
   }
 
   if (ctx.layout === 'spotlight_stage') {
-    return [...common, spotlightStage(ctx), equalizer(ctx), badge(ctx, true)].join('');
+    return [...common, spotlightStage(ctx), equalizer(ctx), cornerFans(ctx)].join('');
   }
 
   if (ctx.layout === 'liquid_waves') {
-    return [...common, liquidWaves(ctx), eventDots(ctx), badge(ctx, true)].join('');
+    return [...common, waveFrame(ctx), eventDots(ctx)].join('');
   }
 
   if (ctx.layout === 'sticker_burst') {
-    return [...common, stickerBurst(ctx), confetti(ctx, 14, 'sides'), badge(ctx, true)].join('');
+    return [...common, cornerFans(ctx), confetti(ctx, 22, 'sides'), sparkles(ctx, 20), categoryAccent(ctx)].join('');
   }
 
   if (ctx.layout === 'retro_vhs') {
-    return [...common, retroVhs(ctx), badge(ctx, true)].join('');
+    return [...common, filmEdge(ctx), glitchBars(ctx), hudFrame(ctx)].join('');
   }
 
   if (ctx.layout === 'minimal_editorial') {
-    return [...common, minimalEditorial(ctx), sparkles(ctx, 6), badge(ctx, true)].join('');
+    return [...common, edgeRibbons(ctx), perimeterDots(ctx, 12), sparkles(ctx, 8)].join('');
   }
 
   if (ctx.layout === 'brand_slate') {
-    return [...common, brandSlate(ctx), techHud({ ...ctx, index: ctx.index + 5 }), badge(ctx, true)].join('');
+    return [...common, hudFrame(ctx), corporateGrid(ctx), glassShards(ctx), edgeRibbons(ctx)].join('');
   }
 
   if (ctx.layout === 'romantic_lace') {
-    return [...common, romanticLace(ctx), flowerCluster(ctx, ctx.margin * 0.8, ctx.margin * 1.1, ctx.aspectRatio === '16:9' ? ctx.height * 0.09 : ctx.width * 0.12), rings(ctx), badge(ctx, true)].join('');
+    return [...common, floralEdge(ctx), rings(ctx), romanticLace(ctx)].join('');
   }
 
   if (ctx.layout === 'geometric_lux') {
-    return [...common, geometricLux(ctx), luxuryOrnaments(ctx), badge(ctx, true)].join('');
+    return [...common, premiumFrame(ctx), glassShards(ctx)].join('');
   }
 
-  return [...common, luxuryOrnaments(ctx), sideRails(ctx), sparkles(ctx, 12), badge(ctx, true)].join('');
+  return [...common, premiumFrame(ctx), sideRails(ctx), sparkles(ctx, 14)].join('');
 }
 
 function cakeOrCategoryMark(ctx: TemplateContext) {
