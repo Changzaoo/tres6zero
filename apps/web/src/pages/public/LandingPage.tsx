@@ -41,7 +41,7 @@ const footerGroups = [
       { label: 'Recursos', href: '/recursos' },
       { label: 'Como funciona', href: '/como-funciona' },
       { label: 'Estilos', href: '/estilos' },
-      { label: 'Planos', href: '/plans' },
+      { label: 'Planos', href: '#planos' },
       { label: 'Roadmap', href: '/roadmap' },
     ],
   },
@@ -182,6 +182,12 @@ const priceFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 });
 
+const promotionalMarkup = 99.99;
+
+function scrollToPlans() {
+  document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function LandingNav() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -235,7 +241,7 @@ function LandingNav() {
             >
               Entrar
             </button>
-            <Button size="sm" onClick={() => navigate('/plans')}>
+            <Button size="sm" onClick={scrollToPlans}>
               Começar agora
             </Button>
             <button
@@ -273,7 +279,14 @@ function LandingNav() {
               </a>
             ))}
           </div>
-          <Button className="mt-8 w-full" size="xl" onClick={() => navigate('/plans')}>
+          <Button
+            className="mt-8 w-full"
+            size="xl"
+            onClick={() => {
+              setOpen(false);
+              window.setTimeout(scrollToPlans, 0);
+            }}
+          >
             Começar agora
           </Button>
         </div>
@@ -298,9 +311,21 @@ function PricingPreview() {
             <h3 className="text-xl font-black tracking-[-0.02em] text-white">{plan.name}</h3>
             <p className="mt-2 min-h-[3rem] text-sm leading-relaxed text-white/50">{plan.tagline}</p>
             <div className="mt-6 flex items-end gap-1">
-              <span className="pb-1 text-sm text-white/40">R$</span>
-              <span className="text-4xl font-black leading-none tracking-[-0.03em] text-white">{priceFormatter.format(plan.price)}</span>
-              <span className="pb-1 font-mono text-xs text-white/35">/mês</span>
+              <div>
+                <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs leading-none">
+                  <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-100">
+                    Promoção
+                  </span>
+                  <span className="text-white/35 line-through">
+                    De R$ {priceFormatter.format(plan.price + promotionalMarkup)}/mês
+                  </span>
+                </div>
+                <div className="flex items-end gap-1">
+                  <span className="pb-1 text-sm text-white/40">R$</span>
+                  <span className="text-4xl font-black leading-none tracking-[-0.03em] text-white">{priceFormatter.format(plan.price)}</span>
+                  <span className="pb-1 font-mono text-xs text-white/35">/mês</span>
+                </div>
+              </div>
             </div>
             <ul className="mt-6 flex flex-1 flex-col gap-3">
               {plan.features.slice(0, plan.id === 'unlimited' ? 6 : 5).map((feature) => (
@@ -313,7 +338,7 @@ function PricingPreview() {
             <Button
               className="mt-6 w-full"
               variant={plan.highlight ? 'primary' : 'secondary'}
-              onClick={() => navigate('/plans')}
+              onClick={() => navigate(`/register?plan=${plan.id}`)}
             >
               {plan.id === 'unlimited' ? 'Liberar ilimitado' : 'Escolher plano'}
             </Button>
@@ -347,7 +372,7 @@ export default function LandingPage() {
               SIX3° transforma vídeos brutos em conteúdos prontos para postar, com cortes inteligentes, legendas, efeitos, música, ritmo e formatos otimizados para cada rede social.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="xl" onClick={() => navigate('/plans')} icon={<ArrowRight className="h-5 w-5" />}>
+              <Button size="xl" onClick={scrollToPlans} icon={<ArrowRight className="h-5 w-5" />}>
                 Começar agora
               </Button>
               <Button variant="secondary" size="xl" onClick={scrollToDemo} icon={<Sparkles className="h-5 w-5" />}>
@@ -530,7 +555,7 @@ export default function LandingPage() {
               <p className="relative mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/55 sm:text-lg">
                 Envie, escolha o estilo e deixe o SIX3° editar, publicar e organizar a entrega por você.
               </p>
-              <Button className="relative mt-8" size="xl" onClick={() => navigate('/plans')} icon={<ChevronRight className="h-5 w-5" />}>
+              <Button className="relative mt-8" size="xl" onClick={() => navigate('/register')} icon={<ChevronRight className="h-5 w-5" />}>
                 Começar a jornada
               </Button>
             </div>
@@ -548,9 +573,15 @@ export default function LandingPage() {
               <h3 className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">{group.title}</h3>
               <div className="mt-3 flex flex-col gap-2">
                 {group.items.map((item) => (
-                  <Link key={item.label} to={item.href} className="w-fit text-sm text-white/50 transition hover:text-white">
-                    {item.label}
-                  </Link>
+                  item.href.startsWith('#') ? (
+                    <a key={item.label} href={item.href} className="w-fit text-sm text-white/50 transition hover:text-white">
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link key={item.label} to={item.href} className="w-fit text-sm text-white/50 transition hover:text-white">
+                      {item.label}
+                    </Link>
+                  )
                 ))}
               </div>
             </div>

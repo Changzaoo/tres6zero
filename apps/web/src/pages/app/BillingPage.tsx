@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, ExternalLink, LockKeyhole, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { PlanCards } from '@/components/billing/PlanCards';
@@ -34,6 +34,7 @@ export default function BillingPage() {
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [installmentInfoOpen, setInstallmentInfoOpen] = useState(false);
+  const autoStartedPlan = useRef<PlanId | null>(null);
   const periodEnd = formatDate(user?.currentPeriodEnd);
   const selectedPlanId = normalizeSelectedPlan(user?.planId || user?.entitlements?.planId, isAdmin);
   const hasSelectedPlan = Boolean(selectedPlanId && (hasActiveSubscription || isAdmin));
@@ -103,6 +104,18 @@ export default function BillingPage() {
       setLoadingPlan(null);
     }
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedPlan = normalizeSelectedPlan(params.get('plan'), false);
+    if (!requestedPlan) return;
+
+    window.history.replaceState({}, '', '/app/billing');
+    if (hasActiveSubscription || isAdmin || loadingPlan || paymentOpen || autoStartedPlan.current === requestedPlan) return;
+
+    autoStartedPlan.current = requestedPlan;
+    startPixPayment(requestedPlan);
+  }, [hasActiveSubscription, isAdmin, loadingPlan, paymentOpen]);
 
   async function copyPixCode() {
     if (!payment?.pixCode) return;

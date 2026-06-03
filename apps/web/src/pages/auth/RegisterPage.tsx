@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
+import type { PlanId } from '@/config/plans';
 
 const schema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
@@ -32,9 +33,15 @@ function six3Email(username: string) {
   return `${normalizeUsername(username)}@six3.com`;
 }
 
+function selectedPlanFromSearch(value?: string | null): PlanId | null {
+  return value === 'starter' || value === 'pro' || value === 'unlimited' ? value : null;
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setUser = useAuthStore((state) => state.setUser);
+  const selectedPlan = selectedPlanFromSearch(searchParams.get('plan'));
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
   const usernameField = register('username', { setValueAs: normalizeUsername });
 
@@ -43,7 +50,7 @@ export default function RegisterPage() {
       const session = await registerUser(data.name, six3Email(data.username), data.password);
       setUser(session.user);
       toast.success('Conta criada com sucesso!');
-      navigate('/app/billing');
+      navigate(selectedPlan ? `/app/billing?plan=${selectedPlan}` : '/app/billing');
     } catch (error: any) {
       toast.error(parseFirebaseError(error.code));
     }
