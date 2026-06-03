@@ -22,21 +22,17 @@ export default function SupportPage() {
   const [conversations, setConversations] = useState<SupportConversation[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [email, setEmail] = useState(user?.email || '');
   const [subject, setSubject] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [reply, setReply] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const accountEmail = user?.email || '';
 
   const selected = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) || null,
     [conversations, selectedId]
   );
-
-  useEffect(() => {
-    setEmail(user?.email || '');
-  }, [user?.email]);
 
   useEffect(() => {
     let mounted = true;
@@ -78,14 +74,18 @@ export default function SupportPage() {
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
-    if (!email || !subject || !newMessage) {
-      toast.error('Preencha e-mail, assunto e mensagem.');
+    if (!accountEmail) {
+      toast.error('Nao foi possivel identificar o e-mail da conta.');
+      return;
+    }
+    if (!subject || !newMessage) {
+      toast.error('Preencha assunto e mensagem.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const { conversation } = await createSupportConversation({ email, subject, message: newMessage });
+      const { conversation } = await createSupportConversation({ email: accountEmail, subject, message: newMessage });
       setConversations((current) => [conversation, ...current]);
       setSelectedId(conversation.id);
       setSubject('');
@@ -131,7 +131,6 @@ export default function SupportPage() {
             Novo contato
           </h2>
           <form onSubmit={handleCreate} className="space-y-4">
-            <Input label="E-mail para resposta" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
             <Input label="Assunto" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Ex: Pagamento, acesso, vídeo..." />
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-white/70">Mensagem</label>
