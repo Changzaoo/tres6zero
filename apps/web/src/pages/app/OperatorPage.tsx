@@ -885,8 +885,8 @@ export default function OperatorPage() {
       ? 'mx-auto aspect-square max-w-[220px]'
       : 'mx-auto aspect-[9/16] max-w-[220px]';
   const videoPreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-video max-h-[66vh]'
-    : 'aspect-[9/16] max-h-[66vh]';
+    ? 'aspect-video max-h-[80vh]'
+    : 'aspect-[9/16] max-h-[80vh] mx-auto';
   const livePreviewFrameClass = videoOrientation === 'landscape'
     ? 'aspect-video max-h-[68vh]'
     : 'aspect-[9/16] max-h-[68vh]';
@@ -1637,7 +1637,7 @@ export default function OperatorPage() {
 
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[minmax(300px,500px)_minmax(0,1fr)]">
+          <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
             <VideoPreviewFrame template={selectedTemplate} effect={editorPreviewEffect} label="Editor" className={videoPreviewFrameClass}>
               <video
                 ref={previewRef}
@@ -1650,54 +1650,52 @@ export default function OperatorPage() {
               />
             </VideoPreviewFrame>
 
-            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 sm:p-5">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-bold text-white">
-                    <Wand2 className="h-4 w-4 text-brand-300" />
-                    Editor do video
-                  </div>
-                  <p className="mt-1 text-xs text-white/38">Ajuste tudo antes de gerar o video final.</p>
+            <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                  <Wand2 className="h-4 w-4 text-brand-300" />
+                  Editor
                 </div>
-                <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-white/55">
+                <span className="rounded-full border border-brand-300/30 bg-brand-500/14 px-2.5 py-1 text-xs font-bold text-brand-100">
                   {formatPreciseTime(outputDuration)}
-                </div>
+                </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={enableAiAutoEdit}
-                  className={`flex min-h-[62px] items-center gap-3 rounded-2xl border px-3 text-left transition-all sm:col-span-2 ${
-                    aiAutoSelected
-                      ? 'border-brand-300/55 bg-brand-500/18 shadow-glow'
-                      : canUseAiAuto
-                        ? 'border-white/10 bg-white/[0.045] hover:border-brand-300/35 hover:bg-white/[0.07]'
-                        : 'border-white/10 bg-white/[0.035] opacity-70'
-                  }`}
-                >
-                  <Sparkles className="h-5 w-5 shrink-0 text-brand-200" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
-                    <span className="block truncate text-xs text-white/42">O editor local decide acabamento, clima e trilha sem servidor externo.</span>
-                  </span>
-                  {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
-                </button>
-                <Select label="Template" options={templateOptions} value={selectedTemplateId}
-                  onChange={e => setSelectedTemplateId(e.target.value)} />
-                <p className="text-xs leading-relaxed text-white/36 sm:col-span-2">
-                  {templateAspectHint}
-                  {videoOrientation && ` ${filteredTemplates.length} disponiveis.`}
-                </p>
-                <EffectSelector
-                  value={effect}
-                  onChange={setEffect}
-                  isEffectLocked={isEffectLocked}
-                  compact
-                  className="sm:col-span-2"
-                  onApply={(selected) => toast.success(`${selected.name} aplicado ao editor.`)}
-                />
-                <Select label="Trilha sonora" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+              {/* IA auto edit */}
+              <button
+                type="button"
+                onClick={enableAiAutoEdit}
+                className={`flex items-center gap-2.5 rounded-2xl border p-3 text-left transition-all ${
+                  aiAutoSelected
+                    ? 'border-brand-300/55 bg-brand-500/18 shadow-glow'
+                    : canUseAiAuto
+                      ? 'border-white/10 bg-white/[0.045] hover:border-brand-300/35 hover:bg-white/[0.07]'
+                      : 'border-white/10 bg-white/[0.035] opacity-60'
+                }`}
+              >
+                <Sparkles className="h-4 w-4 shrink-0 text-brand-200" />
+                <span className="min-w-0 flex-1 text-sm font-bold text-white">IA auto edit</span>
+                {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
+              </button>
+
+              {/* Template */}
+              <Select label="Template" options={templateOptions} value={selectedTemplateId}
+                onChange={e => setSelectedTemplateId(e.target.value)} />
+
+              {/* Effect */}
+              <EffectSelector
+                value={effect}
+                onChange={setEffect}
+                isEffectLocked={isEffectLocked}
+                compact
+                onApply={(selected) => toast.success(`${selected.name} aplicado.`)}
+              />
+
+              {/* Music */}
+              <div className="space-y-2">
+                <Select label="Trilha sonora" options={resolvedMusicOptions} value={musicTheme}
+                  onChange={e => setMusicTheme(e.target.value)} />
                 <Button
                   variant="secondary"
                   size="sm"
@@ -1705,201 +1703,52 @@ export default function OperatorPage() {
                   disabled={!canUseAiAuto}
                   onClick={generateAiMusicFromContext}
                   icon={<Music2 className="h-4 w-4" />}
-                  className="min-h-11 justify-center"
+                  className="w-full justify-center"
                 >
                   Gerar trilha IA
                 </Button>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-white/70">Duracao final</p>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {DURATION_OPTIONS.map((seconds) => (
-                      <button
-                        key={seconds}
-                        type="button"
-                        onClick={() => setFinalDurationPreset(seconds)}
-                        className={`h-10 rounded-full border text-sm font-bold transition-all ${
-                          duration === seconds
-                            ? 'border-brand-300/70 bg-brand-500/25 text-white shadow-glow'
-                            : 'border-white/10 bg-white/[0.045] text-white/58 hover:border-white/20 hover:text-white'
-                        }`}
-                      >
-                        {seconds}s
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               {aiMusicStatus && (
-                <div className="mt-4 rounded-2xl border border-brand-300/20 bg-brand-500/10 p-3 text-sm text-brand-100">
+                <p className="rounded-xl border border-brand-300/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-100">
                   {aiMusicStatus}
-                </div>
+                </p>
               )}
 
-              <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                    <Scissors className="h-4 w-4 text-brand-300" />
-                    Corte do video
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1 text-xs font-bold text-white/48">
-                      Fonte {formatPreciseTime(sourceTimelineDuration)}
-                    </span>
-                    <span className="rounded-full border border-brand-300/30 bg-brand-500/14 px-3 py-1 text-xs font-bold text-brand-100">
-                      Final {formatPreciseTime(outputDuration)}
-                    </span>
-                  </div>
+              {/* Duration */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-white/52">Duracao final</p>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {DURATION_OPTIONS.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      onClick={() => setFinalDurationPreset(seconds)}
+                      className={`h-9 rounded-full border text-xs font-bold transition-all ${
+                        duration === seconds
+                          ? 'border-brand-300/70 bg-brand-500/25 text-white shadow-glow'
+                          : 'border-white/10 bg-white/[0.045] text-white/58 hover:border-white/20 hover:text-white'
+                      }`}
+                    >
+                      {seconds}s
+                    </button>
+                  ))}
                 </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
-                    Inicio {formatPreciseTime(safeTrimStart)}
-                    <input
-                      type="range"
-                      min={0}
-                      max={sourceTimelineDuration}
-                      step={0.1}
-                      value={safeTrimStart}
-                      onChange={(event) => updateTrimStart(Number(event.target.value))}
-                      className="w-full accent-blue-400"
-                    />
-                  </label>
-                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
-                    Fim {formatPreciseTime(safeTrimEnd)}
-                    <input
-                      type="range"
-                      min={0}
-                      max={sourceTimelineDuration}
-                      step={0.1}
-                      value={safeTrimEnd}
-                      onChange={(event) => updateTrimEnd(Number(event.target.value))}
-                      className="w-full accent-blue-400"
-                    />
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => markTrimAtCurrent('start')}
-                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-blue-300/35 hover:text-white"
-                  >
-                    Inicio agora
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => markTrimAtCurrent('end')}
-                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-blue-300/35 hover:text-white"
-                  >
-                    Fim agora
-                  </button>
-                  <span className="ml-auto text-xs font-semibold text-white/35">
-                    Posicao {formatPreciseTime(previewCurrentTime)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                    <Sparkles className="h-4 w-4 text-brand-300" />
-                    Trecho do efeito
-                  </div>
-                  <div className="flex gap-1.5">
-                    {[
-                      ['all', 'Tudo'],
-                      ['intro', 'Inicio'],
-                      ['center', 'Centro'],
-                      ['ending', 'Final'],
-                    ].map(([preset, label]) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setEffectRangePreset(preset as 'all' | 'intro' | 'center' | 'ending')}
-                        className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-brand-300/35 hover:text-white"
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
-                    Inicio {formatPreciseTime(effectSegments[0]?.start || 0)}
-                    <span className="ml-1 text-white/28">({formatPreciseTime(safeTrimStart + (effectSegments[0]?.start || 0))})</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={outputDuration}
-                      step={0.1}
-                      value={effectSegments[0]?.start || 0}
-                      disabled={effect === 'clean' || effect === 'ai_auto'}
-                      onChange={(event) => updateEffectStart(Number(event.target.value))}
-                      className="w-full accent-violet-400 disabled:opacity-35"
-                    />
-                  </label>
-                  <label className="space-y-1.5 text-xs font-semibold text-white/52">
-                    Fim {formatPreciseTime(effectSegments[0]?.end || outputDuration)}
-                    <span className="ml-1 text-white/28">({formatPreciseTime(safeTrimStart + (effectSegments[0]?.end || outputDuration))})</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={outputDuration}
-                      step={0.1}
-                      value={effectSegments[0]?.end || outputDuration}
-                      disabled={effect === 'clean' || effect === 'ai_auto'}
-                      onChange={(event) => updateEffectEnd(Number(event.target.value))}
-                      className="w-full accent-violet-400 disabled:opacity-35"
-                    />
-                  </label>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={effect === 'clean' || effect === 'ai_auto'}
-                    onClick={() => markEffectAtCurrent('start')}
-                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-violet-300/35 hover:text-white disabled:opacity-35"
-                  >
-                    Efeito inicia agora
-                  </button>
-                  <button
-                    type="button"
-                    disabled={effect === 'clean' || effect === 'ai_auto'}
-                    onClick={() => markEffectAtCurrent('end')}
-                    className="h-8 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-white/58 transition-all hover:border-violet-300/35 hover:text-white disabled:opacity-35"
-                  >
-                    Efeito termina agora
-                  </button>
-                </div>
-                <p className="text-xs leading-relaxed text-white/38">
-                  {effect === 'clean'
-                    ? 'Escolha um efeito para marcar o trecho na timeline.'
-                    : effect === 'ai_auto'
-                      ? 'A automacao escolhe efeito e clima no editor local.'
-                      : effectDescription}
-                </p>
               </div>
 
               {musicPreviewUrl && (
-                <div className="mt-4 rounded-2xl border border-white/[0.08] bg-black/18 p-3">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
-                    <Volume2 className="h-4 w-4 text-brand-300" />
-                    Preview da trilha
-                  </div>
-                  <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />
-                </div>
+                <audio src={musicPreviewUrl} controls preload="metadata" className="h-9 w-full" />
               )}
 
               {(!canUseEffect || !canUseTemplate) && (
-                <div className="mt-4 flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
-                  <Lock className="h-4 w-4 shrink-0" />
-                  Alguma edicao escolhida esta bloqueada no seu plano.
+                <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-2.5 text-xs text-amber-100">
+                  <Lock className="h-3.5 w-3.5 shrink-0 mt-px" />
+                  Recurso bloqueado pelo plano.
                 </div>
               )}
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              {/* Actions */}
+              <div className="mt-auto grid grid-cols-2 gap-3 pt-1">
                 <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
                 <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>Processar</Button>
               </div>
