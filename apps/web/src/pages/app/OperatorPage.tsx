@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
-import { motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown, Minus, Plus, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -469,6 +469,193 @@ function InlineSelectPopover({
   );
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  birthday: 'Aniversário',
+  wedding: 'Casamento',
+  corporate: 'Corporativo',
+  party: 'Festa',
+  graduation: 'Formatura',
+  store: 'Loja',
+  church: 'Igreja',
+  premium: 'Premium',
+  viral: 'Viral',
+  infantil: 'Infantil',
+  esportivo: 'Esportivo',
+  natal: 'Natal',
+  carnaval: 'Carnaval',
+  cha_revelacao: 'Chá Revelação',
+  halloween: 'Halloween',
+};
+
+function TemplatePicker({
+  templates,
+  selectedId,
+  onChange,
+  videoOrientation,
+}: {
+  templates: AppTemplate[];
+  selectedId: string;
+  onChange: (id: string) => void;
+  videoOrientation?: 'portrait' | 'landscape' | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('all');
+
+  const selectedTemplate = templates.find((t) => t.id === selectedId);
+
+  const categories = useMemo(
+    () => [...new Set(templates.map((t) => t.category))].sort(),
+    [templates]
+  );
+
+  const visibleTemplates = useMemo(() => {
+    const base =
+      activeCategory === 'all'
+        ? templates
+        : templates.filter((t) => t.category === activeCategory);
+    return base.slice(0, 40);
+  }, [templates, activeCategory]);
+
+  const thumbFrame = videoOrientation === 'landscape'
+    ? 'h-6 w-10'
+    : 'h-9 w-5';
+  const thumbGrid = videoOrientation === 'landscape'
+    ? 'aspect-video'
+    : 'aspect-[9/16]';
+
+  function handleSelect(id: string) {
+    onChange(id);
+    setExpanded(false);
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-semibold text-white/52">Template</p>
+
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className={`flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-all active:scale-[0.99] ${
+          expanded
+            ? 'border-brand-300/40 bg-brand-500/10 ring-2 ring-brand-500/15'
+            : 'border-white/[0.09] bg-white/[0.045] hover:border-white/[0.18] hover:bg-white/[0.065]'
+        }`}
+      >
+        <div className={`relative shrink-0 overflow-hidden rounded border border-white/15 bg-black/40 ${thumbFrame}`}>
+          {selectedTemplate && (selectedTemplate.previewUrl || selectedTemplate.overlayUrl) ? (
+            <img
+              src={selectedTemplate.previewUrl || selectedTemplate.overlayUrl}
+              alt=""
+              className="absolute inset-0 h-full w-full object-contain"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Layers className="h-2.5 w-2.5 text-white/25" />
+            </div>
+          )}
+        </div>
+        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-white">
+          {selectedTemplate ? selectedTemplate.name : 'Sem overlay'}
+        </p>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-white/42 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {/* Inline picker */}
+      {expanded && (
+        <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025]">
+          {/* Category tabs */}
+          <div className="hide-scrollbar flex gap-1 overflow-x-auto border-b border-white/[0.06] px-2 py-2">
+            <button
+              onClick={() => setActiveCategory('all')}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                activeCategory === 'all'
+                  ? 'border border-brand-300/35 bg-brand-500/22 text-brand-200'
+                  : 'text-white/38 hover:text-white/70'
+              }`}
+            >
+              Todos
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                  activeCategory === cat
+                    ? 'border border-brand-300/35 bg-brand-500/22 text-brand-200'
+                    : 'text-white/38 hover:text-white/70'
+                }`}
+              >
+                {CATEGORY_LABELS[cat] || cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Grid */}
+          <div
+            className="grid grid-cols-5 gap-1.5 overflow-y-auto p-2"
+            style={{ maxHeight: 220 }}
+          >
+            {/* No template option */}
+            <button
+              onClick={() => handleSelect('')}
+              className={`flex ${thumbGrid} flex-col items-center justify-center rounded-lg border text-[8px] font-bold transition-all ${
+                !selectedId
+                  ? 'border-brand-300/55 bg-brand-500/15 text-brand-200'
+                  : 'border-white/10 bg-white/[0.03] text-white/30 hover:border-white/20'
+              }`}
+            >
+              <X className="mb-0.5 h-2.5 w-2.5 opacity-50" />
+              Sem
+            </button>
+
+            {visibleTemplates.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => handleSelect(t.id)}
+                title={t.name}
+                className={`relative ${thumbGrid} overflow-hidden rounded-lg border transition-all ${
+                  selectedId === t.id
+                    ? 'border-brand-300/70 ring-1 ring-brand-300/30'
+                    : 'border-white/[0.08] hover:border-white/30'
+                }`}
+              >
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.5))]" />
+                {(t.previewUrl || t.overlayUrl) && (
+                  <img
+                    src={t.previewUrl || t.overlayUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                )}
+                {selectedId === t.id && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-brand-500/25">
+                    <Check className="h-3 w-3 text-brand-200" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Count hint */}
+          {(() => {
+            const total = activeCategory === 'all' ? templates.length : templates.filter((t) => t.category === activeCategory).length;
+            return total > visibleTemplates.length ? (
+              <p className="border-t border-white/[0.05] px-3 py-1.5 text-center text-[10px] text-white/28">
+                Mostrando 40 de {total} — filtre por categoria para ver mais
+              </p>
+            ) : null;
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditorTimeline({
   sourceDuration,
   outputDuration,
@@ -515,19 +702,58 @@ function EditorTimeline({
   onMusicChange?: (v: string) => void;
 }) {
   const [editingRow, setEditingRow] = useState<'template' | 'effect' | 'music' | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const videoTrackRef = useRef<HTMLDivElement>(null);
   const effectTrackRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const timelineDuration = Math.max(sourceDuration || outputDuration, MIN_TRIM_SECONDS);
   const outputStart = clamp(trimStart, 0, timelineDuration);
   const outputEnd = clamp(outputStart + outputDuration, outputStart, timelineDuration);
   const safeTrimEnd = clamp(trimEnd, outputStart, timelineDuration);
   const playhead = clamp(currentTime, 0, timelineDuration);
-  const markers = [0, timelineDuration / 4, timelineDuration / 2, timelineDuration * 0.75, timelineDuration]
-    .map((v) => clamp(v, 0, timelineDuration));
   const effectSegment = effectSegments[0];
   const allEffectOptions = videoEffects.map((e) => ({ value: e.id, label: e.name }));
+
+  // Adaptive time markers based on zoom
+  const markerTimes = useMemo(() => {
+    const niceIntervals = [0.5, 1, 2, 5, 10, 15, 30, 60, 120];
+    const visibleRange = timelineDuration / zoomLevel;
+    const rawInterval = visibleRange / 7;
+    const interval = niceIntervals.find((v) => v >= rawInterval) ?? 120;
+    const result: number[] = [];
+    for (let t = 0; t <= timelineDuration + 0.001; t = Math.round((t + interval) * 100) / 100) {
+      result.push(Math.min(t, timelineDuration));
+      if (t >= timelineDuration) break;
+    }
+    return result;
+  }, [timelineDuration, zoomLevel]);
+
+  // Waveform bars for music (deterministic from label)
+  const waveformBars = useMemo(() => {
+    let seed = 0;
+    for (let i = 0; i < musicLabel.length; i++) seed = (seed * 31 + musicLabel.charCodeAt(i)) | 0;
+    seed = Math.abs(seed);
+    const count = Math.min(160, Math.max(24, Math.round(outputDuration * 14)));
+    return Array.from({ length: count }, (_, i) => {
+      const h = 14 + Math.abs(
+        Math.sin(i * 0.72 + seed * 0.001) * 38 +
+        Math.sin(i * 2.1 + seed * 0.004) * 22 +
+        Math.sin(i * 0.28 + seed * 0.007) * 16
+      );
+      return Math.min(86, Math.max(8, h));
+    });
+  }, [musicLabel, outputDuration]);
+
+  // Scroll to playhead when zoomed
+  useEffect(() => {
+    if (zoomLevel <= 1 || !scrollRef.current) return;
+    const el = scrollRef.current;
+    const playheadPct = playhead / timelineDuration;
+    const targetScrollLeft = playheadPct * el.scrollWidth - el.clientWidth / 2;
+    el.scrollLeft = Math.max(0, targetScrollLeft);
+  }, [playhead, zoomLevel, timelineDuration]);
 
   function makeDrag(
     trackRef: React.RefObject<HTMLDivElement>,
@@ -578,110 +804,149 @@ function EditorTimeline({
     return () => clearTimeout(timeout);
   }, [editingRow]);
 
+  const playheadPct = `${(playhead / timelineDuration) * 100}%`;
+  const TRACK_ROWS = 4; // video, template, effect, music
+  const ROW_H = 44; // px per row (h-11)
+  const ROW_GAP = 6; // gap-1.5 = 6px
+  const RULER_H = 24; // px
+  const playheadTotalH = TRACK_ROWS * ROW_H + (TRACK_ROWS - 1) * ROW_GAP + RULER_H + 8;
+
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-sm font-bold text-white">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#070a0f]">
+      {/* Header */}
+      <div className="flex flex-col gap-2 border-b border-white/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
           <SlidersHorizontal className="h-4 w-4 text-brand-300" />
-          Timeline
+          <span className="text-sm font-bold text-white">Timeline</span>
+          <span className="rounded-full border border-brand-300/22 bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold text-brand-100/65">
+            {formatPreciseTime(playhead)}
+          </span>
           {onSeek && (
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-white/35">
-              clique na regua para buscar
+            <span className="hidden text-[10px] text-white/25 sm:inline">
+              · arraste as alças ou clique na régua
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 text-xs text-white/35">
-          <span>Fonte {sourceDuration ? formatPreciseTime(sourceDuration) : '--:--'}</span>
-          <span>Corte {formatPreciseTime(outputStart)} - {formatPreciseTime(safeTrimEnd)}</span>
-          <span>Final {formatPreciseTime(outputDuration)}</span>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-wrap gap-2 text-[10px] text-white/28">
+            <span>Fonte {sourceDuration ? formatPreciseTime(sourceDuration) : '--:--'}</span>
+            <span>Corte {formatPreciseTime(outputStart)} – {formatPreciseTime(safeTrimEnd)}</span>
+            <span className="text-brand-100/55 font-semibold">Final {formatPreciseTime(outputDuration)}</span>
+          </div>
+          {/* Zoom controls */}
+          <div className="flex items-center gap-0.5 rounded-xl border border-white/[0.07] bg-white/[0.03] p-0.5">
+            <button
+              type="button"
+              disabled={zoomLevel <= 1}
+              onClick={() => setZoomLevel((z) => Math.max(1, z / 2))}
+              className="flex h-6 w-6 items-center justify-center rounded-[9px] transition-colors hover:bg-white/[0.08] disabled:opacity-30"
+            >
+              <Minus className="h-3 w-3 text-white/55" />
+            </button>
+            <span className="min-w-[26px] text-center text-[10px] font-bold text-white/45">{zoomLevel}x</span>
+            <button
+              type="button"
+              disabled={zoomLevel >= 8}
+              onClick={() => setZoomLevel((z) => Math.min(8, z * 2))}
+              className="flex h-6 w-6 items-center justify-center rounded-[9px] transition-colors hover:bg-white/[0.08] disabled:opacity-30"
+            >
+              <Plus className="h-3 w-3 text-white/55" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="hide-scrollbar overflow-x-auto">
-        <div className="min-w-[640px] space-y-2">
-
-          {/* Ruler — click to seek */}
+      {/* Scrollable tracks area */}
+      <div ref={scrollRef} className="hide-scrollbar overflow-x-auto p-3">
+        <div
+          className="space-y-1.5"
+          style={{
+            minWidth: `${Math.max(640, zoomLevel * 640)}px`,
+            width: zoomLevel > 1 ? `${zoomLevel * 100}%` : undefined,
+          }}
+        >
+          {/* Ruler */}
           <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
-            <div />
+            <div className="flex items-end pb-0.5">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-white/18">Regua</span>
+            </div>
             <div
               ref={rulerRef}
-              className={`relative h-5 ${onSeek ? 'cursor-pointer' : ''}`}
+              className={`relative overflow-hidden rounded-lg border border-white/[0.05] bg-white/[0.015] ${onSeek ? 'cursor-pointer' : ''}`}
+              style={{ height: RULER_H }}
               onClick={handleRulerClick}
             >
-              {markers.map((marker) => (
+              {/* Minor grid lines */}
+              {Array.from({ length: 20 }, (_, i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 w-px bg-white/[0.07]"
+                  style={{ left: `${(i / 20) * 100}%`, height: i % 5 === 0 ? '55%' : '30%' }}
+                />
+              ))}
+              {/* Time labels */}
+              {markerTimes.map((t) => (
                 <span
-                  key={marker}
-                  className="pointer-events-none absolute top-0 -translate-x-1/2 text-[11px] font-semibold text-white/35"
-                  style={{ left: `${(marker / timelineDuration) * 100}%` }}
+                  key={t}
+                  className="pointer-events-none absolute bottom-1 -translate-x-1/2 text-[10px] font-semibold text-white/38"
+                  style={{ left: `${(t / timelineDuration) * 100}%` }}
                 >
-                  {formatTime(marker)}
+                  {formatTime(t)}
                 </span>
               ))}
+              {/* Playhead tick on ruler */}
+              <div
+                className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-white/70"
+                style={{ left: playheadPct, transform: 'translateX(-50%)' }}
+              />
             </div>
           </div>
 
-          {/* Video row — draggable trim handles */}
-          <TimelineRow icon={<Film className="h-4 w-4" />} label="Video" trackRef={videoTrackRef}>
+          {/* VIDEO ROW */}
+          <TimelineRow icon={<Film className="h-3.5 w-3.5" />} label="Video" trackRef={videoTrackRef}>
+            {/* Outside-output dimmed regions */}
+            <div className="pointer-events-none absolute inset-y-0 rounded-xl bg-black/20" style={{ left: 0, width: `${(outputStart / timelineDuration) * 100}%` }} />
+            <div className="pointer-events-none absolute inset-y-0 rounded-xl bg-black/20" style={{ left: `${(outputEnd / timelineDuration) * 100}%`, right: 0 }} />
             <TimelineClip
               label="Corte final"
               start={outputStart}
               end={outputEnd}
               duration={timelineDuration}
-              className="border-blue-300/30 bg-blue-500/24"
-              onLeftHandleDown={onTrimStartChange
-                ? makeDrag(videoTrackRef, onTrimStartChange, 0, safeTrimEnd - MIN_TRIM_SECONDS)
-                : undefined}
-              onRightHandleDown={onTrimEndChange
-                ? makeDrag(videoTrackRef, onTrimEndChange, outputStart + MIN_TRIM_SECONDS, timelineDuration)
-                : undefined}
+              className="border-blue-400/40 bg-gradient-to-r from-blue-600/35 to-blue-400/22"
+              onLeftHandleDown={onTrimStartChange ? makeDrag(videoTrackRef, onTrimStartChange, 0, safeTrimEnd - MIN_TRIM_SECONDS) : undefined}
+              onRightHandleDown={onTrimEndChange ? makeDrag(videoTrackRef, onTrimEndChange, outputStart + MIN_TRIM_SECONDS, timelineDuration) : undefined}
             />
             {safeTrimEnd > outputEnd + 0.05 && (
-              <TimelineClip
-                label="Sobrou"
-                start={outputEnd}
-                end={safeTrimEnd}
-                duration={timelineDuration}
-                className="border-white/10 bg-white/[0.05] text-white/45"
-              />
+              <TimelineClip label="Sobrou" start={outputEnd} end={safeTrimEnd} duration={timelineDuration} className="border-white/10 bg-white/[0.04] text-white/35" />
             )}
           </TimelineRow>
 
-          {/* Template row — click to change */}
-          <TimelineRow icon={<Layers className="h-4 w-4" />} label="Template">
+          {/* TEMPLATE ROW */}
+          <TimelineRow icon={<Layers className="h-3.5 w-3.5" />} label="Template">
             {templateName ? (
               <TimelineClip
                 label={templateName}
                 start={outputStart}
                 end={outputEnd}
                 duration={timelineDuration}
-                className="border-cyan-300/30 bg-cyan-500/24"
-                onClick={onTemplateChange
-                  ? () => setEditingRow(editingRow === 'template' ? null : 'template')
-                  : undefined}
+                className="border-cyan-400/38 bg-gradient-to-r from-cyan-600/28 to-cyan-400/18"
+                onClick={onTemplateChange ? () => setEditingRow(editingRow === 'template' ? null : 'template') : undefined}
               />
             ) : onTemplateChange ? (
-              <button
-                type="button"
-                onClick={() => setEditingRow(editingRow === 'template' ? null : 'template')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/30 transition-colors hover:text-white/65"
-              >
+              <button type="button" onClick={() => setEditingRow(editingRow === 'template' ? null : 'template')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/28 transition-colors hover:text-white/60">
                 + Adicionar template
               </button>
             ) : (
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem template</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/20">Sem template</span>
             )}
             {editingRow === 'template' && templateOptions && onTemplateChange && (
-              <InlineSelectPopover
-                options={templateOptions}
-                value={selectedTemplateId || ''}
-                onChange={onTemplateChange}
-                onClose={() => setEditingRow(null)}
-              />
+              <InlineSelectPopover options={templateOptions} value={selectedTemplateId || ''} onChange={onTemplateChange} onClose={() => setEditingRow(null)} />
             )}
           </TimelineRow>
 
-          {/* Effect row — draggable segment + click to change effect */}
-          <TimelineRow icon={<Sparkles className="h-4 w-4" />} label="Efeito" trackRef={effectTrackRef}>
+          {/* EFFECT ROW */}
+          <TimelineRow icon={<Sparkles className="h-3.5 w-3.5" />} label="Efeito" trackRef={effectTrackRef}>
             {effectSegment ? (
               <>
                 <TimelineClip
@@ -689,111 +954,106 @@ function EditorTimeline({
                   start={outputStart + effectSegment.start}
                   end={outputStart + effectSegment.end}
                   duration={timelineDuration}
-                  className="border-violet-300/35 bg-violet-500/28"
+                  className="border-violet-400/42 bg-gradient-to-r from-violet-600/32 to-violet-400/20"
                   onLeftHandleDown={onEffectSegmentStartChange
-                    ? makeDrag(
-                        effectTrackRef,
-                        (t) => onEffectSegmentStartChange(t - outputStart),
-                        outputStart,
-                        outputStart + effectSegment.end - MIN_EFFECT_SEGMENT_SECONDS
-                      )
+                    ? makeDrag(effectTrackRef, (t) => onEffectSegmentStartChange(t - outputStart), outputStart, outputStart + effectSegment.end - MIN_EFFECT_SEGMENT_SECONDS)
                     : undefined}
                   onRightHandleDown={onEffectSegmentEndChange
-                    ? makeDrag(
-                        effectTrackRef,
-                        (t) => onEffectSegmentEndChange(t - outputStart),
-                        outputStart + effectSegment.start + MIN_EFFECT_SEGMENT_SECONDS,
-                        outputStart + outputDuration
-                      )
+                    ? makeDrag(effectTrackRef, (t) => onEffectSegmentEndChange(t - outputStart), outputStart + effectSegment.start + MIN_EFFECT_SEGMENT_SECONDS, outputStart + outputDuration)
                     : undefined}
-                  onClick={onEffectChange
-                    ? () => setEditingRow(editingRow === 'effect' ? null : 'effect')
-                    : undefined}
+                  onClick={onEffectChange ? () => setEditingRow(editingRow === 'effect' ? null : 'effect') : undefined}
                 />
                 {editingRow === 'effect' && onEffectChange && (
-                  <InlineSelectPopover
-                    options={allEffectOptions}
-                    value={effect}
-                    onChange={onEffectChange}
-                    onClose={() => setEditingRow(null)}
-                  />
+                  <InlineSelectPopover options={allEffectOptions} value={effect} onChange={onEffectChange} onClose={() => setEditingRow(null)} />
                 )}
               </>
             ) : effect === 'ai_auto' ? (
-              <TimelineClip
-                label="Automacao local"
-                start={outputStart}
-                end={outputEnd}
-                duration={timelineDuration}
-                className="border-violet-300/35 bg-violet-500/28"
-              />
+              <TimelineClip label="Automacao IA" start={outputStart} end={outputEnd} duration={timelineDuration} className="border-brand-300/38 bg-gradient-to-r from-brand-600/28 to-brand-400/18" />
             ) : (
               <>
                 {onEffectChange ? (
-                  <button
-                    type="button"
-                    onClick={() => setEditingRow(editingRow === 'effect' ? null : 'effect')}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/30 transition-colors hover:text-white/65"
-                  >
+                  <button type="button" onClick={() => setEditingRow(editingRow === 'effect' ? null : 'effect')}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/28 transition-colors hover:text-white/60">
                     + Definir trecho do efeito
                   </button>
                 ) : (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/20">Sem efeito marcado</span>
                 )}
                 {editingRow === 'effect' && onEffectChange && (
-                  <InlineSelectPopover
-                    options={allEffectOptions}
-                    value={effect}
-                    onChange={onEffectChange}
-                    onClose={() => setEditingRow(null)}
-                  />
+                  <InlineSelectPopover options={allEffectOptions} value={effect} onChange={onEffectChange} onClose={() => setEditingRow(null)} />
                 )}
               </>
             )}
           </TimelineRow>
 
-          {/* Music row — click to change */}
-          <TimelineRow icon={<Music2 className="h-4 w-4" />} label="Trilha">
+          {/* MUSIC ROW — waveform visualization */}
+          <TimelineRow icon={<Music2 className="h-3.5 w-3.5" />} label="Trilha">
             {musicLabel !== 'Sem trilha' ? (
-              <TimelineClip
-                label={musicLabel}
-                start={outputStart}
-                end={outputEnd}
-                duration={timelineDuration}
-                className="border-emerald-300/30 bg-emerald-500/24"
-                onClick={onMusicChange
-                  ? () => setEditingRow(editingRow === 'music' ? null : 'music')
-                  : undefined}
-              />
+              <>
+                {/* Waveform clip */}
+                <div
+                  className="absolute inset-y-1.5 cursor-pointer overflow-hidden rounded-xl border border-emerald-400/32 bg-gradient-to-r from-emerald-700/25 to-emerald-500/14 transition-all hover:border-emerald-300/45"
+                  style={{
+                    left: `${(outputStart / timelineDuration) * 100}%`,
+                    width: `${Math.max(2, ((outputEnd - outputStart) / timelineDuration) * 100)}%`,
+                  }}
+                  onClick={onMusicChange ? () => setEditingRow(editingRow === 'music' ? null : 'music') : undefined}
+                >
+                  {/* Waveform bars */}
+                  <div className="absolute inset-0 flex items-center gap-px px-1.5">
+                    {waveformBars.map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex-shrink-0 rounded-sm bg-emerald-400"
+                        style={{ width: 1.5, height: `${h}%`, opacity: 0.42 + (i % 3) * 0.09, minHeight: 1 }}
+                      />
+                    ))}
+                  </div>
+                  {/* Label overlay */}
+                  <div className="absolute inset-0 flex items-center px-2.5">
+                    <span className="relative z-10 select-none truncate text-[10px] font-bold leading-none text-emerald-200/80 drop-shadow">
+                      {musicLabel}
+                    </span>
+                    {onMusicChange && <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-emerald-300/50" />}
+                  </div>
+                </div>
+                {editingRow === 'music' && resolvedMusicOptions && onMusicChange && (
+                  <InlineSelectPopover options={resolvedMusicOptions} value={selectedMusicValue || ''} onChange={onMusicChange} onClose={() => setEditingRow(null)} />
+                )}
+              </>
             ) : onMusicChange ? (
-              <button
-                type="button"
-                onClick={() => setEditingRow(editingRow === 'music' ? null : 'music')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/30 transition-colors hover:text-white/65"
-              >
+              <button type="button" onClick={() => setEditingRow(editingRow === 'music' ? null : 'music')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/28 transition-colors hover:text-white/60">
                 + Adicionar trilha
               </button>
             ) : (
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem trilha sonora</span>
-            )}
-            {editingRow === 'music' && resolvedMusicOptions && onMusicChange && (
-              <InlineSelectPopover
-                options={resolvedMusicOptions}
-                value={selectedMusicValue || ''}
-                onChange={onMusicChange}
-                onClose={() => setEditingRow(null)}
-              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/20">Sem trilha sonora</span>
             )}
           </TimelineRow>
 
-          {/* Playhead */}
+          {/* PLAYHEAD */}
           <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
             <div />
             <div className="relative h-0">
-              <span
-                className="absolute -top-[15.75rem] bottom-0 z-20 w-px bg-white/75 shadow-[0_0_18px_rgba(255,255,255,.55)]"
-                style={{ left: `${(playhead / timelineDuration) * 100}%` }}
-                title={`Posicao atual ${formatPreciseTime(playhead)}`}
+              {/* Triangle handle */}
+              <div
+                className="pointer-events-none absolute z-30"
+                style={{ left: playheadPct, top: `-${playheadTotalH}px`, transform: 'translateX(-50%)' }}
+              >
+                <div className="mx-auto h-0 w-0 border-l-[5px] border-r-[5px] border-t-[7px] border-l-transparent border-r-transparent border-t-white/85" />
+              </div>
+              {/* Vertical line */}
+              <div
+                className="pointer-events-none absolute z-20"
+                style={{
+                  left: playheadPct,
+                  top: `-${playheadTotalH}px`,
+                  height: `${playheadTotalH}px`,
+                  width: 2,
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(255,255,255,0.78)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.35)',
+                }}
               />
             </div>
           </div>
@@ -1489,12 +1749,12 @@ export default function OperatorPage() {
               </span>
               {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
             </button>
-            <Select label="Template transparente" options={templateOptions} value={selectedTemplateId}
-              onChange={e => setSelectedTemplateId(e.target.value)} />
-            <p className="text-xs leading-relaxed text-white/36">
-              {templateAspectHint}
-              {videoOrientation && ` ${filteredTemplates.length} disponiveis.`}
-            </p>
+            <TemplatePicker
+              templates={filteredTemplates}
+              selectedId={selectedTemplateId}
+              onChange={setSelectedTemplateId}
+              videoOrientation={videoOrientation}
+            />
             <EffectSelector
               value={effect}
               onChange={setEffect}
@@ -1681,8 +1941,12 @@ export default function OperatorPage() {
               </button>
 
               {/* Template */}
-              <Select label="Template" options={templateOptions} value={selectedTemplateId}
-                onChange={e => setSelectedTemplateId(e.target.value)} />
+              <TemplatePicker
+                templates={filteredTemplates}
+                selectedId={selectedTemplateId}
+                onChange={setSelectedTemplateId}
+                videoOrientation={videoOrientation}
+              />
 
               {/* Effect — minimal: only dropdown, no detail panel */}
               <div className="space-y-1.5">
