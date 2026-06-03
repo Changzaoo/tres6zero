@@ -47,6 +47,8 @@ export function EffectSelector({
 
   const selectedEffect = useMemo(() => getVideoEffect(value) || videoEffects[0], [value]);
   const hoveredEffect = hoveredId ? getVideoEffect(hoveredId) : null;
+  const previewEffect = hoveredEffect || selectedEffect;
+  const showPreviewPanel = !compact && !minimal;
   const locked = isEffectLocked?.(selectedEffect) || false;
   const SelectedIcon = categoryIcon[selectedEffect.category];
 
@@ -88,9 +90,9 @@ export function EffectSelector({
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.99] ${
+          className={`flex min-h-[56px] w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.99] ${
             isOpen
-              ? 'border-brand-300/40 bg-brand-500/10 ring-2 ring-brand-500/15'
+              ? 'border-brand-300/50 bg-brand-500/14 ring-2 ring-brand-500/18'
               : 'border-white/[0.09] bg-white/[0.045] hover:border-white/[0.18] hover:bg-white/[0.065]'
           }`}
         >
@@ -103,7 +105,7 @@ export function EffectSelector({
 
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold leading-tight text-white">{selectedEffect.name}</p>
-            <p className="mt-0.5 truncate text-xs text-white/42">{selectedEffect.shortDescription}</p>
+            <p className="mt-0.5 truncate text-xs text-white/62">{selectedEffect.shortDescription}</p>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -127,9 +129,9 @@ export function EffectSelector({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.98 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-white/[0.08]"
+              className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-white/[0.12]"
               style={{
-                background: 'rgba(13, 15, 20, 0.98)',
+                background: 'rgba(9, 12, 18, 0.99)',
                 boxShadow: '0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.05)',
                 backdropFilter: 'blur(20px)',
               }}
@@ -138,7 +140,7 @@ export function EffectSelector({
                 {/* Effect list */}
                 <div
                   className="min-w-0 flex-1 overflow-y-auto py-1.5"
-                  style={{ maxHeight: '360px' }}
+                  style={{ maxHeight: compact || minimal ? '320px' : '360px' }}
                 >
                   {videoEffects.map((effect) => {
                     const Icon = categoryIcon[effect.category];
@@ -153,11 +155,12 @@ export function EffectSelector({
                         onClick={() => handleSelect(effect)}
                         onMouseEnter={() => setHoveredId(effect.id)}
                         onMouseLeave={() => setHoveredId(null)}
-                        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                        onFocus={() => setHoveredId(effect.id)}
+                        className={`flex min-h-[52px] w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
                           isHovered
-                            ? 'bg-white/[0.055]'
+                            ? 'bg-white/[0.09]'
                             : isSelected
-                            ? 'bg-brand-500/[0.08]'
+                            ? 'bg-brand-500/[0.14]'
                             : ''
                         } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                       >
@@ -176,7 +179,7 @@ export function EffectSelector({
                           >
                             {effect.name}
                           </p>
-                          <p className="mt-0.5 truncate text-[11px] text-white/40">
+                          <p className="mt-0.5 truncate text-[11px] text-white/58">
                             {effect.shortDescription}
                           </p>
                         </div>
@@ -199,34 +202,22 @@ export function EffectSelector({
                 </div>
 
                 {/* Hover preview panel — desktop only */}
-                <div className="hidden border-l border-white/[0.06] md:block">
-                  <AnimatePresence mode="wait">
-                    {hoveredEffect ? (
+                {showPreviewPanel && (
+                  <div className="hidden border-l border-white/[0.06] lg:block">
+                    <AnimatePresence mode="wait">
                       <motion.div
-                        key={hoveredEffect.id}
+                        key={previewEffect.id}
                         initial={{ opacity: 0, x: 8 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.14, ease: 'easeOut' }}
                         className="w-60"
                       >
-                        <EffectPreviewCard effect={hoveredEffect} />
+                        <EffectPreviewCard effect={previewEffect} />
                       </motion.div>
-                    ) : (
-                      <motion.div
-                        key="empty"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex w-60 items-center justify-center p-6"
-                        style={{ minHeight: '200px' }}
-                      >
-                        <p className="text-center text-xs text-white/20">
-                          Passe o mouse em um efeito para ver o preview
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

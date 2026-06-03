@@ -725,6 +725,10 @@ function escapeXml(value: string) {
     .replace(/"/g, '&quot;');
 }
 
+export function removeTemplateText(svg: string) {
+  return svg.replace(/<text\b[^>]*>[\s\S]*?<\/text>/gi, '');
+}
+
 function pick<T>(items: readonly T[], index: number) {
   return items[((index % items.length) + items.length) % items.length];
 }
@@ -1729,7 +1733,7 @@ export function templateSvg(params: {
     bandHeight,
   };
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     <linearGradient id="strokeGradient" x1="0" y1="0" x2="1" y2="1">
@@ -1754,6 +1758,8 @@ export function templateSvg(params: {
     ${renderLayout(ctx)}
   </g>
 </svg>`;
+
+  return removeTemplateText(svg);
 }
 
 export function generatedTemplatePath(template: { id: string; category: string; aspectRatio?: string }) {
@@ -1763,7 +1769,7 @@ export function generatedTemplatePath(template: { id: string; category: string; 
 
 export async function renderTemplatePng(svg: string) {
   const sharp = (await import('sharp')).default;
-  return sharp(Buffer.from(svg))
+  return sharp(Buffer.from(removeTemplateText(svg)))
     .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();
 }

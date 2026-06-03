@@ -365,12 +365,12 @@ function TimelineClip({
     >
       {isDraggable && onLeftHandleDown && (
         <div
-          className="absolute -left-2 top-0 bottom-0 w-5 z-10 flex cursor-ew-resize items-center justify-center"
+          className="absolute -left-3 top-0 bottom-0 w-7 sm:-left-2 sm:w-5 z-10 flex cursor-ew-resize touch-manipulation items-center justify-center"
           onMouseDown={onLeftHandleDown}
           onTouchStart={onLeftHandleDown}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="h-4 w-[3px] rounded-full bg-white/55 transition-colors hover:bg-white/90" />
+          <div className="h-5 w-[3px] rounded-full bg-white/60 transition-colors hover:bg-white/90" />
         </div>
       )}
 
@@ -393,12 +393,12 @@ function TimelineClip({
 
       {isDraggable && onRightHandleDown && (
         <div
-          className="absolute -right-2 top-0 bottom-0 w-5 z-10 flex cursor-ew-resize items-center justify-center"
+          className="absolute -right-3 top-0 bottom-0 w-7 sm:-right-2 sm:w-5 z-10 flex cursor-ew-resize touch-manipulation items-center justify-center"
           onMouseDown={onRightHandleDown}
           onTouchStart={onRightHandleDown}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="h-4 w-[3px] rounded-full bg-white/55 transition-colors hover:bg-white/90" />
+          <div className="h-5 w-[3px] rounded-full bg-white/60 transition-colors hover:bg-white/90" />
         </div>
       )}
     </div>
@@ -417,12 +417,12 @@ function TimelineRow({
   trackRef?: React.RefObject<HTMLDivElement>;
 }) {
   return (
-    <div className="grid min-w-[640px] grid-cols-[116px_minmax(0,1fr)] items-center gap-3">
-      <div className="flex items-center gap-2 text-xs font-semibold text-white/58">
-        {icon}
-        <span>{label}</span>
+    <div className="grid min-w-0 grid-cols-[80px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[116px_minmax(0,1fr)] sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold text-white/55 truncate">
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
       </div>
-      <div ref={trackRef} className="relative h-11 rounded-2xl border border-white/[0.08] bg-black/24 overflow-visible">
+      <div ref={trackRef} className="relative h-11 sm:h-11 rounded-xl sm:rounded-2xl border border-white/[0.08] bg-black/24 overflow-visible touch-pan-x">
         {children}
       </div>
     </div>
@@ -536,7 +536,7 @@ function TemplatePicker({
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className={`flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-all active:scale-[0.99] ${
+        className={`flex min-h-[48px] w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-all active:scale-[0.99] touch-manipulation ${
           expanded
             ? 'border-brand-300/40 bg-brand-500/10 ring-2 ring-brand-500/15'
             : 'border-white/[0.09] bg-white/[0.045] hover:border-white/[0.18] hover:bg-white/[0.065]'
@@ -570,7 +570,7 @@ function TemplatePicker({
           <div className="hide-scrollbar flex gap-1 overflow-x-auto border-b border-white/[0.06] px-2 py-2">
             <button
               onClick={() => setActiveCategory('all')}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+              className={`min-h-[32px] shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold transition-colors touch-manipulation ${
                 activeCategory === 'all'
                   ? 'border border-brand-300/35 bg-brand-500/22 text-brand-200'
                   : 'text-white/38 hover:text-white/70'
@@ -582,7 +582,7 @@ function TemplatePicker({
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+                className={`min-h-[32px] shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold transition-colors touch-manipulation ${
                   activeCategory === cat
                     ? 'border border-brand-300/35 bg-brand-500/22 text-brand-200'
                     : 'text-white/38 hover:text-white/70'
@@ -595,13 +595,13 @@ function TemplatePicker({
 
           {/* Grid */}
           <div
-            className="grid grid-cols-5 gap-1.5 overflow-y-auto p-2"
-            style={{ maxHeight: 220 }}
+            className="grid grid-cols-4 gap-1.5 overflow-y-auto p-2 sm:grid-cols-5"
+            style={{ maxHeight: 240 }}
           >
             {/* No template option */}
             <button
               onClick={() => handleSelect('')}
-              className={`flex ${thumbGrid} flex-col items-center justify-center rounded-lg border text-[8px] font-bold transition-all ${
+              className={`flex ${thumbGrid} min-h-11 touch-manipulation flex-col items-center justify-center rounded-lg border text-[8px] font-bold transition-all ${
                 !selectedId
                   ? 'border-brand-300/55 bg-brand-500/15 text-brand-200'
                   : 'border-white/10 bg-white/[0.03] text-white/30 hover:border-white/20'
@@ -616,7 +616,7 @@ function TemplatePicker({
                 key={t.id}
                 onClick={() => handleSelect(t.id)}
                 title={t.name}
-                className={`relative ${thumbGrid} overflow-hidden rounded-lg border transition-all ${
+                className={`relative ${thumbGrid} min-h-11 touch-manipulation overflow-hidden rounded-lg border transition-all ${
                   selectedId === t.id
                     ? 'border-brand-300/70 ring-1 ring-brand-300/30'
                     : 'border-white/[0.08] hover:border-white/30'
@@ -861,12 +861,12 @@ function EditorTimeline({
         <div
           className="space-y-1.5"
           style={{
-            minWidth: `${Math.max(640, zoomLevel * 640)}px`,
+            minWidth: `${Math.max(320, zoomLevel * 480)}px`,
             width: zoomLevel > 1 ? `${zoomLevel * 100}%` : undefined,
           }}
         >
           {/* Ruler */}
-          <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
+          <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-2 sm:grid-cols-[116px_minmax(0,1fr)] sm:gap-3">
             <div className="flex items-end pb-0.5">
               <span className="text-[9px] font-bold uppercase tracking-wider text-white/18">Regua</span>
             </div>
@@ -1032,7 +1032,7 @@ function EditorTimeline({
           </TimelineRow>
 
           {/* PLAYHEAD */}
-          <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
+          <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-2 sm:grid-cols-[116px_minmax(0,1fr)] sm:gap-3">
             <div />
             <div className="relative h-0">
               {/* Triangle handle */}
@@ -1092,6 +1092,8 @@ export default function OperatorPage() {
   const [effectSegmentEnd, setEffectSegmentEnd] = useState<number>(operatorPreferences.defaultDuration);
   const [generatingAiMusic, setGeneratingAiMusic] = useState(false);
   const [aiMusicStatus, setAiMusicStatus] = useState('');
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
+  const [mobileEditorTab, setMobileEditorTab] = useState<'controls' | 'timeline'>('controls');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -1145,11 +1147,11 @@ export default function OperatorPage() {
       ? 'mx-auto aspect-square max-w-[220px]'
       : 'mx-auto aspect-[9/16] max-w-[220px]';
   const videoPreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-video max-h-[80vh]'
-    : 'aspect-[9/16] max-h-[80vh] mx-auto';
+    ? 'aspect-video max-h-[48vh] sm:max-h-[80vh]'
+    : 'aspect-[9/16] max-h-[48vh] sm:max-h-[80vh] mx-auto';
   const livePreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-video max-h-[68vh]'
-    : 'aspect-[9/16] max-h-[68vh]';
+    ? 'aspect-video max-h-[48vh] sm:max-h-[68vh]'
+    : 'aspect-[9/16] max-h-[48vh] sm:max-h-[68vh] mx-auto';
 
   const eventOptions = [
     { value: '', label: 'Sem evento - video avulso' },
@@ -1251,6 +1253,12 @@ export default function OperatorPage() {
         video.srcObject = null;
       }
     };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 'preview') return;
+    setMobileEditorTab('controls');
+    setTimelineExpanded(false);
   }, [step]);
 
   useEffect(() => () => {
@@ -1690,15 +1698,15 @@ export default function OperatorPage() {
     : '';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Gravar</h1>
-        <p className="text-white/40 text-sm">Grave, edite com IA e publique videos 360 sem sobrecarregar o servidor</p>
+    <div className="mx-auto max-w-6xl space-y-4 sm:space-y-5">
+      <div className="space-y-1">
+        <h1 className="text-xl font-bold text-white sm:text-2xl">Gravar</h1>
+        <p className="hidden text-sm text-white/40 sm:block">Grave, edite com IA e publique videos 360 sem sobrecarregar o servidor</p>
       </div>
 
       {step === 'select' && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid lg:grid-cols-[1fr_0.82fr] gap-4">
-          <div className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-5">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_0.82fr]">
+          <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:space-y-5 sm:p-6">
             <Select label="Evento vinculado" options={eventOptions} value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)} />
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -1722,7 +1730,7 @@ export default function OperatorPage() {
             </div>
           </div>
 
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 space-y-4">
+          <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 sm:space-y-4 sm:p-5">
             <div className="flex items-center gap-2 text-white font-semibold">
               <Wand2 className="w-4 h-4 text-brand-300" />
               Edicao do video
@@ -1730,7 +1738,7 @@ export default function OperatorPage() {
             <button
               type="button"
               onClick={enableAiAutoEdit}
-              className={`group flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
+              className={`group flex min-h-[58px] w-full touch-manipulation items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
                 aiAutoSelected
                   ? 'border-brand-300/55 bg-brand-500/18 shadow-glow'
                   : canUseAiAuto
@@ -1743,7 +1751,7 @@ export default function OperatorPage() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
-                <span className="block text-xs leading-relaxed text-white/42">
+                <span className="hidden text-xs leading-relaxed text-white/42 sm:block">
                   Escolhe efeito e clima no navegador para publicar sem derrubar o backend.
                 </span>
               </span>
@@ -1785,7 +1793,7 @@ export default function OperatorPage() {
                 Recurso bloqueado pelo plano atual. O backend tambem valida antes de publicar.
               </div>
             )}
-            <div className="grid gap-4 border-t border-white/[0.08] pt-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+            <div className="hidden gap-4 border-t border-white/[0.08] pt-4 sm:grid sm:grid-cols-[180px_minmax(0,1fr)]">
               <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Preview" className={templatePreviewClass} />
               <div className="min-w-0 space-y-4">
                 <div className="space-y-2">
@@ -1884,12 +1892,29 @@ export default function OperatorPage() {
             </Button>
           </div>
 
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 h-fit space-y-3">
+          <details className="group rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 lg:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-white">
+              <span className="flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-brand-300" />
+                Configuracao aplicada
+              </span>
+              <ChevronDown className="h-4 w-4 text-white/45 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3 space-y-2 border-t border-white/[0.06] pt-3">
+              <p className="text-sm text-white/50">{selectedTemplate?.name || 'Sem overlay'}</p>
+              <p className="text-sm text-white/50">{effectMeta?.name || effect}</p>
+              <p className="flex items-center gap-2 text-sm text-white/50"><Clock className="h-4 w-4" />{duration} segundos</p>
+              <p className="flex items-center gap-2 text-sm text-white/50"><Music2 className="h-4 w-4" />{selectedMusicLabel}</p>
+              {musicPreviewUrl && <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />}
+            </div>
+          </details>
+
+          <div className="hidden h-fit space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 lg:block">
             <p className="text-sm font-semibold text-white">Configuracao aplicada</p>
             <p className="text-sm text-white/50">{selectedTemplate?.name || 'Sem overlay'}</p>
             <p className="text-sm text-white/50">{effectMeta?.name || effect}</p>
-            <p className="text-sm text-white/50 flex items-center gap-2"><Clock className="w-4 h-4" />{duration} segundos</p>
-            <p className="text-sm text-white/50 flex items-center gap-2"><Music2 className="w-4 h-4" />{selectedMusicLabel}</p>
+            <p className="flex items-center gap-2 text-sm text-white/50"><Clock className="h-4 w-4" />{duration} segundos</p>
+            <p className="flex items-center gap-2 text-sm text-white/50"><Music2 className="h-4 w-4" />{selectedMusicLabel}</p>
             {musicPreviewUrl && <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />}
           </div>
         </motion.div>
@@ -1910,8 +1935,43 @@ export default function OperatorPage() {
               />
             </VideoPreviewFrame>
 
+            <div className="grid grid-cols-2 gap-3 lg:hidden">
+              <Button variant="secondary" onClick={reset} icon={<RefreshCw className="h-4 w-4" />}>Refazer</Button>
+              <Button onClick={handleProcess} icon={<Check className="h-4 w-4" />}>Processar</Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-1 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileEditorTab('controls')}
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all ${
+                  mobileEditorTab === 'controls'
+                    ? 'bg-brand-500/20 text-brand-100 ring-1 ring-brand-300/25'
+                    : 'text-white/42 hover:bg-white/[0.05] hover:text-white/75'
+                }`}
+              >
+                <Wand2 className="h-4 w-4" />
+                Ajustes
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileEditorTab('timeline');
+                  setTimelineExpanded(true);
+                }}
+                className={`flex h-11 items-center justify-center gap-2 rounded-xl text-xs font-bold transition-all ${
+                  mobileEditorTab === 'timeline'
+                    ? 'bg-brand-500/20 text-brand-100 ring-1 ring-brand-300/25'
+                    : 'text-white/42 hover:bg-white/[0.05] hover:text-white/75'
+                }`}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                Timeline
+              </button>
+            </div>
+
             {/* Sidebar — sticky, scrollable */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
+            <div className={`${mobileEditorTab === 'controls' ? 'flex' : 'hidden'} flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto`}>
               {/* Header */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-white">
@@ -2017,36 +2077,57 @@ export default function OperatorPage() {
               )}
 
               {/* Actions */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="hidden grid-cols-2 gap-3 pt-1 lg:grid">
                 <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
                 <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>Processar</Button>
               </div>
             </div>
           </div>
 
-          <EditorTimeline
-            sourceDuration={sourceDuration}
-            outputDuration={outputDuration}
-            trimStart={safeTrimStart}
-            trimEnd={safeTrimEnd}
-            currentTime={previewCurrentTime}
-            templateName={selectedTemplate?.name}
-            musicLabel={selectedMusicLabel}
-            effect={effect}
-            effectSegments={effectSegments}
-            onSeek={seekPreview}
-            onTrimStartChange={updateTrimStart}
-            onTrimEndChange={updateTrimEnd}
-            onEffectSegmentStartChange={updateEffectStart}
-            onEffectSegmentEndChange={updateEffectEnd}
-            templateOptions={templateOptions}
-            selectedTemplateId={selectedTemplateId}
-            onTemplateChange={setSelectedTemplateId}
-            onEffectChange={setEffect}
-            resolvedMusicOptions={resolvedMusicOptions}
-            selectedMusicValue={musicTheme}
-            onMusicChange={setMusicTheme}
-          />
+          <div className={`${mobileEditorTab === 'timeline' ? 'block' : 'hidden'} lg:block`}>
+            <div className="mb-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-2 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setTimelineExpanded((expanded) => !expanded)}
+                className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm font-bold text-white"
+              >
+                <span className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-brand-300" />
+                  Timeline
+                </span>
+                <span className="flex items-center gap-2 text-xs text-white/42">
+                  {formatPreciseTime(outputDuration)}
+                  <ChevronDown className={`h-4 w-4 transition-transform ${timelineExpanded ? 'rotate-180' : ''}`} />
+                </span>
+              </button>
+            </div>
+
+            <div className={`${timelineExpanded ? 'block' : 'hidden'} lg:block`}>
+              <EditorTimeline
+                sourceDuration={sourceDuration}
+                outputDuration={outputDuration}
+                trimStart={safeTrimStart}
+                trimEnd={safeTrimEnd}
+                currentTime={previewCurrentTime}
+                templateName={selectedTemplate?.name}
+                musicLabel={selectedMusicLabel}
+                effect={effect}
+                effectSegments={effectSegments}
+                onSeek={seekPreview}
+                onTrimStartChange={updateTrimStart}
+                onTrimEndChange={updateTrimEnd}
+                onEffectSegmentStartChange={updateEffectStart}
+                onEffectSegmentEndChange={updateEffectEnd}
+                templateOptions={templateOptions}
+                selectedTemplateId={selectedTemplateId}
+                onTemplateChange={setSelectedTemplateId}
+                onEffectChange={setEffect}
+                resolvedMusicOptions={resolvedMusicOptions}
+                selectedMusicValue={musicTheme}
+                onMusicChange={setMusicTheme}
+              />
+            </div>
+          </div>
         </motion.div>
       )}
 
