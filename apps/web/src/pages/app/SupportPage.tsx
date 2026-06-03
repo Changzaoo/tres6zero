@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LifeBuoy, Mail, MessageSquare, Send } from 'lucide-react';
+import { LifeBuoy, MessageSquare, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   createSupportConversation,
@@ -122,13 +122,6 @@ export default function SupportPage() {
           <h1 className="text-2xl font-bold text-white">Suporte</h1>
           <p className="text-sm text-white/40">Envie uma mensagem e acompanhe a resposta pelo app.</p>
         </div>
-        <a
-          href={`mailto:suporte@six3.com?subject=${encodeURIComponent('Suporte SIX3 - ')}&body=${encodeURIComponent(`E-mail da conta: ${email}\nAssunto:\n\nMensagem:\n`)}`}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-2 text-sm font-semibold text-white/70 transition hover:bg-white/[0.09] hover:text-white"
-        >
-          <Mail className="h-4 w-4" />
-          Responder por e-mail
-        </a>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[22rem_1fr]">
