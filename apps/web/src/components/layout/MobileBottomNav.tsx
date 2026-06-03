@@ -27,6 +27,10 @@ const mobileItems = [
   { to: '/app/templates', label: 'Templates', icon: Layers },
 ];
 
+const supportMobileItems = [
+  { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true, primary: false },
+];
+
 const accountItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
@@ -45,14 +49,17 @@ function ProfileBubble({ avatarUrl, initial, size = 'sm' }: { avatarUrl?: string
 }
 
 export function MobileBottomNav() {
-  const { user, isAdmin, hasActiveSubscription } = useAuth();
+  const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const [accountOpen, setAccountOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const items = isAdmin
+  const items = isSupport
+    ? []
+    : isAdmin
     ? [...accountItems, { to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true }]
     : accountItems;
+  const visibleMobileItems = isSupport ? supportMobileItems : mobileItems;
   const initial = user?.name?.charAt(0).toUpperCase() || 'U';
 
   useEffect(() => {
@@ -100,35 +107,37 @@ export function MobileBottomNav() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5">
-              {items.map(({ to, label, icon: Icon, unlocked }) => {
-                const locked = isLocked(unlocked);
-                return (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    className={({ isActive }) =>
-                      `relative flex min-h-[52px] items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-all ${
-                        isActive
-                          ? 'bg-brand-500/18 text-brand-100 ring-1 ring-brand-400/25'
-                          : 'bg-white/[0.045] text-white/68 hover:bg-white/[0.075] hover:text-white'
-                      } ${locked ? 'opacity-65' : ''}`
-                    }
-                  >
-                    <Icon className="h-[18px] w-[18px] shrink-0" />
-                    <span className="min-w-0 truncate">{label}</span>
-                    {locked && <Lock className="absolute right-2 top-2 h-3 w-3 text-white/35" />}
-                  </NavLink>
-                );
-              })}
-            </div>
+            {items.length > 0 && (
+              <div className="grid grid-cols-2 gap-1.5">
+                {items.map(({ to, label, icon: Icon, unlocked }) => {
+                  const locked = isLocked(unlocked);
+                  return (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      className={({ isActive }) =>
+                        `relative flex min-h-[52px] items-center gap-3 rounded-2xl px-3 text-sm font-semibold transition-all ${
+                          isActive
+                            ? 'bg-brand-500/18 text-brand-100 ring-1 ring-brand-400/25'
+                            : 'bg-white/[0.045] text-white/68 hover:bg-white/[0.075] hover:text-white'
+                        } ${locked ? 'opacity-65' : ''}`
+                      }
+                    >
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      <span className="min-w-0 truncate">{label}</span>
+                      {locked && <Lock className="absolute right-2 top-2 h-3 w-3 text-white/35" />}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-[#0e1016]/85 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur-2xl lg:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1 rounded-[26px] border border-white/[0.08] bg-black/25 p-1.5 shadow-2xl shadow-black/45">
-          {mobileItems.map(({ to, label, icon: Icon, primary, unlocked }) => {
+        <div className={`mx-auto grid max-w-md ${isSupport ? 'grid-cols-2' : 'grid-cols-5'} items-end gap-1 rounded-[26px] border border-white/[0.08] bg-black/25 p-1.5 shadow-2xl shadow-black/45`}>
+          {visibleMobileItems.map(({ to, label, icon: Icon, primary, unlocked }) => {
             const locked = isLocked(unlocked);
             return (
               <NavLink

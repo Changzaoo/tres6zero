@@ -13,6 +13,7 @@ import {
   FileImage,
   FileText,
   KeyRound,
+  LifeBuoy,
   MonitorSmartphone,
   RefreshCw,
   Shield,
@@ -21,12 +22,21 @@ import {
   Smartphone,
   Unlock,
   UserCheck,
+  UserCog,
+  UserPlus,
   Users,
   Video,
   X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { banAdminUser, getAdminOverview, getAdminUserDetails, unbanAdminUser } from '@/services/adminService';
+import {
+  banAdminUser,
+  createSupportUser,
+  getAdminOverview,
+  getAdminUserDetails,
+  setAdminUserRole,
+  unbanAdminUser,
+} from '@/services/adminService';
 import { getAdminSession } from '@/services/authService';
 import { getPaidCustomers } from '@/services/billingService';
 import { useAuthStore } from '@/store/authStore';
@@ -151,7 +161,21 @@ function filterLoginEvents(events: UserLoginEvent[], filter: LoginFilter) {
 function auditActionLabel(action: string) {
   if (action === 'USER_BANNED') return 'Usuario banido';
   if (action === 'USER_UNBANNED') return 'Usuario desbanido';
+  if (action === 'USER_ROLE_UPDATED') return 'Cargo alterado';
+  if (action === 'SUPPORT_USER_CREATED') return 'Conta de suporte criada';
   return action || 'Acao administrativa';
+}
+
+function accessLabel(role?: AdminUserOverview['role']) {
+  if (role === 'admin') return 'Admin';
+  if (role === 'support') return 'Suporte';
+  return 'Usuario';
+}
+
+function accessBadgeClass(role?: AdminUserOverview['role']) {
+  if (role === 'admin') return 'bg-yellow-500/12 text-yellow-100 ring-yellow-400/20';
+  if (role === 'support') return 'bg-cyan-500/12 text-cyan-100 ring-cyan-400/20';
+  return 'bg-white/[0.05] text-white/55 ring-white/10';
 }
 
 function eventMediaCount(event: AppEvent) {
@@ -238,6 +262,10 @@ export default function AdminPage() {
   const [customBanDate, setCustomBanDate] = useState('');
   const [confirmSelfBan, setConfirmSelfBan] = useState(false);
   const [banSubmitting, setBanSubmitting] = useState(false);
+  const [roleUpdatingUid, setRoleUpdatingUid] = useState<string | null>(null);
+  const [supportFormOpen, setSupportFormOpen] = useState(false);
+  const [supportForm, setSupportForm] = useState({ name: '', email: '', password: '' });
+  const [supportSubmitting, setSupportSubmitting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -325,11 +353,18 @@ export default function AdminPage() {
     setSelectedDetails({ ...details, user: updatedUser });
     setOverview((current) => {
       if (!current) return current;
+      const exists = current.users.some((user) => user.uid === updatedUser.uid);
+      const users = exists
+        ? current.users.map((user) => (user.uid === updatedUser.uid ? { ...user, ...updatedUser } : user))
+        : [updatedUser, ...current.users];
       return {
         ...current,
-        users: current.users.map((user) => (
-          user.uid === updatedUser.uid ? { ...user, ...updatedUser } : user
-        )),
+        summary: {
+          ...current.summary,
+          totalUsers: users.length,
+          supportUsers: users.filter((user) => user.role === 'support').length,
+        },
+        users,
       };
     });
   }
@@ -427,6 +462,62 @@ export default function AdminPage() {
     }
   }
 
+  function openSupportForm() {
+    setSupportForm({ name: '', email: '', password: '' });
+    setSupportFormOpen(true);
+  }
+
+  async function updateSupportRole(user: AdminUserOverview) {
+    if (user.role === 'admin') {
+      toast.error('O cargo de administrador nao pode ser alterado por aqui.');
+      return;
+    }
+
+    const nextRole = user.role === 'support' ? 'user' : 'support';
+    if (nextRole === 'user' && !window.confirm(`Remover cargo de suporte de ${user.name || user.email || user.uid}?`)) {
+      return;
+    }
+
+    setRoleUpdatingUid(user.uid);
+    try {
+      const details = await setAdminUserRole(user.uid, nextRole);
+      mergeUserDetails(details);
+      toast.success(nextRole === 'support' ? 'Cargo de suporte aplicado.' : 'Cargo de suporte removido.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel alterar o cargo.';
+      toast.error(message);
+    } finally {
+      setRoleUpdatingUid(null);
+    }
+  }
+
+  async function submitCreateSupportUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = supportForm.name.trim();
+    const email = supportForm.email.trim().toLowerCase();
+    const password = supportForm.password;
+
+    if (!name || !email || password.length < 8) {
+      toast.error('Informe nome, e-mail e senha com pelo menos 8 caracteres.');
+      return;
+    }
+
+    setSupportSubmitting(true);
+    try {
+      const details = await createSupportUser({ name, email, password });
+      mergeUserDetails(details);
+      setSupportFormOpen(false);
+      setDrawerUid(details.user.uid);
+      setDrawerTab('summary');
+      toast.success('Conta de suporte criada.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nao foi possivel criar a conta de suporte.';
+      toast.error(message);
+    } finally {
+      setSupportSubmitting(false);
+    }
+  }
+
   const sections: { id: AdminSection; label: string; icon: ReactNode; count: string | number }[] = [
     { id: 'users', label: 'Usuarios', icon: <Users className="h-4 w-4" />, count: overview?.summary.totalUsers ?? '-' },
     { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" />, count: overview?.summary.totalEvents ?? '-' },
@@ -483,7 +574,7 @@ export default function AdminPage() {
                     <p className="mt-1 text-[11px] text-white/28">UID {shortId(user.uid, 12)}</p>
                   </td>
                   <td className="py-4 pr-4">
-                    <p className="text-sm text-white/70">{user.role === 'admin' ? 'Admin' : 'Usuario'}</p>
+                    <p className="text-sm text-white/70">{accessLabel(user.role)}</p>
                     <p className="text-xs text-white/40">{user.planId || user.subscriptionStatus || 'Sem plano'}</p>
                   </td>
                   <td className="py-4 pr-4">
@@ -528,6 +619,21 @@ export default function AdminPage() {
                         <FileText className="h-3.5 w-3.5" />
                         Detalhes
                       </button>
+                      {user.role !== 'admin' && (
+                        <button
+                          type="button"
+                          onClick={() => void updateSupportRole(user)}
+                          disabled={roleUpdatingUid === user.uid}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 text-xs font-bold text-cyan-100 transition hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <UserCog className="h-3.5 w-3.5" />
+                          {roleUpdatingUid === user.uid
+                            ? 'Alterando...'
+                            : user.role === 'support'
+                              ? 'Remover suporte'
+                              : 'Tornar suporte'}
+                        </button>
+                      )}
                       {user.banned ? (
                         <button
                           type="button"
@@ -811,8 +917,8 @@ export default function AdminPage() {
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${drawerUser.emailVerified ? 'bg-blue-500/12 text-blue-100' : 'bg-yellow-500/12 text-yellow-100'}`}>
                   {drawerUser.emailVerified ? 'E-mail verificado' : 'E-mail pendente'}
                 </span>
-                <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-white/55">
-                  {drawerUser.role === 'admin' ? 'Admin' : 'Usuario'}
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${accessBadgeClass(drawerUser.role)}`}>
+                  {accessLabel(drawerUser.role)}
                 </span>
                 <span className="rounded-full bg-brand-500/12 px-2.5 py-1 text-[11px] font-bold text-brand-100">
                   {drawerUser.planId || drawerUser.subscriptionStatus || 'Sem plano'}
@@ -838,6 +944,21 @@ export default function AdminPage() {
                   <Copy className="h-3.5 w-3.5" />
                   Copiar e-mail
                 </button>
+                {drawerUser.role !== 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => void updateSupportRole(drawerUser)}
+                    disabled={roleUpdatingUid === drawerUser.uid}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 text-xs font-bold text-cyan-100 transition hover:bg-cyan-500/15 disabled:opacity-50"
+                  >
+                    <UserCog className="h-3.5 w-3.5" />
+                    {roleUpdatingUid === drawerUser.uid
+                      ? 'Alterando...'
+                      : drawerUser.role === 'support'
+                        ? 'Remover suporte'
+                        : 'Tornar suporte'}
+                  </button>
+                )}
                 {drawerUser.banned ? (
                   <button
                     type="button"
@@ -890,7 +1011,7 @@ export default function AdminPage() {
                   <DetailField label="Nome" value={drawerUser.name || 'Usuario'} />
                   <DetailField label="E-mail" value={drawerUser.email || 'Sem e-mail'} />
                   <DetailField label="UID completo" value={drawerUser.uid} mono wide />
-                  <DetailField label="Tipo de acesso" value={drawerUser.role === 'admin' ? 'Admin' : 'Usuario'} />
+                  <DetailField label="Tipo de acesso" value={accessLabel(drawerUser.role)} />
                   <DetailField label="Plano atual" value={drawerUser.planId || drawerUser.subscriptionStatus || 'Sem plano'} />
                   <DetailField label="Status" value={banLabel(drawerUser)} />
                   <DetailField label="Criado em" value={formatDateTime(drawerUser.createdAt)} />
@@ -1083,6 +1204,7 @@ export default function AdminPage() {
                   auditLogs.map((log: AdminAuditLog) => {
                     const expiresAt = typeof log.metadata?.banExpiresAt === 'string' ? log.metadata.banExpiresAt : null;
                     const newStatus = typeof log.metadata?.newStatus === 'string' ? log.metadata.newStatus : null;
+                    const newRole = typeof log.metadata?.newRole === 'string' ? log.metadata.newRole : null;
                     return (
                       <div key={log.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1090,9 +1212,9 @@ export default function AdminPage() {
                             <p className="text-sm font-semibold text-white">{auditActionLabel(log.action)}</p>
                             <p className="mt-1 text-xs text-white/42">{formatDateTime(log.createdAt)}</p>
                           </div>
-                          {newStatus && (
+                          {(newStatus || newRole) && (
                             <span className="w-fit rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-bold text-white/55">
-                              {newStatus}
+                              {newStatus || accessLabel(newRole as AdminUserOverview['role'])}
                             </span>
                           )}
                         </div>
@@ -1221,6 +1343,87 @@ export default function AdminPage() {
     );
   };
 
+  const renderSupportUserModal = () => {
+    if (!supportFormOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/72 p-4 backdrop-blur-sm">
+        <form onSubmit={submitCreateSupportUser} className="w-full max-w-lg rounded-2xl border border-cyan-300/20 bg-[#0b0c12] p-5 shadow-2xl shadow-black/60">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Nova conta</p>
+              <h2 className="mt-1 text-xl font-bold text-white">Criar suporte</h2>
+              <p className="mt-1 text-sm text-white/42">A conta criada vera somente o painel de suporte.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSupportFormOpen(false)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/62 transition hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-white/40">Nome</span>
+              <input
+                type="text"
+                value={supportForm.name}
+                onChange={(event) => setSupportForm((current) => ({ ...current, name: event.target.value }))}
+                className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-cyan-300/40"
+                placeholder="Nome do atendente"
+                autoComplete="name"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-white/40">E-mail</span>
+              <input
+                type="email"
+                value={supportForm.email}
+                onChange={(event) => setSupportForm((current) => ({ ...current, email: event.target.value }))}
+                className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-cyan-300/40"
+                placeholder="suporte@six3.com"
+                autoComplete="email"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-white/40">Senha temporaria</span>
+              <input
+                type="password"
+                value={supportForm.password}
+                onChange={(event) => setSupportForm((current) => ({ ...current, password: event.target.value }))}
+                className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-cyan-300/40"
+                placeholder="Minimo de 8 caracteres"
+                autoComplete="new-password"
+              />
+            </label>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setSupportFormOpen(false)}
+              className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-bold text-white/65 transition hover:text-white"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={supportSubmitting}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-cyan-500 px-5 text-sm font-bold text-white transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <UserPlus className="h-4 w-4" />
+              {supportSubmitting ? 'Criando...' : 'Criar suporte'}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1244,7 +1447,7 @@ export default function AdminPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Cargo" value="Admin" icon={<ShieldCheck className="h-5 w-5" />} color="text-yellow-400" />
+        <StatCard title="Suporte" value={overview?.summary.supportUsers ?? '-'} icon={<LifeBuoy className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
         <StatCard title="Clientes ativos" value={customers.length} icon={<UserCheck className="h-5 w-5" />} color="text-green-400" />
         <StatCard title="Videos" value={overview?.summary.totalVideos ?? '-'} icon={<Video className="h-5 w-5" />} color="text-blue-300" loading={loadingOverview} />
         <StatCard title="Logins 24h" value={overview?.summary.loginAttempts24h ?? '-'} icon={<Activity className="h-5 w-5" />} color="text-pink-300" loading={loadingOverview} />
@@ -1285,7 +1488,20 @@ export default function AdminPage() {
       </div>
 
       {activeSection === 'users' && (
-        <Panel title="Usuarios e dispositivos" icon={<MonitorSmartphone className="h-5 w-5" />}>
+        <Panel
+          title="Usuarios e dispositivos"
+          icon={<MonitorSmartphone className="h-5 w-5" />}
+          action={(
+            <button
+              type="button"
+              onClick={openSupportForm}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-4 text-xs font-bold text-cyan-100 transition hover:bg-cyan-500/15"
+            >
+              <UserPlus className="h-4 w-4" />
+              Criar suporte
+            </button>
+          )}
+        >
           {renderUsers()}
         </Panel>
       )}
@@ -1317,6 +1533,7 @@ export default function AdminPage() {
       <AdminSupportPanel />
       {renderUserDrawer()}
       {renderBanModal()}
+      {renderSupportUserModal()}
     </div>
   );
 }

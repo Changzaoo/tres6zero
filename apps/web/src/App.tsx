@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/ui/LoadingState';
 import { BannedAccountNotice } from '@/components/auth/BannedAccountNotice';
+import type { UserProfile } from '@/types';
 
 const AppShell = lazy(() => import('@/components/layout/AppShell').then((module) => ({ default: module.AppShell })));
 
@@ -33,6 +34,11 @@ const AdminPage = lazy(() => import('@/pages/app/AdminPage'));
 const BillingPage = lazy(() => import('@/pages/app/BillingPage'));
 const LockedFeaturePage = lazy(() => import('@/pages/app/LockedFeaturePage'));
 const SupportPage = lazy(() => import('@/pages/app/SupportPage'));
+const SupportDashboardPage = lazy(() => import('@/pages/app/SupportDashboardPage'));
+
+function defaultAppPath(user?: Pick<UserProfile, 'role'> | null) {
+  return user?.role === 'support' ? '/app/support-dashboard' : '/app/dashboard';
+}
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuth();
@@ -45,7 +51,7 @@ function PrivateRoute({ children }: { children: ReactNode }) {
 function AuthRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuth();
   if (!initialized) return <LoadingScreen />;
-  if (user) return <Navigate to="/app/dashboard" replace />;
+  if (user) return <Navigate to={defaultAppPath(user)} replace />;
   return <>{children}</>;
 }
 
@@ -54,7 +60,17 @@ function PaidRoute({ children }: { children: ReactNode }) {
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
+  if (user.role === 'support') return <Navigate to="/app/support-dashboard" replace />;
   if (!hasActiveSubscription) return <LockedFeaturePage />;
+  return <>{children}</>;
+}
+
+function NonSupportRoute({ children }: { children: ReactNode }) {
+  const { user, initialized } = useAuth();
+  if (!initialized) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
+  if (user.role === 'support') return <Navigate to="/app/support-dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -63,8 +79,22 @@ function AdminRoute({ children }: { children: ReactNode }) {
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
-  if (!isAdmin) return <Navigate to="/app/billing" replace />;
+  if (!isAdmin) return <Navigate to={user.role === 'support' ? '/app/support-dashboard' : '/app/billing'} replace />;
   return <>{children}</>;
+}
+
+function SupportStaffRoute({ children }: { children: ReactNode }) {
+  const { user, initialized } = useAuth();
+  if (!initialized) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
+  if (user.role !== 'admin' && user.role !== 'support') return <Navigate to={defaultAppPath(user)} replace />;
+  return <>{children}</>;
+}
+
+function AppIndexRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === 'support' ? 'support-dashboard' : 'billing'} replace />;
 }
 
 export default function App() {
@@ -106,7 +136,7 @@ export default function App() {
 
         {/* App (private) */}
         <Route path="/app" element={<PrivateRoute><AppShell /></PrivateRoute>}>
-          <Route index element={<Navigate to="billing" replace />} />
+          <Route index element={<AppIndexRedirect />} />
           <Route path="dashboard" element={<PaidRoute><DashboardPage /></PaidRoute>} />
           <Route path="events" element={<PaidRoute><EventsPage /></PaidRoute>} />
           <Route path="events/new" element={<PaidRoute><EventFormPage /></PaidRoute>} />
@@ -114,13 +144,14 @@ export default function App() {
           <Route path="events/:id/edit" element={<PaidRoute><EventFormPage /></PaidRoute>} />
           <Route path="operator" element={<Navigate to="../gravar" replace />} />
           <Route path="gravar" element={<PaidRoute><OperatorPage /></PaidRoute>} />
-          <Route path="videos" element={<VideosPage />} />
+          <Route path="videos" element={<NonSupportRoute><VideosPage /></NonSupportRoute>} />
           <Route path="templates" element={<PaidRoute><TemplatesPage /></PaidRoute>} />
           <Route path="leads" element={<PaidRoute><LeadsPage /></PaidRoute>} />
           <Route path="analytics" element={<Navigate to="../leads" replace />} />
-          <Route path="billing" element={<BillingPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="support" element={<SupportPage />} />
+          <Route path="billing" element={<NonSupportRoute><BillingPage /></NonSupportRoute>} />
+          <Route path="settings" element={<NonSupportRoute><SettingsPage /></NonSupportRoute>} />
+          <Route path="support" element={<NonSupportRoute><SupportPage /></NonSupportRoute>} />
+          <Route path="support-dashboard" element={<SupportStaffRoute><SupportDashboardPage /></SupportStaffRoute>} />
           <Route path="admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         </Route>
 

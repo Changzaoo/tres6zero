@@ -17,6 +17,17 @@ const banSchema = z.object({
   confirmSelfBan: z.boolean().optional().default(false),
 });
 
+const userRoleSchema = z.object({
+  role: z.enum(['user', 'support']),
+});
+
+const createSupportUserSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  password: z.string().min(8).max(128),
+});
+
+type ManagedUserRole = 'admin' | 'support' | 'user';
 type AdminDevice = {
   id: string;
   name: string;
@@ -185,6 +196,18 @@ async function loadRecentDevices(db: Firestore, uid: string): Promise<AdminDevic
   }
 }
 
+function roleFromAuthAndStored(
+  authUser: UserRecord | null | undefined,
+  stored: RecordData,
+  uid: string,
+  currentAdminUid?: string
+): ManagedUserRole {
+  const claims = authUser?.customClaims || {};
+  if (uid === currentAdminUid || claims.role === 'admin') return 'admin';
+  if (claims.role === 'support' || stored.role === 'support') return 'support';
+  return 'user';
+}
+
 async function loadUsers(db: Firestore, currentAdminUid?: string) {
   const [authUsers, storedSnap] = await Promise.all([
     listAuthUsers(),
@@ -208,7 +231,7 @@ async function loadUsers(db: Firestore, currentAdminUid?: string) {
       uid,
       name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuario')),
       email: authUser?.email || stringValue(stored.email, ''),
-      role: uid === currentAdminUid || claims.role === 'admin' ? 'admin' : 'user',
+      role: roleFromAuthAndStored(authUser, stored, uid, currentAdminUid),
       disabled: Boolean(authUser?.disabled),
       emailVerified: Boolean(authUser?.emailVerified),
       subscriptionStatus: stringOrNull(claims.subscriptionStatus) || stringOrNull(stored.subscriptionStatus),
@@ -459,7 +482,7 @@ function authUserSummary(authUser: UserRecord | null, stored: RecordData, uid: s
     uid,
     name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuario')),
     email: authUser?.email || stringValue(stored.email, ''),
-    role: uid === currentAdminUid || claims.role === 'admin' ? 'admin' : 'user',
+    role: roleFromAuthAndStored(authUser, stored, uid, currentAdminUid),
     disabled: Boolean(authUser?.disabled),
     emailVerified: Boolean(authUser?.emailVerified),
     subscriptionStatus: stringOrNull(claims.subscriptionStatus) || stringOrNull(stored.subscriptionStatus),
@@ -545,7 +568,7 @@ async function ensureCanBanTarget(db: Firestore, target: ReturnType<typeof authU
 }
 
 async function writeAdminAudit(db: Firestore, input: {
-  action: 'USER_BANNED' | 'USER_UNBANNED';
+  action: 'USER_BANNED' | 'USER_UNBANNED' | 'USER_ROLE_UPDATED' | 'SUPPORT_USER_CREATED';
   targetUserId: string;
   targetEmail?: string | null;
   reason?: string;
@@ -599,6 +622,117 @@ adminRouter.get('/audit-logs', requireAdmin, async (req, res, next) => {
   try {
     const targetUserId = typeof req.query.targetUserId === 'string' ? req.query.targetUserId : undefined;
     res.json({ logs: await loadAdminAuditLogs(getDb(), targetUserId) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/role', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = userRoleSchema.parse(req.body || {});
+    const adminAuth = getFirebaseAdminAuth();
+
+    if (!adminAuth) {
+      const err = new Error('FIREBASE_ADMIN_AUTH_NOT_CONFIGURED');
+      (err as any).status = 500;
+      throw err;
+    }
+
+    const ref = db.collection('users').doc(req.params.uid);
+    const [authUser, storedSnap] = await Promise.all([getAuthUser(req.params.uid), ref.get()]);
+    if (!authUser) {
+      const err = new Error('USER_AUTH_RECORD_NOT_FOUND');
+      (err as any).status = 404;
+      throw err;
+    }
+
+    const stored = storedSnap.exists ? storedSnap.data() as RecordData : {};
+    const target = authUserSummary(authUser, stored, req.params.uid, res.locals.user?.uid);
+
+    if (target.role === 'admin') {
+      const err = new Error('CANNOT_CHANGE_ADMIN_ROLE');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const currentClaims = authUser.customClaims || {};
+    const nextClaims: Record<string, unknown> = { ...currentClaims };
+    if (input.role === 'support') {
+      nextClaims.role = 'support';
+    } else {
+      delete nextClaims.role;
+    }
+
+    const now = new Date().toISOString();
+    await adminAuth.setCustomUserClaims(req.params.uid, nextClaims);
+    await ref.set({
+      name: target.name,
+      email: target.email,
+      role: input.role,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await writeAdminAudit(db, {
+      action: 'USER_ROLE_UPDATED',
+      targetUserId: req.params.uid,
+      targetEmail: target.email,
+      adminUser: res.locals.user,
+      metadata: {
+        previousRole: target.role,
+        newRole: input.role,
+      },
+    });
+
+    res.json(await loadUserDetails(db, req.params.uid, res.locals.user?.uid));
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/support-users', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = createSupportUserSchema.parse(req.body || {});
+    const adminAuth = getFirebaseAdminAuth();
+
+    if (!adminAuth) {
+      const err = new Error('FIREBASE_ADMIN_AUTH_NOT_CONFIGURED');
+      (err as any).status = 500;
+      throw err;
+    }
+
+    const created = await adminAuth.createUser({
+      displayName: input.name,
+      email: input.email,
+      password: input.password,
+      emailVerified: false,
+      disabled: false,
+    });
+    const now = new Date().toISOString();
+
+    await adminAuth.setCustomUserClaims(created.uid, { role: 'support' });
+    await db.collection('users').doc(created.uid).set({
+      name: input.name,
+      email: input.email,
+      role: 'support',
+      createdAt: now,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await writeAdminAudit(db, {
+      action: 'SUPPORT_USER_CREATED',
+      targetUserId: created.uid,
+      targetEmail: input.email,
+      adminUser: res.locals.user,
+      metadata: {
+        role: 'support',
+      },
+    });
+
+    res.status(201).json(await loadUserDetails(db, created.uid, res.locals.user?.uid));
   } catch (error) {
     next(error);
   }
@@ -718,6 +852,7 @@ adminRouter.get('/overview', requireAdmin, async (_req, res, next) => {
         loginAttempts24h: recentLoginLogs.length,
         failedLoginAttempts24h: recentLoginLogs.filter((log) => !log.success).length,
         disabledUsers: users.filter((user) => user.disabled).length,
+        supportUsers: users.filter((user) => user.role === 'support').length,
       },
       users,
       events,

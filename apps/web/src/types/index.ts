@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'support' | 'user';
 export type UserBanStatus = 'active' | 'expired' | 'revoked';
 
 export interface UserProfile {
@@ -97,7 +97,7 @@ export interface SupportMessage {
   id: string;
   conversationId: string;
   senderUid: string;
-  senderRole: 'admin' | 'user' | 'anonymous' | 'system';
+  senderRole: 'admin' | 'support' | 'user' | 'anonymous' | 'system';
   senderName: string;
   body: string;
   createdAt: string;
@@ -317,6 +317,7 @@ export interface AdminOverviewSummary {
   loginAttempts24h: number;
   failedLoginAttempts24h: number;
   disabledUsers: number;
+  supportUsers?: number;
 }
 
 export interface AdminOverview {

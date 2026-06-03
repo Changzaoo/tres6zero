@@ -85,9 +85,10 @@ type FirebaseUserRecord = {
   createdAt?: string;
 };
 
-type UserRole = 'admin' | 'user';
+type UserRole = 'admin' | 'support' | 'user';
 
 type StoredProfileData = {
+  role?: UserRole;
   companyName?: string;
   avatarUrl?: string;
   banned?: boolean;
@@ -583,8 +584,7 @@ function assertRecoveryChallengeActive(challenge: RecoveryChallengeRecord | null
   }
 }
 
-function planFromUser(user: FirebaseUserRecord) {
-  const paidEmails = parsePaidEmails();
+function customClaimsFromUser(user: FirebaseUserRecord) {
   let custom: Record<string, unknown>;
 
   try {
@@ -593,6 +593,12 @@ function planFromUser(user: FirebaseUserRecord) {
     custom = {};
   }
 
+  return custom;
+}
+
+function planFromUser(user: FirebaseUserRecord) {
+  const paidEmails = parsePaidEmails();
+  const custom = customClaimsFromUser(user);
   const email = (user.email || '').toLowerCase();
   const currentPeriodEnd = typeof custom.currentPeriodEnd === 'string' ? custom.currentPeriodEnd : null;
   const currentPeriodTime = currentPeriodEnd ? Date.parse(currentPeriodEnd) : 0;
@@ -623,17 +629,26 @@ function roleFromUser(user: FirebaseUserRecord): UserRole {
   const adminUid = getConfiguredAdminUid();
   const adminEmail = getConfiguredAdminEmail();
   const userEmail = (user.email || '').trim().toLowerCase();
+  const custom = customClaimsFromUser(user);
 
-  if (adminUid && adminEmail) {
-    return user.localId === adminUid && userEmail === adminEmail ? 'admin' : 'user';
+  if (adminUid && adminEmail && user.localId === adminUid && userEmail === adminEmail) {
+    return 'admin';
   }
 
-  if (adminUid) {
-    return user.localId === adminUid ? 'admin' : 'user';
+  if (adminUid && user.localId === adminUid) {
+    return 'admin';
   }
 
   if (adminEmail && user.emailVerified === true && userEmail === adminEmail) {
     return 'admin';
+  }
+
+  if (custom.role === 'admin') {
+    return 'admin';
+  }
+
+  if (custom.role === 'support') {
+    return 'support';
   }
 
   return 'user';
@@ -648,6 +663,7 @@ async function storedUserProfile(uid: string) {
 
   const data = snap.data() as StoredProfileData;
   return {
+    role: data.role === 'support' ? 'support' : undefined,
     companyName: typeof data.companyName === 'string' ? data.companyName : '',
     avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : '',
     banned: Boolean(data.banned),
@@ -663,8 +679,9 @@ async function storedUserProfile(uid: string) {
 
 async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') {
   const plan = planFromUser(user);
-  const role = roleFromUser(user);
+  const baseRole = roleFromUser(user);
   const storedProfile = await storedUserProfile(user.localId);
+  const role: UserRole = baseRole === 'user' && storedProfile.role === 'support' ? 'support' : baseRole;
   const notificationPreferences = await getNotificationPreferences(user.localId).catch(() => undefined);
   let stripeAccess = null;
 
@@ -1068,11 +1085,31 @@ authRouter.get('/admin/session', requireAdmin, (_req, res) => {
   res.json({ ok: true, user: res.locals.user });
 });
 
+export async function requireSupportStaff(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    const profile = await userProfile(user);
+
+    if (profile.role !== 'admin' && profile.role !== 'support') {
+      authError('FORBIDDEN', 403);
+    }
+
+    res.locals.user = profile;
+    next();
+  } catch (e) {
+    next(e);
+  }
+}
+
 export async function requireActiveSubscription(req: Request, _res: Response, next: NextFunction) {
   try {
     const user = await getAuthenticatedUser(req);
 
     const profile = await userProfile(user);
+    if (profile.role === 'support') {
+      authError('FORBIDDEN', 403);
+    }
+
     if (profile.subscriptionStatus !== 'active') {
       const err = new Error('PAYMENT_REQUIRED');
       (err as any).status = 402;
@@ -1091,6 +1128,10 @@ export function requirePlanFeature(feature: PlanFeature) {
     try {
       const user = await getAuthenticatedUser(req);
       const profile = await userProfile(user);
+
+      if (profile.role === 'support') {
+        authError('FORBIDDEN', 403);
+      }
 
       if (profile.subscriptionStatus !== 'active') {
         const err = new Error('PAYMENT_REQUIRED');

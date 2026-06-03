@@ -138,3 +138,18 @@ export async function createAdminNotification(input: Omit<CreateNotificationInpu
   if (!adminUid) return null;
   return createNotification({ ...input, recipientUid: adminUid });
 }
+
+export async function createSupportStaffNotification(input: Omit<CreateNotificationInput, 'recipientUid'>) {
+  const recipients = new Set<string>();
+  const adminUid = (process.env.ADMIN_UID || '').trim();
+  if (adminUid) recipients.add(adminUid);
+
+  const supportSnap = await getDb().collection('users').where('role', '==', 'support').get();
+  supportSnap.docs.forEach((doc) => recipients.add(doc.id));
+
+  await Promise.all(
+    Array.from(recipients).map((recipientUid) => createNotification({ ...input, recipientUid }))
+  );
+
+  return { count: recipients.size };
+}

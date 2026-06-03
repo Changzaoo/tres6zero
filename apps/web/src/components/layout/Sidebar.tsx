@@ -35,10 +35,17 @@ const navItems = [
   { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
+const supportNavItems = [
+  { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true },
+];
+
 export function Sidebar({ onClose }: SidebarProps) {
-  const { user, isAdmin, hasActiveSubscription } = useAuth();
+  const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
+  const visibleNavItems = isSupport ? supportNavItems : navItems;
+  const statusLabel = isSupport ? 'Suporte' : hasActiveSubscription ? 'Ativo' : 'Sem assinatura';
+  const statusClass = isSupport || hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35';
 
   async function handleLogout() {
     await logout();
@@ -61,7 +68,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        {navItems.map(({ to, label, icon: Icon, unlocked }) => {
+        {visibleNavItems.map(({ to, label, icon: Icon, unlocked }) => {
           const locked = !hasActiveSubscription && !unlocked;
           return (
             <NavLink
@@ -83,7 +90,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           );
         })}
 
-        {isAdmin && (
+        {!isSupport && isAdmin && (
           <NavLink
             to="/app/admin"
             onClick={onClose}
@@ -108,8 +115,8 @@ export function Sidebar({ onClose }: SidebarProps) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-white/90">{user?.name}</p>
-            <p className={`truncate font-mono text-[10px] ${hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35'}`}>
-              {hasActiveSubscription ? 'Ativo' : 'Sem assinatura'}
+            <p className={`truncate font-mono text-[10px] ${statusClass}`}>
+              {statusLabel}
             </p>
           </div>
           <NotificationBell />

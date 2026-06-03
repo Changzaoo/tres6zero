@@ -178,10 +178,10 @@ export function AdminSupportPanel() {
 
               <div className="flex-1 space-y-3 overflow-y-auto py-4">
                 {messages.map((message) => {
-                  const isAdmin = message.senderRole === 'admin';
+                  const isStaff = message.senderRole === 'admin' || message.senderRole === 'support';
                   return (
-                    <div key={message.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[84%] rounded-2xl px-4 py-3 ${isAdmin ? 'bg-brand-500/20 text-white' : 'bg-white/[0.065] text-white/82'}`}>
+                    <div key={message.id} className={`flex ${isStaff ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[84%] rounded-2xl px-4 py-3 ${isStaff ? 'bg-brand-500/20 text-white' : 'bg-white/[0.065] text-white/82'}`}>
                         <p className="whitespace-pre-wrap text-sm">{message.body}</p>
                         <p className="mt-2 text-[11px] text-white/35">{message.senderName} - {formatDate(message.createdAt)}</p>
                       </div>
@@ -251,7 +251,7 @@ export function AdminSupportPanel() {
             <div className="grid gap-3 sm:grid-cols-2">
               {[
                 ['Identificar', 'Peça e-mail usado no cadastro, nome da empresa e print do erro.', UserRound],
-                ['Checar conta', 'Procure o e-mail no Admin, confirme UID, plano e status de assinatura.', Search],
+                ['Checar conta', 'Se necessario, acione um admin para conferir UID, plano e status.', Search],
                 ['Validar seguranca', 'Nao informe dados privados enquanto a pessoa nao provar controle do e-mail.', CheckCircle2],
                 ['Resolver acesso', 'Oriente redefinicao de senha, metodo correto de login e dispositivos conectados.', Mail],
               ].map(([title, description, Icon]) => (

@@ -22,6 +22,20 @@ export function getAdminAuditLogs(targetUserId?: string) {
   return apiRequest<{ logs: AdminAuditLog[] }>(`/api/admin/audit-logs${query}`);
 }
 
+export function setAdminUserRole(uid: string, role: 'user' | 'support') {
+  return apiRequest<UserAdminDetails>(`/api/admin/users/${encodeURIComponent(uid)}/role`, {
+    method: 'POST',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function createSupportUser(data: { name: string; email: string; password: string }) {
+  return apiRequest<UserAdminDetails>('/api/admin/support-users', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export function banAdminUser(uid: string, data: {
   reason?: string;
   duration: 'permanent' | '1d' | '7d' | '30d' | 'custom';
