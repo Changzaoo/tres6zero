@@ -25,6 +25,16 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      - key: PIXGO_API_KEY
+        sync: false
+      - key: PIXGO_API_SECRET_KEY
+        sync: false
+      - key: PIXGO_PUBLIC_KEY
+        sync: false
+      - key: PIXGO_WEBHOOK_SECRET
+        sync: false
+      - key: PIXGO_API_BASE_URL
+        value: https://pixgo.org/api/v1
       - key: SUPABASE_URL
         value: https://xmuawzcpydmbcqackgoz.supabase.co
       - key: SUPABASE_PUBLISHABLE_KEY

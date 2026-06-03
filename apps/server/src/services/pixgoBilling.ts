@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { IncomingHttpHeaders } from 'http';
 import { FieldValue } from 'firebase-admin/firestore';
+import QRCode from 'qrcode';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from './firebaseAdmin';
 import { createNotification } from './notifications';
 import { getPlan, type AuthenticatedBillingUser, type BillingPlanId } from './stripeBilling';
@@ -21,6 +22,7 @@ type StoredPixGoPayment = {
   status: PixGoStatus;
   pixCode: string | null;
   qrCodeUrl: string | null;
+  qrCodeDataUrl: string | null;
   paymentUrl: string | null;
   expiresAt: string | null;
   createdAt: string;
@@ -69,7 +71,13 @@ function pixgoApiBaseUrl() {
 }
 
 function pixgoApiKey() {
-  return (process.env.PIXGO_API_SECRET_KEY || process.env.PIXGO_PUBLIC_KEY || '').trim();
+  return (
+    process.env.PIXGO_API_KEY
+    || process.env.PIXGO_API_SECRET_KEY
+    || process.env.PIXGO_SECRET_KEY
+    || process.env.PIXGO_PUBLIC_KEY
+    || ''
+  ).trim();
 }
 
 function getConfiguredWebhookUrl() {
@@ -113,10 +121,28 @@ function publicPayment(record: StoredPixGoPayment) {
     status: record.status,
     pixCode: record.pixCode,
     qrCodeUrl: record.qrCodeUrl,
+    qrCodeDataUrl: record.qrCodeDataUrl || null,
     paymentUrl: record.paymentUrl,
     expiresAt: record.expiresAt,
     currentPeriodEnd: record.currentPeriodEnd || null,
   };
+}
+
+async function qrCodeDataUrlFromPixCode(pixCode?: string | null) {
+  if (!pixCode) return null;
+  try {
+    return await QRCode.toDataURL(pixCode, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 320,
+      color: {
+        dark: '#08090c',
+        light: '#ffffff',
+      },
+    });
+  } catch {
+    return null;
+  }
 }
 
 function createExternalId(userId: string, planId: BillingPlanId) {
@@ -296,6 +322,7 @@ export async function createPixGoPayment(user: AuthenticatedBillingUser, planId:
   }
 
   const now = new Date().toISOString();
+  const pixCode = data.qr_code || data.pix_code || data.copy_paste || data.brcode || null;
   const record: StoredPixGoPayment = {
     provider: 'pixgo',
     paymentId,
@@ -308,8 +335,9 @@ export async function createPixGoPayment(user: AuthenticatedBillingUser, planId:
     amount: typeof data.amount === 'number' ? data.amount : toAmountReais(plan.amount),
     amountCents: plan.amount,
     status: normalizeStatus(data.status),
-    pixCode: data.qr_code || data.pix_code || data.copy_paste || data.brcode || null,
+    pixCode,
     qrCodeUrl: data.qr_image_url || data.qr_code_url || null,
+    qrCodeDataUrl: await qrCodeDataUrlFromPixCode(pixCode),
     paymentUrl: data.payment_url || data.checkout_url || null,
     expiresAt: data.expires_at || null,
     createdAt: now,
@@ -338,9 +366,15 @@ export async function getPixGoPaymentStatus(paymentId: string, user: Authenticat
   if (!response.ok || (payload as any)?.success === false) return publicPayment(stored);
 
   const data = normalizePixGoData(payload);
+  const pixCode = data.qr_code || data.pix_code || data.copy_paste || data.brcode || stored.pixCode;
   const updated: StoredPixGoPayment = {
     ...stored,
     status: normalizeStatus(data.status),
+    pixCode,
+    qrCodeUrl: data.qr_image_url || data.qr_code_url || stored.qrCodeUrl,
+    qrCodeDataUrl: stored.qrCodeDataUrl || await qrCodeDataUrlFromPixCode(pixCode),
+    paymentUrl: data.payment_url || data.checkout_url || stored.paymentUrl,
+    expiresAt: data.expires_at || stored.expiresAt,
     updatedAt: new Date().toISOString(),
   };
 

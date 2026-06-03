@@ -12,6 +12,7 @@ export type PixPayment = {
   status: 'pending' | 'completed' | 'expired' | 'cancelled' | 'refunded' | 'failed';
   pixCode: string | null;
   qrCodeUrl: string | null;
+  qrCodeDataUrl?: string | null;
   paymentUrl: string | null;
   expiresAt: string | null;
   currentPeriodEnd?: string | null;

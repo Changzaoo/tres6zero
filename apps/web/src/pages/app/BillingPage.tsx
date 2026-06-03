@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, ExternalLink, LockKeyhole, QrCode } from 'lucide-react';
+import { CheckCircle2, Copy, Loader2, LockKeyhole, QrCode, TriangleAlert } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { PlanCards } from '@/components/billing/PlanCards';
 import { Button } from '@/components/ui/Button';
@@ -26,13 +26,31 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
 });
 
+function paymentStatusLabel(status?: PixPayment['status']) {
+  if (status === 'completed') return 'Pagamento confirmado';
+  if (status === 'expired') return 'Pix expirado';
+  if (status === 'cancelled') return 'Pix cancelado';
+  if (status === 'refunded') return 'Pagamento estornado';
+  if (status === 'failed') return 'Falha no pagamento';
+  return 'Aguardando Pix';
+}
+
+function paymentStatusTone(status?: PixPayment['status']) {
+  if (status === 'completed') return 'border-emerald-300/25 bg-emerald-400/12 text-emerald-100';
+  if (status === 'expired' || status === 'cancelled' || status === 'failed') return 'border-amber-300/25 bg-amber-400/12 text-amber-100';
+  if (status === 'refunded') return 'border-red-300/25 bg-red-400/12 text-red-100';
+  return 'border-brand-300/25 bg-brand-500/12 text-brand-100';
+}
+
 export default function BillingPage() {
   const { user, hasActiveSubscription, isAdmin } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
   const autoStartedPlan = useRef<PlanId | null>(null);
+  const confirmedPaymentRef = useRef<string | null>(null);
   const periodEnd = formatDate(user?.currentPeriodEnd);
   const selectedPlanId = normalizeSelectedPlan(user?.planId || user?.entitlements?.planId, isAdmin);
   const hasSelectedPlan = Boolean(selectedPlanId && (hasActiveSubscription || isAdmin));
@@ -66,22 +84,48 @@ export default function BillingPage() {
   useEffect(() => {
     if (!paymentOpen || !payment?.paymentId || payment.status !== 'pending') return;
 
-    const timer = window.setInterval(async () => {
+    let cancelled = false;
+    const activePaymentId = payment.paymentId;
+
+    async function refreshPaymentStatus(showSpinner = false) {
       try {
-        const nextPayment = await getPixPayment(payment.paymentId);
+        if (showSpinner) setCheckingPayment(true);
+        const nextPayment = await getPixPayment(activePaymentId);
+        if (cancelled) return;
         setPayment(nextPayment);
 
-        if (nextPayment.status === 'completed') {
+        if (nextPayment.status === 'completed' && confirmedPaymentRef.current !== nextPayment.paymentId) {
+          confirmedPaymentRef.current = nextPayment.paymentId;
           toast.info('Pagamento Pix confirmado. Seu acesso sera atualizado agora.');
           const freshUser = await getCurrentUser();
-          if (freshUser) setUser(freshUser);
+          if (!cancelled && freshUser) setUser(freshUser);
         }
       } catch {
         // A consulta de status e complementar; o webhook continua sendo a fonte de liberacao.
+      } finally {
+        if (!cancelled && showSpinner) setCheckingPayment(false);
       }
-    }, 30_000);
+    }
 
-    return () => window.clearInterval(timer);
+    const firstCheck = window.setTimeout(() => {
+      void refreshPaymentStatus(true);
+    }, 2_000);
+    const timer = window.setInterval(() => {
+      void refreshPaymentStatus(false);
+    }, 10_000);
+    const onFocus = () => {
+      void refreshPaymentStatus(true);
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(firstCheck);
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [payment?.paymentId, payment?.status, paymentOpen, setUser]);
 
   async function startPixPayment(planId: PlanId) {
@@ -90,11 +134,11 @@ export default function BillingPage() {
       const nextPayment = await createPixPayment(planId);
       setPayment(nextPayment);
       setPaymentOpen(true);
-      toast.info('Cobranca Pix criada. Use o QR Code ou o Pix copia e cola para pagar.');
+      toast.info('Pix gerado. Use o QR Code ou o Pix copia e cola nesta tela.');
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
       const message = code === 'PIXGO_NOT_CONFIGURED'
-        ? 'PixGo ainda nao esta configurado no backend.'
+        ? 'PixGo ainda precisa da API Key configurada no backend.'
         : 'Nao foi possivel gerar o Pix agora.';
       toast.error(message);
     } finally {
@@ -125,6 +169,9 @@ export default function BillingPage() {
     }
   }
 
+  const qrSource = payment?.qrCodeDataUrl || payment?.qrCodeUrl || '';
+  const isPaymentFinal = payment?.status && payment.status !== 'pending';
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {!hasActiveSubscription && !isAdmin && (
@@ -154,24 +201,38 @@ export default function BillingPage() {
         selectedPlanId={hasSelectedPlan ? selectedPlanId : null}
         selectedLabel={isAdmin ? 'Acesso ilimitado' : 'Selecionado'}
         selectedDescription={selectedDescription}
+        paymentHint="O QR Code Pix abre nesta pagina. Nao armazenamos dados de cartao."
       />
 
-      <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Pagamento PixGo" size="xl">
+      <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Pagar com Pix" size="xl">
         <div className="space-y-4">
           {payment && (
             <>
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4">
+              <div className={`rounded-2xl border p-4 ${paymentStatusTone(payment.status)}`}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-normal text-white/40">Plano escolhido</p>
-                    <h2 className="mt-1 text-xl font-bold leading-tight text-white">{payment.planName}</h2>
-                    <p className="mt-1 text-sm text-white/55">
-                      Pagamento via PixGo. Depois da confirmacao via webhook, seu plano e liberado automaticamente.
-                    </p>
+                  <div className="flex min-w-0 gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                      {payment.status === 'completed' ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : isPaymentFinal ? (
+                        <TriangleAlert className="h-5 w-5" />
+                      ) : checkingPayment ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <QrCode className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-normal text-white/40">Plano escolhido</p>
+                      <h2 className="mt-1 text-xl font-bold leading-tight text-white">{payment.planName}</h2>
+                      <p className="mt-1 text-sm leading-relaxed text-white/62">
+                        Fique nesta tela: o QR Code e o status do Pix sao atualizados automaticamente apos o pagamento.
+                      </p>
+                    </div>
                   </div>
-                  <div className="shrink-0 rounded-xl border border-emerald-300/16 bg-emerald-400/[0.08] px-3 py-2 text-left sm:text-right">
-                    <p className="text-xs text-emerald-100/60">Valor</p>
-                    <p className="text-lg font-black text-emerald-50">{currencyFormatter.format(payment.amount)}</p>
+                  <div className="shrink-0 rounded-xl border border-white/10 bg-black/16 px-3 py-2 text-left sm:text-right">
+                    <p className="text-xs text-white/55">Valor</p>
+                    <p className="text-lg font-black text-white">{currencyFormatter.format(payment.amount)}</p>
                   </div>
                 </div>
               </div>
@@ -179,13 +240,18 @@ export default function BillingPage() {
               <div className="grid gap-4 lg:grid-cols-[15rem_1fr]">
                 <div id="pix-qr-code" className="rounded-2xl border border-white/[0.08] bg-white p-4 text-surface">
                   <div className="flex aspect-square items-center justify-center">
-                    {payment.qrCodeUrl ? (
-                      <img src={payment.qrCodeUrl} alt="QR Code Pix" className="h-full w-full object-contain" />
+                    {qrSource ? (
+                      <img src={qrSource} alt="QR Code Pix" className="h-full w-full object-contain" />
                     ) : payment.pixCode ? (
                       <QRCodeSVG value={payment.pixCode} size={196} className="h-full w-full" />
                     ) : (
                       <QrCode className="h-20 w-20 text-surface/30" />
                     )}
+                  </div>
+                  <div className="mt-3 flex justify-center">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${paymentStatusTone(payment.status)}`}>
+                      {checkingPayment ? 'Verificando...' : paymentStatusLabel(payment.status)}
+                    </span>
                   </div>
                 </div>
 
@@ -193,10 +259,10 @@ export default function BillingPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Pix copia e cola</p>
-                      <p className="text-xs text-white/45">Abra o app do banco, escolha Pix e cole este código.</p>
+                      <p className="text-xs text-white/45">Abra o app do banco, escolha Pix e cole este codigo.</p>
                     </div>
                     <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-white/55">
-                      {payment.status === 'completed' ? 'Confirmado' : 'Aguardando Pix'}
+                      {checkingPayment ? 'Verificando...' : paymentStatusLabel(payment.status)}
                     </span>
                   </div>
 
@@ -214,26 +280,15 @@ export default function BillingPage() {
                       disabled={!payment.pixCode}
                       onClick={copyPixCode}
                     >
-                      Copiar código Pix
+                      Copiar codigo Pix
                     </Button>
-                    {payment.paymentUrl && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="justify-center"
-                        icon={<ExternalLink className="h-4 w-4" />}
-                        onClick={() => window.open(payment.paymentUrl || '', '_blank', 'noopener,noreferrer')}
-                      >
-                        Abrir PixGo
-                      </Button>
-                    )}
                   </div>
 
                   <div className="mt-4 grid gap-2 text-xs leading-relaxed text-white/52 sm:grid-cols-2">
                     <p>Pagamento confirmado automaticamente via Pix.</p>
                     <p>Use o QR Code ou o Pix copia e cola no app do seu banco.</p>
                     <p>A liberacao do plano acontece apos a confirmacao da PixGo.</p>
-                    <p>Se o status demorar, a verificacao continua em segundo plano.</p>
+                    <p>A verificacao continua enquanto este modal estiver aberto.</p>
                   </div>
                 </div>
               </div>
