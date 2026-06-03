@@ -27,7 +27,6 @@ const OperatorPage = lazy(() => import('@/pages/app/OperatorPage'));
 const VideosPage = lazy(() => import('@/pages/app/VideosPage'));
 const TemplatesPage = lazy(() => import('@/pages/app/TemplatesPage'));
 const LeadsPage = lazy(() => import('@/pages/app/LeadsPage'));
-const AnalyticsPage = lazy(() => import('@/pages/app/AnalyticsPage'));
 const SettingsPage = lazy(() => import('@/pages/app/SettingsPage'));
 const AdminPage = lazy(() => import('@/pages/app/AdminPage'));
 const BillingPage = lazy(() => import('@/pages/app/BillingPage'));
@@ -114,7 +113,7 @@ export default function App() {
           <Route path="videos" element={<VideosPage />} />
           <Route path="templates" element={<PaidRoute><TemplatesPage /></PaidRoute>} />
           <Route path="leads" element={<PaidRoute><LeadsPage /></PaidRoute>} />
-          <Route path="analytics" element={<PaidRoute><AnalyticsPage /></PaidRoute>} />
+          <Route path="analytics" element={<Navigate to="../leads" replace />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="support" element={<SupportPage />} />

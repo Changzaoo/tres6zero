@@ -12,7 +12,6 @@ import {
   LogOut,
   Settings,
   Shield,
-  Users,
   Video,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,8 +30,7 @@ const mobileItems = [
 const accountItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
-  { to: '/app/leads', label: 'Leads', icon: Users },
-  { to: '/app/analytics', label: 'Analytics', icon: BarChart2 },
+  { to: '/app/leads', label: 'Resultados', icon: BarChart2 },
   { to: '/app/settings', label: 'Configuracoes', icon: Settings, unlocked: true },
   { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];

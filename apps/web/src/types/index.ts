@@ -256,8 +256,22 @@ export interface Lead {
   phone?: string;
   email?: string;
   instagram?: string;
+  feedback?: string;
+  visitorId?: string | null;
   acceptedTerms: boolean;
   source: string;
+  createdAt: string;
+}
+
+export type EngagementEventType = 'view' | 'download' | 'share' | 'whatsapp' | 'copy_link' | 'qr_code' | 'feedback';
+
+export interface EngagementEvent {
+  id: string;
+  type: EngagementEventType;
+  eventId?: string | null;
+  videoId?: string | null;
+  visitorId?: string | null;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 

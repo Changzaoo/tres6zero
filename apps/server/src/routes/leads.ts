@@ -4,16 +4,19 @@ import { z } from 'zod';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification } from '../services/notifications';
+import { hashPublicVisitorId } from '../services/publicVisitors';
 
 export const leadRouter = Router();
 
 const leadSchema = z.object({
   eventId: z.string().min(1),
   videoId: z.string().optional(),
-  name: z.string().min(1),
-  phone: z.string().optional(),
+  name: z.string().trim().max(120).optional().default(''),
+  phone: z.string().trim().max(40).optional().default(''),
   email: z.string().email().optional().or(z.literal('')),
-  instagram: z.string().optional(),
+  instagram: z.string().trim().max(80).optional().default(''),
+  feedback: z.string().trim().max(1200).optional().default(''),
+  visitorId: z.string().optional(),
   acceptedTerms: z.boolean().default(false),
   source: z.string().min(1).default('gallery'),
 });
@@ -55,7 +58,7 @@ function csvEscape(value: unknown) {
 }
 
 function leadsToCsv(leads: Array<Record<string, unknown>>) {
-  const fields = ['name', 'phone', 'email', 'instagram', 'source', 'eventId', 'videoId', 'createdAt'];
+  const fields = ['name', 'phone', 'email', 'instagram', 'feedback', 'source', 'eventId', 'videoId', 'visitorId', 'createdAt'];
   return [
     fields.join(','),
     ...leads.map((lead) => fields.map((field) => csvEscape(lead[field])).join(',')),
@@ -64,6 +67,14 @@ function leadsToCsv(leads: Array<Record<string, unknown>>) {
 
 async function manageableEventIds(user: UserProfile) {
   const collection = getDb().collection('events');
+  const snap = user.role === 'admin'
+    ? await collection.get()
+    : await collection.where('ownerId', '==', user.uid).get();
+  return new Set(snap.docs.map((doc) => doc.id));
+}
+
+async function manageableVideoIds(user: UserProfile) {
+  const collection = getDb().collection('videos');
   const snap = user.role === 'admin'
     ? await collection.get()
     : await collection.where('ownerId', '==', user.uid).get();
@@ -96,13 +107,35 @@ async function loadLeads(user: UserProfile, eventId?: string) {
   }
 
   const eventIds = Array.from(await manageableEventIds(user));
-  if (eventIds.length === 0) return [];
+  const videoIds = Array.from(await manageableVideoIds(user));
+  if (eventIds.length === 0 && videoIds.length === 0) return [];
 
   const leads: Array<Record<string, unknown>> = [];
+  const seen = new Set<string>();
   for (let i = 0; i < eventIds.length; i += 10) {
     const chunk = eventIds.slice(i, i + 10);
     const snap = await db.collection('leads').where('eventId', 'in', chunk).get();
-    leads.push(...(snap.docs.map(leadFromDoc).filter(isPresent) as Array<Record<string, unknown>>));
+    snap.docs.forEach((doc) => {
+      if (seen.has(doc.id)) return;
+      const lead = leadFromDoc(doc);
+      if (lead) {
+        seen.add(doc.id);
+        leads.push(lead as Record<string, unknown>);
+      }
+    });
+  }
+
+  for (let i = 0; i < videoIds.length; i += 10) {
+    const chunk = videoIds.slice(i, i + 10);
+    const snap = await db.collection('leads').where('videoId', 'in', chunk).get();
+    snap.docs.forEach((doc) => {
+      if (seen.has(doc.id)) return;
+      const lead = leadFromDoc(doc);
+      if (lead) {
+        seen.add(doc.id);
+        leads.push(lead as Record<string, unknown>);
+      }
+    });
   }
 
   return sortByNewest(leads);
@@ -112,28 +145,45 @@ leadRouter.post('/', async (req, res, next) => {
   try {
     const data = leadSchema.parse(req.body || {});
     const now = new Date().toISOString();
-    const ref = await getDb().collection('leads').add({
+    const visitorId = hashPublicVisitorId(data.visitorId);
+    const publicLead = {
       ...data,
+      name: data.name || 'Visitante',
+      phone: data.phone || '',
       email: data.email || '',
+      instagram: data.instagram || '',
+      feedback: data.feedback || '',
+      visitorId,
       createdAt: now,
+    };
+
+    const ref = await getDb().collection('leads').add({
+      ...publicLead,
       _ts: FieldValue.serverTimestamp(),
     });
 
     const eventSnap = await getDb().collection('events').doc(data.eventId).get();
-    const ownerUid = eventSnap.exists ? eventSnap.data()?.ownerId : null;
+    let ownerUid = eventSnap.exists ? eventSnap.data()?.ownerId : null;
+    if (!ownerUid && data.videoId) {
+      const videoSnap = await getDb().collection('videos').doc(data.videoId).get();
+      ownerUid = videoSnap.exists ? videoSnap.data()?.ownerId : null;
+    }
     if (typeof ownerUid === 'string') {
+      const hasFeedback = Boolean(data.feedback);
       await createNotification({
         recipientUid: ownerUid,
         category: 'event',
-        title: 'Novo lead capturado',
-        body: `${data.name} deixou contato na galeria.`,
+        title: hasFeedback ? 'Novo feedback recebido' : 'Novo lead capturado',
+        body: hasFeedback
+          ? `${publicLead.name} deixou um comentario no video.`
+          : `${publicLead.name} deixou contato na galeria.`,
         link: '/app/leads',
         priority: 'normal',
         metadata: { leadId: ref.id, eventId: data.eventId, videoId: data.videoId },
       }).catch((error) => console.warn('[notifications] lead skipped:', error instanceof Error ? error.message : error));
     }
 
-    res.status(201).json({ lead: { id: ref.id, ...data, email: data.email || '', createdAt: now } });
+    res.status(201).json({ lead: { id: ref.id, ...publicLead } });
   } catch (e) { next(e); }
 });
 
@@ -156,7 +206,7 @@ leadRouter.post('/export', requireActiveSubscription, (req, res, next) => {
     const user = res.locals.user as UserProfile;
     const { eventId } = exportSchema.parse(req.body);
     const leads = await loadLeads(user, eventId);
-    const csv = 'name,phone,email,instagram,source,createdAt\n';
+    const csv = 'name,phone,email,instagram,feedback,source,eventId,videoId,visitorId,createdAt\n';
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
     res.send(leads.length ? leadsToCsv(leads) : csv);
