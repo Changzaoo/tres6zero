@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors } from 'lucide-react';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -16,7 +16,7 @@ import { canRenderVideoInBrowser, renderVideoInBrowser } from '@/services/browse
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import { EffectSelector } from '@/features/effects/EffectSelector';
-import { getVideoEffect } from '@/features/effects/effects.config';
+import { getVideoEffect, videoEffects } from '@/features/effects/effects.config';
 import { API_URL } from '@/config/api';
 import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
@@ -335,24 +335,72 @@ function TimelineClip({
   end,
   duration,
   className,
+  onLeftHandleDown,
+  onRightHandleDown,
+  onClick,
 }: {
   label: string;
   start: number;
   end: number;
   duration: number;
   className: string;
+  onLeftHandleDown?: (e: React.MouseEvent | React.TouchEvent) => void;
+  onRightHandleDown?: (e: React.MouseEvent | React.TouchEvent) => void;
+  onClick?: () => void;
 }) {
   const safeDuration = Math.max(duration, 1);
-  const left = `${clamp(start / safeDuration, 0, 1) * 100}%`;
-  const width = `${Math.max(2, clamp((end - start) / safeDuration, 0, 1) * 100)}%`;
+  const leftPct = clamp(start / safeDuration, 0, 1) * 100;
+  const widthPct = Math.max(2, clamp((end - start) / safeDuration, 0, 1) * 100);
+  const isDraggable = !!onLeftHandleDown || !!onRightHandleDown;
+  const isClickable = !!onClick;
 
   return (
     <div
-      className={`absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-xl border px-3 text-xs font-bold text-white shadow-lg ${className}`}
-      style={{ left, width }}
+      className={`absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-xl border text-xs font-bold text-white shadow-lg select-none ${
+        isClickable && !isDraggable ? 'cursor-pointer hover:brightness-110' : ''
+      } ${className}`}
+      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
       title={`${label} - ${formatTime(start)} ate ${formatTime(end)}`}
+      onClick={isClickable && !isDraggable ? onClick : undefined}
     >
-      <span className="truncate">{label}</span>
+      {isDraggable && onLeftHandleDown && (
+        <div
+          className="absolute -left-2 top-0 bottom-0 w-5 z-10 flex cursor-ew-resize items-center justify-center"
+          onMouseDown={onLeftHandleDown}
+          onTouchStart={onLeftHandleDown}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="h-4 w-[3px] rounded-full bg-white/55 transition-colors hover:bg-white/90" />
+        </div>
+      )}
+
+      <span className="min-w-0 flex-1 truncate px-3">{label}</span>
+
+      {isClickable && !isDraggable && (
+        <ChevronDown className="mr-2 h-3 w-3 shrink-0 text-white/55" />
+      )}
+
+      {isClickable && isDraggable && (
+        <button
+          type="button"
+          className="mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/30 hover:bg-black/55 z-10"
+          onClick={(e) => { e.stopPropagation(); onClick(); }}
+          title="Alterar efeito"
+        >
+          <ChevronDown className="h-3 w-3 text-white/60" />
+        </button>
+      )}
+
+      {isDraggable && onRightHandleDown && (
+        <div
+          className="absolute -right-2 top-0 bottom-0 w-5 z-10 flex cursor-ew-resize items-center justify-center"
+          onMouseDown={onRightHandleDown}
+          onTouchStart={onRightHandleDown}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="h-4 w-[3px] rounded-full bg-white/55 transition-colors hover:bg-white/90" />
+        </div>
+      )}
     </div>
   );
 }
@@ -361,10 +409,12 @@ function TimelineRow({
   icon,
   label,
   children,
+  trackRef,
 }: {
   icon: ReactNode;
   label: string;
   children: ReactNode;
+  trackRef?: React.RefObject<HTMLDivElement>;
 }) {
   return (
     <div className="grid min-w-[640px] grid-cols-[116px_minmax(0,1fr)] items-center gap-3">
@@ -372,9 +422,49 @@ function TimelineRow({
         {icon}
         <span>{label}</span>
       </div>
-      <div className="relative h-11 rounded-2xl border border-white/[0.08] bg-black/24">
+      <div ref={trackRef} className="relative h-11 rounded-2xl border border-white/[0.08] bg-black/24 overflow-visible">
         {children}
       </div>
+    </div>
+  );
+}
+
+function InlineSelectPopover({
+  options,
+  value,
+  onChange,
+  onClose,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="absolute left-0 top-full z-50 mt-1.5 max-h-56 w-72 overflow-y-auto rounded-2xl border border-white/[0.08] py-1.5"
+      style={{
+        background: 'rgba(13, 15, 20, 0.98)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.05)',
+        backdropFilter: 'blur(20px)',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/[0.055] ${
+            value === opt.value ? 'font-semibold text-brand-200' : 'text-white/65'
+          }`}
+          onClick={() => { onChange(opt.value); onClose(); }}
+        >
+          {value === opt.value
+            ? <Check className="h-3.5 w-3.5 shrink-0 text-brand-300" />
+            : <span className="h-3.5 w-3.5 shrink-0" />}
+          <span className="truncate">{opt.label}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -389,6 +479,18 @@ function EditorTimeline({
   musicLabel,
   effect,
   effectSegments,
+  onSeek,
+  onTrimStartChange,
+  onTrimEndChange,
+  onEffectSegmentStartChange,
+  onEffectSegmentEndChange,
+  templateOptions,
+  selectedTemplateId,
+  onTemplateChange,
+  onEffectChange,
+  resolvedMusicOptions,
+  selectedMusicValue,
+  onMusicChange,
 }: {
   sourceDuration: number;
   outputDuration: number;
@@ -399,21 +501,94 @@ function EditorTimeline({
   musicLabel: string;
   effect: string;
   effectSegments: EffectSegment[];
+  onSeek?: (t: number) => void;
+  onTrimStartChange?: (v: number) => void;
+  onTrimEndChange?: (v: number) => void;
+  onEffectSegmentStartChange?: (v: number) => void;
+  onEffectSegmentEndChange?: (v: number) => void;
+  templateOptions?: { value: string; label: string }[];
+  selectedTemplateId?: string;
+  onTemplateChange?: (v: string) => void;
+  onEffectChange?: (id: string) => void;
+  resolvedMusicOptions?: { value: string; label: string }[];
+  selectedMusicValue?: string;
+  onMusicChange?: (v: string) => void;
 }) {
+  const [editingRow, setEditingRow] = useState<'template' | 'effect' | 'music' | null>(null);
+  const videoTrackRef = useRef<HTMLDivElement>(null);
+  const effectTrackRef = useRef<HTMLDivElement>(null);
+  const rulerRef = useRef<HTMLDivElement>(null);
+
   const timelineDuration = Math.max(sourceDuration || outputDuration, MIN_TRIM_SECONDS);
   const outputStart = clamp(trimStart, 0, timelineDuration);
   const outputEnd = clamp(outputStart + outputDuration, outputStart, timelineDuration);
   const safeTrimEnd = clamp(trimEnd, outputStart, timelineDuration);
   const playhead = clamp(currentTime, 0, timelineDuration);
   const markers = [0, timelineDuration / 4, timelineDuration / 2, timelineDuration * 0.75, timelineDuration]
-    .map((value) => clamp(value, 0, timelineDuration));
+    .map((v) => clamp(v, 0, timelineDuration));
+  const effectSegment = effectSegments[0];
+  const allEffectOptions = videoEffects.map((e) => ({ value: e.id, label: e.name }));
+
+  function makeDrag(
+    trackRef: React.RefObject<HTMLDivElement>,
+    onChange: (t: number) => void,
+    min: number,
+    max: number
+  ) {
+    return (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      function onMove(evt: MouseEvent | TouchEvent) {
+        const track = trackRef.current;
+        if (!track) return;
+        const rect = track.getBoundingClientRect();
+        const clientX = 'touches' in evt
+          ? (evt as TouchEvent).touches[0].clientX
+          : (evt as MouseEvent).clientX;
+        onChange(clamp(((clientX - rect.left) / rect.width) * timelineDuration, min, max));
+      }
+
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('touchend', onUp);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchend', onUp);
+    };
+  }
+
+  function handleRulerClick(e: React.MouseEvent) {
+    if (!onSeek || !rulerRef.current) return;
+    const rect = rulerRef.current.getBoundingClientRect();
+    onSeek(clamp(((e.clientX - rect.left) / rect.width) * timelineDuration, 0, timelineDuration));
+  }
+
+  useEffect(() => {
+    if (!editingRow) return;
+    const timeout = setTimeout(() => {
+      function close() { setEditingRow(null); }
+      document.addEventListener('click', close, { once: true });
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, [editingRow]);
 
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm font-bold text-white">
           <SlidersHorizontal className="h-4 w-4 text-brand-300" />
-          Timeline real
+          Timeline
+          {onSeek && (
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-white/35">
+              clique na regua para buscar
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-white/35">
           <span>Fonte {sourceDuration ? formatPreciseTime(sourceDuration) : '--:--'}</span>
@@ -424,13 +599,19 @@ function EditorTimeline({
 
       <div className="hide-scrollbar overflow-x-auto">
         <div className="min-w-[640px] space-y-2">
+
+          {/* Ruler — click to seek */}
           <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
             <div />
-            <div className="relative h-5">
+            <div
+              ref={rulerRef}
+              className={`relative h-5 ${onSeek ? 'cursor-pointer' : ''}`}
+              onClick={handleRulerClick}
+            >
               {markers.map((marker) => (
                 <span
                   key={marker}
-                  className="absolute top-0 -translate-x-1/2 text-[11px] font-semibold text-white/35"
+                  className="pointer-events-none absolute top-0 -translate-x-1/2 text-[11px] font-semibold text-white/35"
                   style={{ left: `${(marker / timelineDuration) * 100}%` }}
                 >
                   {formatTime(marker)}
@@ -439,46 +620,173 @@ function EditorTimeline({
             </div>
           </div>
 
-          <TimelineRow icon={<Film className="h-4 w-4" />} label="Video">
-            <TimelineClip label="Corte final" start={outputStart} end={outputEnd} duration={timelineDuration} className="border-blue-300/30 bg-blue-500/24" />
+          {/* Video row — draggable trim handles */}
+          <TimelineRow icon={<Film className="h-4 w-4" />} label="Video" trackRef={videoTrackRef}>
+            <TimelineClip
+              label="Corte final"
+              start={outputStart}
+              end={outputEnd}
+              duration={timelineDuration}
+              className="border-blue-300/30 bg-blue-500/24"
+              onLeftHandleDown={onTrimStartChange
+                ? makeDrag(videoTrackRef, onTrimStartChange, 0, safeTrimEnd - MIN_TRIM_SECONDS)
+                : undefined}
+              onRightHandleDown={onTrimEndChange
+                ? makeDrag(videoTrackRef, onTrimEndChange, outputStart + MIN_TRIM_SECONDS, timelineDuration)
+                : undefined}
+            />
             {safeTrimEnd > outputEnd + 0.05 && (
-              <TimelineClip label="Sobrou fora da saida" start={outputEnd} end={safeTrimEnd} duration={timelineDuration} className="border-white/10 bg-white/[0.05] text-white/45" />
+              <TimelineClip
+                label="Sobrou"
+                start={outputEnd}
+                end={safeTrimEnd}
+                duration={timelineDuration}
+                className="border-white/10 bg-white/[0.05] text-white/45"
+              />
             )}
           </TimelineRow>
 
+          {/* Template row — click to change */}
           <TimelineRow icon={<Layers className="h-4 w-4" />} label="Template">
             {templateName ? (
-              <TimelineClip label={templateName} start={outputStart} end={outputEnd} duration={timelineDuration} className="border-cyan-300/30 bg-cyan-500/24" />
+              <TimelineClip
+                label={templateName}
+                start={outputStart}
+                end={outputEnd}
+                duration={timelineDuration}
+                className="border-cyan-300/30 bg-cyan-500/24"
+                onClick={onTemplateChange
+                  ? () => setEditingRow(editingRow === 'template' ? null : 'template')
+                  : undefined}
+              />
+            ) : onTemplateChange ? (
+              <button
+                type="button"
+                onClick={() => setEditingRow(editingRow === 'template' ? null : 'template')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/30 transition-colors hover:text-white/65"
+              >
+                + Adicionar template
+              </button>
             ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem template</span>
             )}
+            {editingRow === 'template' && templateOptions && onTemplateChange && (
+              <InlineSelectPopover
+                options={templateOptions}
+                value={selectedTemplateId || ''}
+                onChange={onTemplateChange}
+                onClose={() => setEditingRow(null)}
+              />
+            )}
           </TimelineRow>
 
-          <TimelineRow icon={<Sparkles className="h-4 w-4" />} label="Efeito">
-            {effectSegments.length > 0 ? effectSegments.map((segment) => (
+          {/* Effect row — draggable segment + click to change effect */}
+          <TimelineRow icon={<Sparkles className="h-4 w-4" />} label="Efeito" trackRef={effectTrackRef}>
+            {effectSegment ? (
+              <>
+                <TimelineClip
+                  label={effectLabel(effectSegment.effect)}
+                  start={outputStart + effectSegment.start}
+                  end={outputStart + effectSegment.end}
+                  duration={timelineDuration}
+                  className="border-violet-300/35 bg-violet-500/28"
+                  onLeftHandleDown={onEffectSegmentStartChange
+                    ? makeDrag(
+                        effectTrackRef,
+                        (t) => onEffectSegmentStartChange(t - outputStart),
+                        outputStart,
+                        outputStart + effectSegment.end - MIN_EFFECT_SEGMENT_SECONDS
+                      )
+                    : undefined}
+                  onRightHandleDown={onEffectSegmentEndChange
+                    ? makeDrag(
+                        effectTrackRef,
+                        (t) => onEffectSegmentEndChange(t - outputStart),
+                        outputStart + effectSegment.start + MIN_EFFECT_SEGMENT_SECONDS,
+                        outputStart + outputDuration
+                      )
+                    : undefined}
+                  onClick={onEffectChange
+                    ? () => setEditingRow(editingRow === 'effect' ? null : 'effect')
+                    : undefined}
+                />
+                {editingRow === 'effect' && onEffectChange && (
+                  <InlineSelectPopover
+                    options={allEffectOptions}
+                    value={effect}
+                    onChange={onEffectChange}
+                    onClose={() => setEditingRow(null)}
+                  />
+                )}
+              </>
+            ) : effect === 'ai_auto' ? (
               <TimelineClip
-                key={segment.id}
-                label={effectLabel(segment.effect)}
-                start={outputStart + segment.start}
-                end={outputStart + segment.end}
+                label="Automacao local"
+                start={outputStart}
+                end={outputEnd}
                 duration={timelineDuration}
                 className="border-violet-300/35 bg-violet-500/28"
               />
-            )) : effect === 'ai_auto' ? (
-              <TimelineClip label="Automacao local" start={outputStart} end={outputEnd} duration={timelineDuration} className="border-violet-300/35 bg-violet-500/28" />
             ) : (
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
+              <>
+                {onEffectChange ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingRow(editingRow === 'effect' ? null : 'effect')}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/30 transition-colors hover:text-white/65"
+                  >
+                    + Definir trecho do efeito
+                  </button>
+                ) : (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem efeito marcado</span>
+                )}
+                {editingRow === 'effect' && onEffectChange && (
+                  <InlineSelectPopover
+                    options={allEffectOptions}
+                    value={effect}
+                    onChange={onEffectChange}
+                    onClose={() => setEditingRow(null)}
+                  />
+                )}
+              </>
             )}
           </TimelineRow>
 
+          {/* Music row — click to change */}
           <TimelineRow icon={<Music2 className="h-4 w-4" />} label="Trilha">
             {musicLabel !== 'Sem trilha' ? (
-              <TimelineClip label={musicLabel} start={outputStart} end={outputEnd} duration={timelineDuration} className="border-emerald-300/30 bg-emerald-500/24" />
+              <TimelineClip
+                label={musicLabel}
+                start={outputStart}
+                end={outputEnd}
+                duration={timelineDuration}
+                className="border-emerald-300/30 bg-emerald-500/24"
+                onClick={onMusicChange
+                  ? () => setEditingRow(editingRow === 'music' ? null : 'music')
+                  : undefined}
+              />
+            ) : onMusicChange ? (
+              <button
+                type="button"
+                onClick={() => setEditingRow(editingRow === 'music' ? null : 'music')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/30 transition-colors hover:text-white/65"
+              >
+                + Adicionar trilha
+              </button>
             ) : (
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/24">Sem trilha sonora</span>
             )}
+            {editingRow === 'music' && resolvedMusicOptions && onMusicChange && (
+              <InlineSelectPopover
+                options={resolvedMusicOptions}
+                value={selectedMusicValue || ''}
+                onChange={onMusicChange}
+                onClose={() => setEditingRow(null)}
+              />
+            )}
           </TimelineRow>
 
+          {/* Playhead */}
           <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3">
             <div />
             <div className="relative h-0">
@@ -489,6 +797,7 @@ function EditorTimeline({
               />
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -950,7 +1259,7 @@ export default function OperatorPage() {
         templateName: selectedTemplate?.name,
         effect: effect === 'ai_auto' ? aiDirection.effect : effect,
         mood: musicTheme !== 'none' && !selectedMusicUrl ? musicTheme : aiDirection.musicTheme,
-        durationSeconds: Math.round(outputDuration),
+        durationSeconds: Math.max(5, Math.round(outputDuration)),
         title: selectedEvent ? `${selectedEvent.name} SIX3` : 'SIX3 Auto Track',
         language: 'pt-BR',
       });
@@ -1607,6 +1916,18 @@ export default function OperatorPage() {
             musicLabel={selectedMusicLabel}
             effect={effect}
             effectSegments={effectSegments}
+            onSeek={seekPreview}
+            onTrimStartChange={updateTrimStart}
+            onTrimEndChange={updateTrimEnd}
+            onEffectSegmentStartChange={updateEffectStart}
+            onEffectSegmentEndChange={updateEffectEnd}
+            templateOptions={templateOptions}
+            selectedTemplateId={selectedTemplateId}
+            onTemplateChange={setSelectedTemplateId}
+            onEffectChange={setEffect}
+            resolvedMusicOptions={resolvedMusicOptions}
+            selectedMusicValue={musicTheme}
+            onMusicChange={setMusicTheme}
           />
         </motion.div>
       )}
