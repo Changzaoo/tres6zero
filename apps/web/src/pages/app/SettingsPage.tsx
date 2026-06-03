@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseError, updateUserProfile } from '@/services/authService';
 import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
-import { defaultOperatorPreferences, getOperatorPreferences, setOperatorPreferences, type OperatorPreferences } from '@/services/appPreferences';
 import { mergeNotificationPreferences, notificationCategories, updateNotificationPreferences } from '@/services/notificationService';
 import { uploadAvatarToServer } from '@/services/serverMediaService';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -25,19 +24,6 @@ interface ProfileFormData {
 interface PasswordFormData {
   newPassword: string;
 }
-
-const durationOptions = [5, 15, 25, 35, 45] as const;
-
-const musicOptions = [
-  { value: 'none', label: 'Sem trilha' },
-  { value: 'ambient', label: 'Ambient' },
-  { value: 'party', label: 'Party' },
-  { value: 'luxury', label: 'Luxury' },
-  { value: 'wedding', label: 'Wedding' },
-  { value: 'corporate', label: 'Corporate' },
-  { value: 'birthday', label: 'Birthday' },
-  { value: 'viral', label: 'Viral' },
-] as const;
 
 function formatDate(value?: string) {
   if (!value) return 'Sem registro';
@@ -167,7 +153,6 @@ export default function SettingsPage() {
   const profileForm = useForm<ProfileFormData>();
   const passwordForm = useForm<PasswordFormData>();
   const [theme, setTheme] = useState<ThemeMode>(() => getStoredThemeMode());
-  const [operatorPrefs, setOperatorPrefs] = useState<OperatorPreferences>(() => getOperatorPreferences());
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(() => mergeNotificationPreferences(user?.notificationPreferences));
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -278,12 +263,6 @@ export default function SettingsPage() {
     setTheme(nextTheme);
     setThemeMode(nextTheme);
     toast.success('Tema salvo.');
-  }
-
-  function updateOperatorPrefs(nextPrefs: OperatorPreferences) {
-    setOperatorPrefs(nextPrefs);
-    setOperatorPreferences(nextPrefs);
-    toast.success('Preferencias salvas.');
   }
 
   async function saveNotificationPrefs(nextPrefs: NotificationPreferences) {
@@ -493,49 +472,6 @@ export default function SettingsPage() {
                   />
                 ))}
               </div>
-            </div>
-          </Card>
-
-          <Card padding="sm">
-            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
-              <Camera className="h-5 w-5 text-brand-400" />
-              Operacao
-            </h2>
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-white/70">Duracao padrao</p>
-                <div className="grid grid-cols-5 gap-2">
-                  {durationOptions.map((seconds) => (
-                    <SegmentedButton
-                      key={seconds}
-                      active={operatorPrefs.defaultDuration === seconds}
-                      label={`${seconds}s`}
-                      onClick={() => updateOperatorPrefs({ ...operatorPrefs, defaultDuration: seconds })}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-white/70">Trilha padrao</p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {musicOptions.map((option) => (
-                    <SegmentedButton
-                      key={option.value}
-                      active={operatorPrefs.defaultMusicTheme === option.value}
-                      label={option.label}
-                      onClick={() => updateOperatorPrefs({ ...operatorPrefs, defaultMusicTheme: option.value })}
-                    />
-                  ))}
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => updateOperatorPrefs(defaultOperatorPreferences)}
-              >
-                Restaurar padrao
-              </Button>
             </div>
           </Card>
 
