@@ -22,6 +22,8 @@ const priceFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 });
 
+const promotionalMarkup = 99.99;
+
 export function PlanCards({
   ctaLabel,
   onSelect,
@@ -84,12 +86,22 @@ export function PlanCards({
             <div className="space-y-2">
               <h3 className="text-lg font-bold leading-tight text-white">{plan.name}</h3>
               <p className="min-h-0 text-sm leading-relaxed text-white/50 sm:min-h-[44px]">{plan.tagline}</p>
-              <div className="flex flex-wrap items-end gap-x-1 gap-y-0 pt-1 sm:pt-2">
-                <span className="pb-1 text-sm text-white/40">R$</span>
-                <span className="whitespace-nowrap text-4xl font-black leading-none tracking-[-0.04em] text-white sm:text-[2.65rem]">
-                  {priceFormatter.format(plan.price)}
-                </span>
-                <span className="pb-1 text-sm text-white/40">/mês</span>
+              <div className="pt-1 sm:pt-2">
+                <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs leading-none">
+                  <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 font-bold text-emerald-100">
+                    Promoção
+                  </span>
+                  <span className="text-white/35 line-through">
+                    De R$ {priceFormatter.format(plan.price + promotionalMarkup)}/mês
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-end gap-x-1 gap-y-0">
+                  <span className="pb-1 text-sm text-white/40">R$</span>
+                  <span className="whitespace-nowrap text-4xl font-black leading-none tracking-[-0.04em] text-white sm:text-[2.65rem]">
+                    {priceFormatter.format(plan.price)}
+                  </span>
+                  <span className="pb-1 text-sm text-white/40">/mês</span>
+                </div>
               </div>
               {isSelected && selectedDescription && (
                 <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-xs leading-relaxed text-emerald-50/82">
