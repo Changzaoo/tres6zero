@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CheckSquare, Copy, Download, ExternalLink, Eye, MessageCircle, PlayCircle, Share2, Square, Trash2, Video, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CheckSquare, Copy, Download, Edit3, ExternalLink, Eye, MessageCircle, Pencil, PlayCircle, Share2, Square, Trash2, Video, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { deleteVideo, getUserVideos, incrementVideoStat } from '@/services/videoService';
+import { deleteVideo, getUserVideos, incrementVideoStat, updateVideo } from '@/services/videoService';
 import { downloadUrlAsFile } from '@/services/downloadService';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import type { AppVideo } from '@/types';
@@ -76,12 +78,16 @@ function ActionButton({
 
 export default function VideosPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [videos, setVideos] = useState<AppVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [renameVideo, setRenameVideo] = useState<AppVideo | null>(null);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -123,6 +129,42 @@ export default function VideosPage() {
   function openDeleteConfirmation(ids: string[]) {
     if (ids.length === 0) return;
     setDeleteIds(ids);
+  }
+
+  function openRenameModal(video: AppVideo) {
+    setRenameVideo(video);
+    setTitleDraft(video.title || '');
+  }
+
+  function editVideoAgain(video: AppVideo) {
+    navigate(`/app/gravar?edit=${encodeURIComponent(video.id)}`);
+  }
+
+  async function saveVideoTitle() {
+    if (!renameVideo) return;
+    const nextTitle = titleDraft.trim();
+    if (!nextTitle) {
+      toast.error('Digite um nome para o video.');
+      return;
+    }
+
+    setSavingTitle(true);
+    try {
+      await updateVideo(renameVideo.id, { title: nextTitle });
+      setVideos((current) => current.map((video) => (
+        video.id === renameVideo.id
+          ? { ...video, title: nextTitle, updatedAt: new Date().toISOString() }
+          : video
+      )));
+      setRenameVideo(null);
+      setTitleDraft('');
+      toast.success('Nome do video atualizado.');
+    } catch (error) {
+      console.warn('[videos] Rename failed:', error);
+      toast.error('Nao foi possivel atualizar o nome.');
+    } finally {
+      setSavingTitle(false);
+    }
   }
 
   async function confirmDelete() {
@@ -337,6 +379,12 @@ export default function VideosPage() {
                     <ActionButton disabled={!canPlay} onClick={() => downloadVideo(video)} icon={<Download className="h-4 w-4" />}>
                       Baixar
                     </ActionButton>
+                    <ActionButton onClick={() => openRenameModal(video)} icon={<Edit3 className="h-4 w-4" />}>
+                      Editar nome
+                    </ActionButton>
+                    <ActionButton disabled={!canPlay} onClick={() => editVideoAgain(video)} icon={<Pencil className="h-4 w-4" />}>
+                      Editar video
+                    </ActionButton>
                     <ActionButton disabled={!canPlay} onClick={() => openVideo(video)} icon={<ExternalLink className="h-4 w-4" />}>
                       Abrir
                     </ActionButton>
@@ -381,6 +429,29 @@ export default function VideosPage() {
           })}
         </div>
       )}
+
+      <Modal open={Boolean(renameVideo)} onClose={() => !savingTitle && setRenameVideo(null)} title="Editar nome do video">
+        <div className="space-y-5">
+          <Input
+            label="Nome do video"
+            value={titleDraft}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void saveVideoTitle();
+            }}
+            maxLength={90}
+            autoFocus
+          />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button variant="secondary" className="flex-1 justify-center" disabled={savingTitle} onClick={() => setRenameVideo(null)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1 justify-center" loading={savingTitle} onClick={saveVideoTitle}>
+              Salvar nome
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={Boolean(deleteIds?.length)} onClose={() => !deleting && setDeleteIds(null)} title={deleteCount === 1 ? 'Excluir vídeo' : 'Excluir vídeos'}>
         <p className="mb-6 text-sm leading-relaxed text-white/70">

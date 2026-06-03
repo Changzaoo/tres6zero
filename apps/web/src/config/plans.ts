@@ -84,8 +84,8 @@ export const PLANS = [
     highlight: false,
     features: [
       {
-        label: 'Templates essenciais',
-        description: 'Modelos prontos para montar páginas, galerias e experiências básicas sem começar do zero.',
+        label: 'Templates essenciais estaticos',
+        description: 'Modelos prontos sem animacoes ou movimento para montar paginas, galerias e experiencias basicas.',
       },
       {
         label: 'QR Code automático',
@@ -113,8 +113,8 @@ export const PLANS = [
     highlight: true,
     features: [
       {
-        label: 'Templates essenciais e premium',
-        description: 'Inclui modelos mais completos para campanhas, galerias comerciais e entregas com mais acabamento.',
+        label: 'Templates premium e animados',
+        description: 'Inclui modelos mais completos, molduras com movimento e entregas com mais acabamento.',
       },
       {
         label: 'Salvar offline com sincronização',
@@ -143,7 +143,7 @@ export const PLANS = [
     features: [
       {
         label: 'Todos os templates liberados',
-        description: 'Acesso completo à biblioteca de modelos, incluindo novos templates publicados na plataforma.',
+        description: 'Acesso completo a biblioteca de modelos, incluindo molduras estaticas, animadas e novos templates publicados.',
       },
       {
         label: 'Salvar offline sem restrições',

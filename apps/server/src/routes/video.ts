@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { AI_EFFECTS, BASIC_EFFECTS, POPULAR_EFFECTS, featureForEffect, hasPlanFeature } from '../services/planEntitlements';
+import { AI_EFFECTS, BASIC_EFFECTS, POPULAR_EFFECTS, canUseTemplateFeature, featureForEffect, hasPlanFeature } from '../services/planEntitlements';
 import { getSupabase, getSupabaseUrl, SUPABASE_BUCKETS } from '../services/supabaseStorage';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
@@ -154,6 +154,13 @@ function serverVideoProcessingEnabled() {
     && process.env.SIX3_HEAVY_VIDEO_WORKER === 'true';
 }
 
+function rejectPlanFeature(res: { status: (code: number) => { json: (body: unknown) => void } }, code: string) {
+  return res.status(403).json({
+    error: 'PLAN_FEATURE_REQUIRED',
+    code,
+  });
+}
+
 function getAvailableEffects() {
   return [
     ...BASIC_EFFECTS.map((id) => ({ id, tier: 'starter' })),
@@ -196,6 +203,14 @@ videoRouter.post('/', requireActiveSubscription, async (req, res, next) => {
   try {
     const user = res.locals.user as UserProfile;
     const data = videoSchema.parse(req.body || {});
+    if (!canUseTemplateFeature(user.planId, {
+      templateId: data.templateId,
+      templateStoragePath: data.templateStoragePath,
+      templateType: data.templateType,
+    }, user.role === 'admin')) {
+      return rejectPlanFeature(res, 'premium_templates');
+    }
+
     const clientMutationId = req.get('x-six3-client-mutation-id') || (typeof req.body?.clientMutationId === 'string' ? req.body.clientMutationId : undefined);
     const collection = getDb().collection('videos');
     if (clientMutationId) {
@@ -261,13 +276,15 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
 
     const blockedFeature = profile?.role === 'admin'
       ? null
-      : requiredEffectFeatures.find((feature) => !hasPlanFeature(profile?.planId, feature));
+      : !canUseTemplateFeature(profile?.planId, {
+        templateId: config.templateId,
+        animationUrl: config.animationUrl,
+      })
+        ? 'premium_templates'
+        : requiredEffectFeatures.find((feature) => !hasPlanFeature(profile?.planId, feature));
 
     if (blockedFeature) {
-      return res.status(403).json({
-        error: 'PLAN_FEATURE_REQUIRED',
-        code: blockedFeature,
-      });
+      return rejectPlanFeature(res, blockedFeature);
     }
 
     const { processVideo } = await import('../services/videoProcessor');

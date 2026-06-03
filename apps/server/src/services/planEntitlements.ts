@@ -72,6 +72,50 @@ export function hasPlanFeature(planId: string | null | undefined, feature: PlanF
   return PLAN_ENTITLEMENTS[normalizePlanId(planId)].includes(feature);
 }
 
+const PREMIUM_TEMPLATE_CATEGORIES = new Set(['premium', 'minimal_premium', 'booth_360']);
+
+type TemplateAccessPayload = {
+  id?: string | null;
+  templateId?: string | null;
+  category?: string | null;
+  isPremium?: boolean | null;
+  templateType?: string | null;
+  type?: string | null;
+  animationUrl?: string | null;
+  animationStoragePath?: string | null;
+  templateStoragePath?: string | null;
+  storagePath?: string | null;
+};
+
+function looksAnimatedPath(value?: string | null) {
+  return Boolean(value && (
+    /^animated-/i.test(value)
+    || /(^|\/)(animated|animated-v\d+|templates\/animated)(\/|$)/i.test(value)
+    || /\.(webm|gif|mp4|mov)(\?|$)/i.test(value)
+  ));
+}
+
+export function templateRequiresPremiumFeature(template?: TemplateAccessPayload | null) {
+  if (!template) return false;
+  return Boolean(
+    template.isPremium
+    || (template.category && PREMIUM_TEMPLATE_CATEGORIES.has(template.category))
+    || template.templateType === 'animated'
+    || template.type === 'animated'
+    || template.animationUrl
+    || looksAnimatedPath(template.id)
+    || looksAnimatedPath(template.templateId)
+    || looksAnimatedPath(template.animationStoragePath)
+    || looksAnimatedPath(template.templateStoragePath)
+    || looksAnimatedPath(template.storagePath)
+  );
+}
+
+export function canUseTemplateFeature(planId: string | null | undefined, template?: TemplateAccessPayload | null, isAdmin = false) {
+  if (isAdmin || !templateRequiresPremiumFeature(template)) return true;
+  return hasPlanFeature(planId, 'premium_templates');
+}
+
 export function featureForEffect(effect?: string | null): PlanFeature {
   if (!effect || BASIC_EFFECTS.includes(effect)) return 'basic_effects';
   if (AI_EFFECTS.includes(effect)) return 'ai_auto_edit';

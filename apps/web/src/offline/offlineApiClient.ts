@@ -6,7 +6,7 @@ import type { OfflineEntity, SyncActionType, SyncQueueItem } from './offlineType
 export function isNetworkError(error: unknown) {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
   if (!(error instanceof Error)) return false;
-  return /failed to fetch|network|load failed|offline|request_failed/i.test(error.message);
+  return /failed to fetch|networkerror|network error|load failed|offline/i.test(error.message);
 }
 
 export async function readOfflineJsonCache<T>(scope: string, path: string) {
@@ -44,4 +44,3 @@ export async function queueOfflineJsonMutation<TPayload>(params: {
   });
   return item;
 }
-

@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown, Minus, Plus, X } from 'lucide-react';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown, Minus, Plus, X, Pencil, Star } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { toast } from '@/components/ui/Toast';
 import { TemplateOverlayRenderer } from '@/components/templates/TemplateOverlayRenderer';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents } from '@/services/eventService';
-import { createVideo } from '@/services/videoService';
+import { createVideo, getUserVideos, updateVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
 import { uploadVideoToServer, getGeneratedMusic } from '@/services/serverMediaService';
@@ -20,7 +22,9 @@ import { EffectSelector } from '@/features/effects/EffectSelector';
 import { getVideoEffect, videoEffects } from '@/features/effects/effects.config';
 import { API_URL } from '@/config/api';
 import { isTemplateAnimated } from '@/services/templateStorage';
-import type { AppEvent, AppMusic, AppTemplate } from '@/types';
+import { canUseTemplateForPlan, templateRequiresPremiumTemplates } from '@/services/templateAccess';
+import { favoriteSet, getMediaFavorites, isMediaFavorite, sortFavoritesFirst, subscribeMediaFavorites, toggleMediaFavorite, type MediaFavorites } from '@/services/mediaFavorites';
+import type { AppEvent, AppMusic, AppTemplate, AppVideo } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
 type VideoOrientation = 'portrait' | 'landscape';
@@ -146,6 +150,10 @@ function renderedVideoFile(blob: Blob) {
   const type = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm';
   const extension = type === 'video/mp4' ? 'mp4' : 'webm';
   return new File([blob], `six3-edited-${Date.now()}.${extension}`, { type });
+}
+
+function titleFromFileName(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
 }
 
 function getSupportedRecordingMimeType() {
@@ -550,11 +558,15 @@ function TemplatePicker({
   selectedId,
   onChange,
   videoOrientation,
+  favoriteTemplateIds,
+  onToggleFavorite,
 }: {
   templates: AppTemplate[];
   selectedId: string;
   onChange: (id: string) => void;
   videoOrientation?: 'portrait' | 'landscape' | null;
+  favoriteTemplateIds: Set<string>;
+  onToggleFavorite: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -567,12 +579,13 @@ function TemplatePicker({
   );
 
   const visibleTemplates = useMemo(() => {
-    const base =
-      activeCategory === 'all'
+    const base = activeCategory === 'favorites'
+      ? templates.filter((t) => favoriteTemplateIds.has(t.id))
+      : activeCategory === 'all'
         ? templates
         : templates.filter((t) => t.category === activeCategory);
     return base.slice(0, 40);
-  }, [templates, activeCategory]);
+  }, [activeCategory, favoriteTemplateIds, templates]);
 
   const thumbFrame = videoOrientation === 'landscape'
     ? 'h-6 w-10'
@@ -636,6 +649,18 @@ function TemplatePicker({
             >
               Todos
             </button>
+            {favoriteTemplateIds.size > 0 && (
+              <button
+                onClick={() => setActiveCategory('favorites')}
+                className={`min-h-[32px] shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold transition-colors touch-manipulation ${
+                  activeCategory === 'favorites'
+                    ? 'border border-amber-300/40 bg-amber-400/18 text-amber-100'
+                    : 'text-white/38 hover:text-amber-100'
+                }`}
+              >
+                Favoritos
+              </button>
+            )}
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -669,10 +694,11 @@ function TemplatePicker({
               Sem
             </button>
 
-            {visibleTemplates.map((t) => (
-              <button
+            {visibleTemplates.map((t) => {
+              const favorite = favoriteTemplateIds.has(t.id);
+              return (
+              <div
                 key={t.id}
-                onClick={() => handleSelect(t.id)}
                 title={t.name}
                 className={`relative ${thumbGrid} min-h-11 touch-manipulation overflow-hidden rounded-lg border transition-all ${
                   selectedId === t.id
@@ -680,28 +706,52 @@ function TemplatePicker({
                     : 'border-white/[0.08] hover:border-white/30'
                 }`}
               >
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.5))]" />
-                {(t.previewUrl || t.overlayUrl) && (
-                  <img
-                    src={t.previewUrl || t.overlayUrl}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-contain"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                )}
-                {selectedId === t.id && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-brand-500/25">
-                    <Check className="h-3 w-3 text-brand-200" />
-                  </div>
-                )}
-              </button>
-            ))}
+                <button
+                  type="button"
+                  onClick={() => handleSelect(t.id)}
+                  className="absolute inset-0"
+                >
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.5))]" />
+                  {(t.previewUrl || t.overlayUrl) && (
+                    <img
+                      src={t.previewUrl || t.overlayUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-contain"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  )}
+                  {selectedId === t.id && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-brand-500/25">
+                      <Check className="h-3 w-3 text-brand-200" />
+                    </div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleFavorite(t.id);
+                  }}
+                  className={`absolute right-1 top-1 z-10 grid h-6 w-6 place-items-center rounded-full border backdrop-blur-md ${
+                    favorite
+                      ? 'border-amber-200/45 bg-amber-400/18 text-amber-100'
+                      : 'border-white/10 bg-black/35 text-white/40 hover:text-amber-100'
+                  }`}
+                  aria-label={favorite ? 'Remover template dos favoritos' : 'Favoritar template'}
+                >
+                  <Star className="h-3 w-3" fill={favorite ? 'currentColor' : 'none'} />
+                </button>
+              </div>
+            );
+            })}
           </div>
 
           {/* Count hint */}
           {(() => {
-            const total = activeCategory === 'all' ? templates.length : templates.filter((t) => t.category === activeCategory).length;
+            const total = activeCategory === 'favorites'
+              ? templates.filter((t) => favoriteTemplateIds.has(t.id)).length
+              : activeCategory === 'all' ? templates.length : templates.filter((t) => t.category === activeCategory).length;
             return total > visibleTemplates.length ? (
               <p className="border-t border-white/[0.05] px-3 py-1.5 text-center text-[10px] text-white/28">
                 Mostrando 40 de {total} — filtre por categoria para ver mais
@@ -1204,9 +1254,16 @@ function EditorTimeline({
 export default function OperatorPage() {
   const operatorPreferences = useMemo(() => getOperatorPreferences(), []);
   const { user, isAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editVideoId = searchParams.get('edit');
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
   const [musicCatalog, setMusicCatalog] = useState<AppMusic[]>([]);
+  const [favorites, setFavorites] = useState<MediaFavorites>(() => getMediaFavorites(user?.uid));
+  const [videoTitle, setVideoTitle] = useState('');
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editingOriginalVideo, setEditingOriginalVideo] = useState<AppVideo | null>(null);
+  const [loadingEditVideo, setLoadingEditVideo] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateOpacity, setTemplateOpacity] = useState(1);
@@ -1240,6 +1297,15 @@ export default function OperatorPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<number | null>(null);
+  const objectVideoUrlRef = useRef<string | null>(null);
+  const loadedEditVideoIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setFavorites(getMediaFavorites(user?.uid));
+    return subscribeMediaFavorites(() => {
+      setFavorites(getMediaFavorites(user?.uid));
+    });
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user) return;
@@ -1249,8 +1315,9 @@ export default function OperatorPage() {
     seedTemplates().then(() => getTemplates(user.uid)).then((items) => {
       const activeItems = items.filter((item) => item.isActive);
       setTemplates(activeItems);
-      const firstAvailable = activeItems.find((item) => !item.isPremium && item.category !== 'premium' && item.category !== 'minimal_premium' && item.category !== 'booth_360') || activeItems[0];
-      if (firstAvailable) setSelectedTemplateId(firstAvailable.id);
+      if (editVideoId) return;
+      const firstAvailable = activeItems.find((item) => canUseTemplateForPlan(item, user.planId, isAdmin));
+      setSelectedTemplateId(firstAvailable?.id || '');
     }).catch(() => undefined);
     Promise.all([
       getGeneratedMusic().catch(() => []),
@@ -1258,7 +1325,7 @@ export default function OperatorPage() {
     ]).then(([generated, custom]) => {
       setMusicCatalog([...generated, ...custom].filter((item) => item.musicUrl));
     });
-  }, [user]);
+  }, [editVideoId, isAdmin, user]);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const isStandaloneVideo = !selectedEventId;
@@ -1271,13 +1338,22 @@ export default function OperatorPage() {
   );
   const previewEffect = aiAutoSelected ? aiPreviewDirection.effect : effect;
   const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
+  const canUsePremiumTemplates = hasFeature(user?.planId, 'premium_templates', isAdmin);
   const canUseSelectedEffect = !effectMeta || hasFeature(user?.planId, effectMeta.requiredFeature, isAdmin);
   const canUseTemplate = !selectedTemplate || isAdmin
-    || (!selectedTemplate.isPremium && selectedTemplate.category !== 'premium' && selectedTemplate.category !== 'minimal_premium' && selectedTemplate.category !== 'booth_360')
-    || hasFeature(user?.planId, 'premium_templates', isAdmin);
+    || !templateRequiresPremiumTemplates(selectedTemplate)
+    || canUsePremiumTemplates;
+  const favoriteTemplateIds = useMemo(() => favoriteSet(favorites.templates), [favorites.templates]);
+  const favoriteMusicIds = useMemo(() => favoriteSet(favorites.music), [favorites.music]);
   const filteredTemplates = useMemo(
-    () => templates.filter((template) => templateMatchesVideoOrientation(template, videoOrientation)),
-    [templates, videoOrientation]
+    () => sortFavoritesFirst(
+      templates.filter((template) => (
+        templateMatchesVideoOrientation(template, videoOrientation)
+        && canUseTemplateForPlan(template, user?.planId, isAdmin)
+      )),
+      favoriteTemplateIds
+    ),
+    [favoriteTemplateIds, isAdmin, templates, user?.planId, videoOrientation]
   );
   const templateAspectHint = videoOrientation
     ? `Video em ${videoOrientationLabel(videoOrientation)}: mostrando apenas templates ${templateOrientationPlural(videoOrientation)}.`
@@ -1298,15 +1374,13 @@ export default function OperatorPage() {
     { value: '', label: 'Sem evento - video avulso' },
     ...events.map(e => ({ value: e.id, label: `${e.name} - ${eventStatusLabel[e.status] || e.status}` })),
   ];
+  const defaultVideoTitle = `${isStandaloneVideo ? 'Video avulso' : selectedEvent?.name || 'Video 360'} - ${new Date().toLocaleDateString('pt-BR')}`;
+  const resolvedVideoTitle = videoTitle.trim() || defaultVideoTitle;
+  const processActionLabel = editingVideoId ? 'Atualizar' : 'Processar';
 
   const templateOptions = [
     { value: '', label: videoOrientation ? `Sem overlay (${videoOrientationLabel(videoOrientation)})` : 'Sem overlay' },
-    ...filteredTemplates.slice(0, 240).map(t => {
-      const locked = !isAdmin
-        && Boolean(t.isPremium || t.category === 'premium' || t.category === 'minimal_premium' || t.category === 'booth_360')
-        && !hasFeature(user?.planId, 'premium_templates', isAdmin);
-      return { value: t.id, label: `${locked ? 'Bloqueado - ' : ''}${t.name}` };
-    }),
+    ...filteredTemplates.slice(0, 240).map(t => ({ value: t.id, label: t.name })),
   ];
 
   const isEffectLocked = (item: { requiredFeature: Parameters<typeof hasFeature>[1] }) => (
@@ -1315,9 +1389,9 @@ export default function OperatorPage() {
 
   const resolvedMusicOptions = [
     ...musicOptions,
-    ...musicCatalog.map((track) => ({
+    ...sortFavoritesFirst(musicCatalog, favoriteMusicIds).map((track) => ({
       value: `url:${track.musicUrl}`,
-      label: `${track.source === 'custom' ? 'Sua musica - ' : 'SIX3 - '}${track.name}`,
+      label: `${favoriteMusicIds.has(track.id) ? '★ ' : ''}${track.source === 'custom' ? 'Sua musica - ' : 'SIX3 - '}${track.name}`,
     })),
   ];
 
@@ -1336,6 +1410,7 @@ export default function OperatorPage() {
       || track.name.toLowerCase().includes(musicTheme.toLowerCase())
     );
   }, [musicCatalog, musicTheme, selectedMusicUrl]);
+  const selectedMusicFavorite = Boolean(selectedMusicTrack && favoriteMusicIds.has(selectedMusicTrack.id));
   const musicPreviewUrl = selectedMusicUrl || selectedMusicTrack?.musicUrl;
   const processingMusicUrl = musicTheme === 'none' ? undefined : musicPreviewUrl;
   const storedMusicTheme = processingMusicUrl ? (selectedMusicTrack?.theme || 'custom') : musicTheme;
@@ -1389,14 +1464,24 @@ export default function OperatorPage() {
   }, [outputDuration]);
 
   useEffect(() => {
-    if (!videoOrientation || !selectedTemplateId) return;
+    if (!selectedTemplateId) return;
     if (filteredTemplates.some((template) => template.id === selectedTemplateId)) return;
     setSelectedTemplateId(filteredTemplates[0]?.id || '');
-  }, [filteredTemplates, selectedTemplateId, videoOrientation]);
+  }, [filteredTemplates, selectedTemplateId]);
 
   useEffect(() => {
+    if (
+      editingVideoId
+      && selectedTemplate?.id
+      && selectedTemplate.id === editingOriginalVideo?.templateId
+      && typeof editingOriginalVideo.templateOpacity === 'number'
+    ) {
+      setTemplateOpacity(editingOriginalVideo.templateOpacity);
+      return;
+    }
+
     setTemplateOpacity(selectedTemplate?.opacityDefault ?? 1);
-  }, [selectedTemplate?.id, selectedTemplate?.opacityDefault]);
+  }, [editingOriginalVideo?.templateId, editingOriginalVideo?.templateOpacity, editingVideoId, selectedTemplate?.id, selectedTemplate?.opacityDefault]);
 
   useEffect(() => {
     if (step !== 'capture') return;
@@ -1429,7 +1514,116 @@ export default function OperatorPage() {
       window.clearTimeout(recordingTimeoutRef.current);
     }
     streamRef.current?.getTracks().forEach((track) => track.stop());
+    if (objectVideoUrlRef.current) {
+      URL.revokeObjectURL(objectVideoUrlRef.current);
+    }
   }, []);
+
+  function replaceEditorVideoBlob(blob: Blob) {
+    if (objectVideoUrlRef.current) {
+      URL.revokeObjectURL(objectVideoUrlRef.current);
+    }
+
+    const url = URL.createObjectURL(blob);
+    objectVideoUrlRef.current = url;
+    setVideoBlob(blob);
+    setVideoUrl(url);
+    return url;
+  }
+
+  function clearEditMode() {
+    setEditingVideoId(null);
+    setEditingOriginalVideo(null);
+    loadedEditVideoIdRef.current = null;
+    if (editVideoId) {
+      setSearchParams({}, { replace: true });
+    }
+  }
+
+  function prepareVideoForEditor(blob: Blob, options?: { title?: string; video?: AppVideo }) {
+    const url = replaceEditorVideoBlob(blob);
+    const video = options?.video;
+
+    if (options?.title !== undefined) {
+      setVideoTitle(options.title);
+    }
+
+    if (video) {
+      setEditingVideoId(video.id);
+      setEditingOriginalVideo(video);
+      setSelectedEventId(video.eventId && video.eventId !== STANDALONE_EVENT_ID ? video.eventId : '');
+      setSelectedTemplateId(video.templateId || '');
+      setTemplateOpacity(video.templateOpacity ?? 1);
+      setEffect(video.effect || 'clean');
+      setMusicTheme(video.musicUrl ? `url:${video.musicUrl}` : video.musicTheme || operatorPreferences.defaultMusicTheme);
+    }
+
+    setSourceDuration(0);
+    setVideoOrientation(null);
+    setTrimStart(0);
+    setTrimEnd(duration);
+    setPreviewCurrentTime(0);
+    setEffectSegmentsDraft([]);
+    setActiveEffectSegmentId(null);
+    setStep('preview');
+    readVideoMetadata(url).then((metadata) => {
+      const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
+      if (nextOrientation) {
+        setVideoOrientation(nextOrientation);
+        setRecordingOrientation(nextOrientation);
+      }
+      if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
+        setSourceDuration(metadata.duration);
+        setTrimEnd(Math.min(metadata.duration, duration));
+      }
+    }).catch(() => undefined);
+  }
+
+  useEffect(() => {
+    if (!user || !editVideoId) return;
+    if (loadedEditVideoIdRef.current === editVideoId) return;
+
+    let cancelled = false;
+    loadedEditVideoIdRef.current = editVideoId;
+    setLoadingEditVideo(true);
+
+    getUserVideos(user.uid)
+      .then(async (items) => {
+        const video = items.find((item) => item.id === editVideoId);
+        const sourceUrl = video?.rawVideoUrl || video?.videoUrl;
+        if (!video || !sourceUrl || sourceUrl.startsWith('offline://')) {
+          throw new Error('VIDEO_EDIT_SOURCE_NOT_FOUND');
+        }
+
+        const response = await fetch(sourceUrl, { mode: 'cors', cache: 'no-store' });
+        if (!response.ok) throw new Error('VIDEO_EDIT_SOURCE_LOAD_FAILED');
+        const blob = await response.blob();
+        if (cancelled) return;
+
+        prepareVideoForEditor(blob, {
+          title: video.title || '',
+          video,
+        });
+        toast.success('Video carregado para reedicacao.');
+      })
+      .catch((error) => {
+        console.warn('[operator] Edit video load failed:', error);
+        if (!cancelled) {
+          loadedEditVideoIdRef.current = null;
+          setEditingVideoId(null);
+          setEditingOriginalVideo(null);
+          setSearchParams({}, { replace: true });
+          toast.error('Nao foi possivel abrir este video para editar.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingEditVideo(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editVideoId, setSearchParams, user]);
 
   async function startCamera() {
     try {
@@ -1517,9 +1711,7 @@ export default function OperatorPage() {
 
       const blobType = mr.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm';
       const blob = new Blob(chunksRef.current, { type: blobType });
-      setVideoBlob(blob);
-      const url = URL.createObjectURL(blob);
-      setVideoUrl(url);
+      const url = replaceEditorVideoBlob(blob);
       setSourceDuration(duration);
       setTrimStart(0);
       setTrimEnd(duration);
@@ -1811,32 +2003,27 @@ export default function OperatorPage() {
     }
   }
 
+  function handleToggleTemplateFavorite(id: string) {
+    const next = toggleMediaFavorite('template', id, user?.uid);
+    setFavorites(next);
+    toast.success(isMediaFavorite('template', id, next) ? 'Template favoritado.' : 'Template removido dos favoritos.');
+  }
+
+  function handleToggleSelectedMusicFavorite() {
+    if (!selectedMusicTrack) return;
+    const next = toggleMediaFavorite('music', selectedMusicTrack.id, user?.uid);
+    setFavorites(next);
+    toast.success(isMediaFavorite('music', selectedMusicTrack.id, next) ? 'Musica favoritada.' : 'Musica removida dos favoritos.');
+  }
+
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setVideoBlob(file);
-    setVideoUrl(url);
-    setSourceDuration(0);
-    setVideoOrientation(null);
-    setTrimStart(0);
-    setTrimEnd(duration);
-    setPreviewCurrentTime(0);
-    setEffectSegmentsDraft([]);
-    setActiveEffectSegmentId(null);
-    setStep('preview');
-    readVideoMetadata(url).then((metadata) => {
-      const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
-      if (nextOrientation) {
-        setVideoOrientation(nextOrientation);
-        setRecordingOrientation(nextOrientation);
-      }
-      if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
-        setSourceDuration(metadata.duration);
-        setTrimEnd(Math.min(metadata.duration, duration));
-      }
-    }).catch(() => undefined);
+    clearEditMode();
+    prepareVideoForEditor(file, {
+      title: videoTitle.trim() || titleFromFileName(file.name),
+    });
   }
 
   async function handleProcess() {
@@ -1899,15 +2086,13 @@ export default function OperatorPage() {
         setProgress(Math.min(94, 72 + Math.round(pct * 0.22)));
       });
 
-      setProcessingLabel('Publicando video...');
-      const video = await createVideo({
-        eventId: selectedEventId || STANDALONE_EVENT_ID, ownerId: user.uid, operatorId: user.uid,
-        title: `${isStandaloneVideo ? 'Video avulso' : 'Video 360'} - ${new Date().toLocaleDateString('pt-BR')}`,
+      setProcessingLabel(editingVideoId ? 'Atualizando video...' : 'Publicando video...');
+      const savedFields = {
+        title: resolvedVideoTitle,
         storagePath: uploaded.storagePath,
         videoUrl: uploaded.videoUrl || '',
-        rawVideoUrl: undefined,
-        status: 'published',
-        views: 0, downloads: 0, shares: 0,
+        rawVideoUrl: editingOriginalVideo?.rawVideoUrl || editingOriginalVideo?.videoUrl,
+        status: 'published' as const,
         size: renderedBlob.size, format: renderedBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
         templateStoragePath: selectedTemplate?.storagePath,
@@ -1917,13 +2102,31 @@ export default function OperatorPage() {
         musicTheme: effect === 'ai_auto' && musicTheme === 'none' ? aiDirection.musicTheme : storedMusicTheme,
         musicUrl: processingMusicUrl,
         duration: outputDuration,
-      });
+      };
 
-      setSavedVideoId(video.id);
+      let publishedVideoId = editingVideoId || '';
+
+      if (editingVideoId) {
+        await updateVideo(editingVideoId, savedFields);
+        publishedVideoId = editingVideoId;
+        setSavedVideoId(editingVideoId);
+      } else {
+        const video = await createVideo({
+          eventId: selectedEventId || STANDALONE_EVENT_ID, ownerId: user.uid, operatorId: user.uid,
+          ...savedFields,
+          rawVideoUrl: undefined,
+          views: 0, downloads: 0, shares: 0,
+        });
+        publishedVideoId = video.id;
+        setSavedVideoId(video.id);
+      }
+
       setProgress(100);
       setStep('done');
-      if (uploaded.status === 'pending_offline' || video.id.startsWith('local_')) {
+      if (uploaded.status === 'pending_offline' || publishedVideoId.startsWith('local_')) {
         toast.info('Video salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+      } else if (editingVideoId) {
+        toast.success('Video atualizado.');
       } else {
         toast.success('Video editado no navegador e publicado sem sobrecarregar o servidor.');
       }
@@ -1941,6 +2144,17 @@ export default function OperatorPage() {
     mediaRecorderRef.current = null;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
+    if (objectVideoUrlRef.current) {
+      URL.revokeObjectURL(objectVideoUrlRef.current);
+      objectVideoUrlRef.current = null;
+    }
+    setVideoTitle('');
+    setEditingVideoId(null);
+    setEditingOriginalVideo(null);
+    loadedEditVideoIdRef.current = null;
+    if (editVideoId) {
+      setSearchParams({}, { replace: true });
+    }
     setVideoBlob(null);
     setVideoUrl('');
     setVideoOrientation(null);
@@ -1968,9 +2182,23 @@ export default function OperatorPage() {
         <p className="hidden text-sm text-white/40 sm:block">Grave, edite com IA e publique videos 360 sem sobrecarregar o servidor</p>
       </div>
 
+      {(loadingEditVideo || (editingVideoId && step !== 'done')) && (
+        <div className="flex items-center gap-3 rounded-2xl border border-brand-300/20 bg-brand-500/10 px-4 py-3 text-sm text-brand-100">
+          {loadingEditVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+          <span>{loadingEditVideo ? 'Carregando video para editar...' : 'Reeditando video existente. Ao atualizar, ele continua no mesmo item da lista.'}</span>
+        </div>
+      )}
+
       {step === 'select' && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_0.82fr]">
           <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:space-y-5 sm:p-6">
+            <Input
+              label="Nome do video"
+              value={videoTitle}
+              onChange={(event) => setVideoTitle(event.target.value)}
+              maxLength={90}
+              placeholder={defaultVideoTitle}
+            />
             <Select label="Evento vinculado" options={eventOptions} value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)} />
             <div className="space-y-2">
@@ -2048,6 +2276,8 @@ export default function OperatorPage() {
               selectedId={selectedTemplateId}
               onChange={setSelectedTemplateId}
               videoOrientation={videoOrientation}
+              favoriteTemplateIds={favoriteTemplateIds}
+              onToggleFavorite={handleToggleTemplateFavorite}
             />
             <TemplateFineControls
               template={selectedTemplate}
@@ -2062,7 +2292,23 @@ export default function OperatorPage() {
               compact
               onApply={(selected) => toast.success(`${selected.name} aplicado ao editor.`)}
             />
-            <Select label="Trilha" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+            <div className="space-y-2">
+              <Select label="Trilha" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+              {selectedMusicTrack && (
+                <button
+                  type="button"
+                  onClick={handleToggleSelectedMusicFavorite}
+                  className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-bold transition-all ${
+                    selectedMusicFavorite
+                      ? 'border-amber-300/35 bg-amber-400/12 text-amber-100'
+                      : 'border-white/10 bg-white/[0.045] text-white/52 hover:border-amber-300/25 hover:text-amber-100'
+                  }`}
+                >
+                  <Star className="h-4 w-4" fill={selectedMusicFavorite ? 'currentColor' : 'none'} />
+                  {selectedMusicFavorite ? 'Trilha favorita' : 'Favoritar trilha'}
+                </button>
+              )}
+            </div>
             <Button
               variant="secondary"
               size="sm"
@@ -2249,7 +2495,7 @@ export default function OperatorPage() {
 
             <div className="grid grid-cols-2 gap-3 lg:hidden">
               <Button variant="secondary" onClick={reset} icon={<RefreshCw className="h-4 w-4" />}>Refazer</Button>
-              <Button onClick={handleProcess} icon={<Check className="h-4 w-4" />}>Processar</Button>
+              <Button onClick={handleProcess} icon={<Check className="h-4 w-4" />}>{processActionLabel}</Button>
             </div>
 
             <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-1 lg:hidden">
@@ -2295,6 +2541,14 @@ export default function OperatorPage() {
                 </span>
               </div>
 
+              <Input
+                label="Nome do video"
+                value={videoTitle}
+                onChange={(event) => setVideoTitle(event.target.value)}
+                maxLength={90}
+                placeholder={defaultVideoTitle}
+              />
+
               {/* IA auto edit */}
               <button
                 type="button"
@@ -2318,6 +2572,8 @@ export default function OperatorPage() {
                 selectedId={selectedTemplateId}
                 onChange={setSelectedTemplateId}
                 videoOrientation={videoOrientation}
+                favoriteTemplateIds={favoriteTemplateIds}
+                onToggleFavorite={handleToggleTemplateFavorite}
               />
               <TemplateFineControls
                 template={selectedTemplate}
@@ -2442,6 +2698,20 @@ export default function OperatorPage() {
               <div className="space-y-2">
                 <Select label="Trilha sonora" options={resolvedMusicOptions} value={musicTheme}
                   onChange={e => setMusicTheme(e.target.value)} />
+                {selectedMusicTrack && (
+                  <button
+                    type="button"
+                    onClick={handleToggleSelectedMusicFavorite}
+                    className={`inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border px-3 text-xs font-bold transition-all ${
+                      selectedMusicFavorite
+                        ? 'border-amber-300/35 bg-amber-400/12 text-amber-100'
+                        : 'border-white/10 bg-white/[0.045] text-white/52 hover:border-amber-300/25 hover:text-amber-100'
+                    }`}
+                  >
+                    <Star className="h-4 w-4" fill={selectedMusicFavorite ? 'currentColor' : 'none'} />
+                    {selectedMusicFavorite ? 'Trilha favorita' : 'Favoritar trilha'}
+                  </button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -2496,7 +2766,7 @@ export default function OperatorPage() {
               {/* Actions */}
               <div className="hidden grid-cols-2 gap-3 pt-1 lg:grid">
                 <Button variant="secondary" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>Refazer</Button>
-                <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>Processar</Button>
+                <Button onClick={handleProcess} icon={<Check className="w-4 h-4" />}>{processActionLabel}</Button>
               </div>
             </div>
           </div>
@@ -2570,7 +2840,7 @@ export default function OperatorPage() {
             <Check className="w-8 h-8 text-green-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Video publicado!</h2>
+            <h2 className="text-xl font-bold text-white">{editingVideoId ? 'Video atualizado!' : 'Video publicado!'}</h2>
             <p className="text-white/50 text-sm mt-1">{selectedEvent ? 'Compartilhe o QR Code com o cliente' : 'Video avulso pronto para compartilhar'}</p>
           </div>
           {publicUrl && (
@@ -2587,7 +2857,7 @@ export default function OperatorPage() {
             <Button variant="secondary" className="flex-1 justify-center" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>
               Novo video
             </Button>
-            <Button className="flex-1 justify-center" disabled={!publicUrl} onClick={() => navigator.share?.({ url: publicUrl, title: 'Video 360' })}
+            <Button className="flex-1 justify-center" disabled={!publicUrl} onClick={() => navigator.share?.({ url: publicUrl, title: resolvedVideoTitle })}
               icon={<Share2 className="w-4 h-4" />}>
               Compartilhar
             </Button>

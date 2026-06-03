@@ -128,8 +128,11 @@ export interface NetworkStatusSnapshot {
   isOnline: boolean;
   wasOffline: boolean;
   connectionType?: string;
+  isBackendReachable?: boolean;
   lastOnlineAt?: string;
   lastOfflineAt?: string;
+  lastPingAt?: string;
+  lastPingOkAt?: string;
   isReconnecting: boolean;
 }
 
@@ -143,4 +146,3 @@ export interface SyncSummary {
   lastSyncedAt?: string;
   lastError?: string;
 }
-

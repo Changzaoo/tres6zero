@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BarChart2,
   CheckCircle2,
-  CreditCard,
   Download,
   Film,
   HelpCircle,
@@ -577,7 +576,7 @@ const pages: Record<PublicInfoPageId, InfoPage> = {
     title: 'Pagamento com liberacao segura de assinatura',
     lead:
       'O pagamento libera recursos pagos sem colocar segredo no navegador. A cobrança Pix é criada pela PixGo e o backend confirma o acesso por webhook antes de desbloquear a plataforma.',
-    icon: CreditCard,
+    icon: ShieldCheck,
     heroGradient: 'from-emerald-400/16 via-blue-500/16 to-violet-500/18',
     primaryAction: { label: 'Escolher plano', to: '/plans' },
     secondaryAction: { label: 'Criar conta', to: '/register' },
@@ -588,9 +587,9 @@ const pages: Record<PublicInfoPageId, InfoPage> = {
     ],
     highlights: [
       {
-        icon: CreditCard,
-        title: 'Pix parcelado no banco',
-        description: 'Quem deseja usar cartão pode verificar no próprio banco ou carteira digital se existe Pix parcelado disponível.',
+        icon: ShieldCheck,
+        title: 'Confirmacao PixGo',
+        description: 'O backend confirma o pagamento Pix por webhook antes de liberar o plano.',
       },
       {
         icon: QrCode,

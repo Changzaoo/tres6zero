@@ -12,6 +12,7 @@ import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '..
 import { ensurePublicBucket, getSupabase, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification } from '../services/notifications';
+import { canUseTemplateFeature, hasPlanFeature } from '../services/planEntitlements';
 
 export const templatesRouter = Router();
 
@@ -107,6 +108,7 @@ const seedJobs = new Map<string, SeedJob>();
 type UserProfile = {
   uid: string;
   role: 'admin' | 'user';
+  planId?: string | null;
 };
 
 function getDb() {
@@ -248,28 +250,37 @@ templatesRouter.get('/render-motion/:id', (_req, res) => {
 });
 
 templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
+  const user = res.locals.user as UserProfile;
+  const isAdmin = user.role === 'admin';
+  const canUseAnimatedTemplates = isAdmin || hasPlanFeature(user.planId, 'premium_templates');
   const curatedTemplates = buildCuratedTemplates({
     includeSvg: false,
     urlForPath: (path) => publicUrl(SUPABASE_BUCKETS.projectTemplates, path),
-  }).map((template) => ({
-    ...template,
-    previewUrl: curatedRenderUrl(req, template.id),
-    overlayUrl: curatedRenderUrl(req, template.id),
-    frameUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
-    templateType: template.type,
-    assetFormat: template.format,
-  }));
-  const templates = buildGeneratedTemplates(GENERATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
-    ...template,
-    previewUrl: generatedRenderUrl(req, template.id),
-    overlayUrl: generatedRenderUrl(req, template.id),
-  }));
-  const animatedTemplates = buildGeneratedAnimatedTemplates(GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
-    ...template,
-    previewUrl: generatedRenderUrl(req, template.id),
-    overlayUrl: generatedRenderUrl(req, template.id),
-    animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
-  }));
+  })
+    .filter((template) => canUseTemplateFeature(user.planId, template, isAdmin))
+    .map((template) => ({
+      ...template,
+      previewUrl: curatedRenderUrl(req, template.id),
+      overlayUrl: curatedRenderUrl(req, template.id),
+      frameUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
+      templateType: template.type,
+      assetFormat: template.format,
+    }));
+  const templates = buildGeneratedTemplates(GENERATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false })
+    .map(({ svg, ...template }) => ({
+      ...template,
+      previewUrl: generatedRenderUrl(req, template.id),
+      overlayUrl: generatedRenderUrl(req, template.id),
+    }))
+    .filter((template) => canUseTemplateFeature(user.planId, template, isAdmin));
+  const animatedTemplates = canUseAnimatedTemplates
+    ? buildGeneratedAnimatedTemplates(GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
+      ...template,
+      previewUrl: generatedRenderUrl(req, template.id),
+      overlayUrl: generatedRenderUrl(req, template.id),
+      animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
+    }))
+    : [];
 
   res.json({ templates: [...curatedTemplates, ...animatedTemplates, ...templates] });
 });
@@ -294,7 +305,12 @@ templatesRouter.get('/custom', requireActiveSubscription, async (_req, res, next
     const snap = user.role === 'admin'
       ? await collection.where('source', '==', 'custom').get()
       : await collection.where('ownerId', '==', user.uid).where('isActive', '==', true).get();
-    const templates = sortByNewest(snap.docs.map(mediaFromDoc).filter(isPresent));
+    const templates = sortByNewest(
+      snap.docs
+        .map(mediaFromDoc)
+        .filter(isPresent)
+        .filter((template) => canUseTemplateFeature(user.planId, template, user.role === 'admin'))
+    );
     res.json({ templates });
   } catch (e) { next(e); }
 });

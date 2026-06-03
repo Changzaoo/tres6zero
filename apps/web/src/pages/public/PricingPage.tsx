@@ -47,7 +47,7 @@ export default function PricingPage() {
 
         <PlanCards ctaLabel="Escolher plano" onSelect={selectPlan} />
         <p className="mx-auto mt-4 max-w-3xl text-center text-xs leading-relaxed text-white/48 sm:text-sm">
-          Pagamentos processados via Pix. Quem deseja usar cartão pode verificar no próprio banco a opção de Pix parcelado no cartão de crédito.
+          Pagamentos processados via Pix pela PixGo, com liberacao automatica apos a confirmacao.
         </p>
       </div>
     </div>

@@ -127,7 +127,7 @@ const legalClauses: DocCard[] = [
   { title: '1. O que é o SIX3', description: 'Plataforma online para operadores de Photo Booth 360 e empresas de eventos criarem, editarem, organizarem e compartilharem vídeos 360.' },
   { title: '2. Quem pode usar', description: 'O usuário deve ter capacidade legal para contratar serviços online. Se usar por empresa, declara ter autorização para representá-la.' },
   { title: '3. Conta do usuário', description: 'O usuário é responsável por dados verdadeiros, senha segura, não compartilhar acesso indevidamente e avisar o suporte sobre acessos suspeitos.' },
-  { title: '4. Planos e pagamento', description: 'A assinatura é mensal em reais. Pagamentos são processados via Pix por provedor externo. O SIX3 não armazena dados de cartão.' },
+  { title: '4. Planos e pagamento', description: 'A assinatura é mensal em reais. Pagamentos são processados via Pix por provedor externo, com confirmação automática no backend.' },
   { title: '5. Renovação e acesso', description: 'Enquanto a assinatura estiver ativa, os recursos do plano ficam liberados. Falha, vencimento ou cancelamento podem bloquear novos recursos pagos.' },
   { title: '6. Cancelamento', description: 'O cancelamento pode ser solicitado pelo painel ou suporte. Em contratação online, pode haver direito de arrependimento em até 7 dias conforme lei aplicável.' },
   { title: '7. Uso permitido', description: 'Eventos, festas, casamentos, formaturas, ativações, conteúdo autorizado, entrega de vídeos para clientes e captação de leads com consentimento.' },

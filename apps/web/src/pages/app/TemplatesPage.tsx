@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
-import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Upload, Wand2, X, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Star, Upload, Wand2, X, Zap } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
-import { seedCuratedTemplates, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
+import { getGeneratedMusic, seedCuratedTemplates, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
 import { buildSunoPrompt, describeSunoStatus, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
 import { checkMusicLibraryLicense, getMusicLibraries, importMusicLibraryTrack } from '@/services/musicLibraryService';
+import { favoriteSet, getMediaFavorites, isMediaFavorite, sortFavoritesFirst, subscribeMediaFavorites, toggleMediaFavorite, type MediaFavorites } from '@/services/mediaFavorites';
 import { canUseTransparentMotionOverlay } from '@/services/browserVideoRenderer';
 import { TemplateOverlayRenderer } from '@/components/templates/TemplateOverlayRenderer';
 import { isTemplateAnimated } from '@/services/templateStorage';
@@ -16,6 +17,7 @@ import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { hasFeature } from '@/config/plans';
+import { canUseTemplateForPlan } from '@/services/templateAccess';
 import type { AppMusic, AppTemplate, MusicLibraryProvider, MusicLibraryProviderId, MusicLicenseEvaluation, MusicLicenseStatus } from '@/types';
 
 const INITIAL_TEMPLATE_COUNT = 32;
@@ -119,6 +121,14 @@ function mergeTemplates(templates: AppTemplate[]) {
   return Array.from(byId.values());
 }
 
+function mergeMusic(tracks: AppMusic[]) {
+  const byId = new Map<string, AppMusic>();
+  tracks
+    .filter((track) => track.isActive !== false && Boolean(track.musicUrl))
+    .forEach((track) => byId.set(track.id, track));
+  return Array.from(byId.values());
+}
+
 function searchableTemplateText(template: AppTemplate) {
   return [
     template.name,
@@ -176,16 +186,24 @@ function initialLibraryMusicForm(provider?: MusicLibraryProvider): LibraryMusicF
 }
 
 async function loadCatalog(userId?: string) {
-  const [templateResult, musicResult] = await Promise.allSettled([
+  const [templateResult, customMusicResult, generatedMusicResult] = await Promise.allSettled([
     getTemplates(userId),
     userId ? getUserMusic(userId) : Promise.resolve([] as AppMusic[]),
+    getGeneratedMusic(),
   ]);
+
+  const customMusic = customMusicResult.status === 'fulfilled' ? customMusicResult.value : [];
+  const generatedMusic = generatedMusicResult.status === 'fulfilled'
+    ? generatedMusicResult.value.map((track) => ({ ...track, source: track.source || 'generated' as const }))
+    : [];
 
   return {
     templates: templateResult.status === 'fulfilled' ? templateResult.value : [],
-    music: musicResult.status === 'fulfilled' ? musicResult.value : [],
+    music: mergeMusic([...customMusic, ...generatedMusic]),
     templateError: templateResult.status === 'rejected' ? templateResult.reason : null,
-    musicError: musicResult.status === 'rejected' ? musicResult.reason : null,
+    musicError: customMusicResult.status === 'rejected' || generatedMusicResult.status === 'rejected'
+      ? customMusicResult.status === 'rejected' ? customMusicResult.reason : generatedMusicResult.status === 'rejected' ? generatedMusicResult.reason : null
+      : null,
   };
 }
 
@@ -193,10 +211,14 @@ function TemplateCard({
   template,
   activeMotionId,
   setActiveMotionId,
+  isFavorite,
+  onToggleFavorite,
 }: {
   template: AppTemplate;
   activeMotionId: string | null;
   setActiveMotionId: Dispatch<SetStateAction<string | null>>;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
 }) {
   const primary = template.colors?.primary || '#7c3aed';
   const secondary = template.colors?.secondary || '#00d4ff';
@@ -235,6 +257,22 @@ function TemplateCard({
               {animated ? 'Animado' : 'Estatico'}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite(template.id);
+            }}
+            title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+            aria-label={isFavorite ? 'Remover template dos favoritos' : 'Favoritar template'}
+            className={`absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full border backdrop-blur-md transition-all ${
+              isFavorite
+                ? 'border-amber-200/45 bg-amber-400/20 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]'
+                : 'border-white/12 bg-black/35 text-white/45 hover:border-amber-200/35 hover:text-amber-100'
+            }`}
+          >
+            <Star className="h-4 w-4" fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
             <span className="rounded-full bg-black/45 px-3 py-1.5 text-xs font-medium text-white">Usar template</span>
           </div>
@@ -282,6 +320,8 @@ export default function TemplatesPage() {
   const [aspectFilter, setAspectFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState<MediaFavorites>(() => getMediaFavorites(user?.uid));
   const [motionOnly, setMotionOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sunoOpen, setSunoOpen] = useState(false);
@@ -313,13 +353,23 @@ export default function TemplatesPage() {
     () => isAdmin || hasFeature(user?.planId, 'ai_auto_edit', isAdmin),
     [isAdmin, user?.planId]
   );
+  const canUseAnimatedTemplates = useMemo(
+    () => isAdmin || hasFeature(user?.planId, 'premium_templates', isAdmin),
+    [isAdmin, user?.planId]
+  );
   const selectedProvider = useMemo(
     () => libraryProviders.find((provider) => provider.id === selectedProviderId),
     [libraryProviders, selectedProviderId]
   );
+  const favoriteTemplateIds = useMemo(() => favoriteSet(favorites.templates), [favorites.templates]);
+  const favoriteMusicIds = useMemo(() => favoriteSet(favorites.music), [favorites.music]);
+  const availableTemplates = useMemo(
+    () => templates.filter((template) => canUseTemplateForPlan(template, user?.planId, isAdmin)),
+    [isAdmin, templates, user?.planId]
+  );
   const filteredTemplates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return templates.filter((template) => {
+    const filtered = availableTemplates.filter((template) => {
       const animated = isTemplateAnimated(template);
       if (query && !searchableTemplateText(template).includes(query)) return false;
       if (categoryFilter !== 'all' && template.category !== categoryFilter) return false;
@@ -327,10 +377,16 @@ export default function TemplatesPage() {
       if (sourceFilter !== 'all' && (template.source || 'generated') !== sourceFilter) return false;
       if (typeFilter === 'static' && animated) return false;
       if (typeFilter === 'animated' && !animated) return false;
+      if (favoritesOnly && !favoriteTemplateIds.has(template.id)) return false;
       if (motionOnly && !animated) return false;
       return true;
     });
-  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter, templates, typeFilter]);
+    return sortFavoritesFirst(filtered, favoriteTemplateIds);
+  }, [aspectFilter, availableTemplates, categoryFilter, favoriteTemplateIds, favoritesOnly, motionOnly, searchTerm, sourceFilter, typeFilter]);
+  const sortedMusic = useMemo(
+    () => sortFavoritesFirst(music, favoriteMusicIds),
+    [favoriteMusicIds, music]
+  );
   const visibleTemplates = useMemo(
     () => filteredTemplates.slice(0, visibleCount),
     [filteredTemplates, visibleCount]
@@ -341,7 +397,15 @@ export default function TemplatesPage() {
     || aspectFilter !== 'all'
     || sourceFilter !== 'all'
     || typeFilter !== 'all'
+    || favoritesOnly
     || motionOnly;
+
+  useEffect(() => {
+    setFavorites(getMediaFavorites(user?.uid));
+    return subscribeMediaFavorites(() => {
+      setFavorites(getMediaFavorites(user?.uid));
+    });
+  }, [user?.uid]);
 
   useEffect(() => {
     let active = true;
@@ -372,7 +436,13 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     setVisibleCount(INITIAL_TEMPLATE_COUNT);
-  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter, typeFilter]);
+  }, [aspectFilter, categoryFilter, favoritesOnly, motionOnly, searchTerm, sourceFilter, typeFilter]);
+
+  useEffect(() => {
+    if (canUseAnimatedTemplates) return;
+    if (typeFilter === 'animated') setTypeFilter('all');
+    if (motionOnly) setMotionOnly(false);
+  }, [canUseAnimatedTemplates, motionOnly, typeFilter]);
 
   useEffect(() => {
     if (!librariesOpen || libraryProviders.length > 0) return;
@@ -431,7 +501,20 @@ export default function TemplatesPage() {
     setAspectFilter('all');
     setSourceFilter('all');
     setTypeFilter('all');
+    setFavoritesOnly(false);
     setMotionOnly(false);
+  }
+
+  function handleToggleTemplateFavorite(id: string) {
+    const next = toggleMediaFavorite('template', id, user?.uid);
+    setFavorites(next);
+    toast.success(isMediaFavorite('template', id, next) ? 'Template favoritado.' : 'Template removido dos favoritos.');
+  }
+
+  function handleToggleMusicFavorite(id: string) {
+    const next = toggleMediaFavorite('music', id, user?.uid);
+    setFavorites(next);
+    toast.success(isMediaFavorite('music', id, next) ? 'Musica favoritada.' : 'Musica removida dos favoritos.');
   }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -713,7 +796,7 @@ export default function TemplatesPage() {
           <div>
             <h1 className="text-2xl font-bold text-white">Templates</h1>
             <p className="text-sm text-white/40">
-              {filteredTemplates.length} de {templates.length} templates
+              {filteredTemplates.length} de {availableTemplates.length} templates
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
@@ -799,7 +882,7 @@ export default function TemplatesPage() {
             </button>
           </div>
 
-          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]`}>
+          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_1fr_auto_auto_auto]`}>
             <select
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
@@ -829,22 +912,35 @@ export default function TemplatesPage() {
               }}
               className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
             >
-              <option value="all">Estaticos e animados</option>
+              <option value="all">{canUseAnimatedTemplates ? 'Estaticos e animados' : 'Estaticos'}</option>
               <option value="static">Estaticos</option>
-              <option value="animated">Animados</option>
+              {canUseAnimatedTemplates && <option value="animated">Animados</option>}
             </select>
             <button
               type="button"
-              onClick={() => {
-                setMotionOnly((current) => !current);
-                setTypeFilter('all');
-              }}
+              onClick={() => setFavoritesOnly((current) => !current)}
               className={`h-10 rounded-[16px] border px-3 text-sm font-bold transition-all ${
-                motionOnly ? 'border-cyan-300/50 bg-cyan-400/15 text-cyan-100' : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
+                favoritesOnly
+                  ? 'border-amber-300/50 bg-amber-400/15 text-amber-100'
+                  : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
               }`}
             >
-              Animados
+              Favoritos
             </button>
+            {canUseAnimatedTemplates && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMotionOnly((current) => !current);
+                  setTypeFilter('all');
+                }}
+                className={`h-10 rounded-[16px] border px-3 text-sm font-bold transition-all ${
+                  motionOnly ? 'border-cyan-300/50 bg-cyan-400/15 text-cyan-100' : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
+                }`}
+              >
+                Animados
+              </button>
+            )}
             <button
               type="button"
               onClick={clearFilters}
@@ -863,22 +959,52 @@ export default function TemplatesPage() {
         </div>
       )}
 
+      {!canUseAnimatedTemplates && (
+        <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.06] p-4 text-sm text-cyan-50/72">
+          O plano Essencial exibe apenas molduras estaticas. Molduras animadas e com movimento ficam liberadas nos planos Profissional e Ilimitado.
+        </div>
+      )}
+
       {seedStatus && (
         <div className="rounded-2xl border border-brand-300/20 bg-brand-500/10 p-4 text-sm text-brand-100">
           {seedStatus}
         </div>
       )}
 
-      {music.length > 0 && (
+      {sortedMusic.length > 0 && (
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Music2 className="h-4 w-4 text-brand-300" />
-            <h2 className="text-sm font-bold text-white">Musicas e trilhas</h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Music2 className="h-4 w-4 text-brand-300" />
+              <h2 className="text-sm font-bold text-white">Musicas e trilhas</h2>
+            </div>
+            {favorites.music.length > 0 && (
+              <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-100">
+                {favorites.music.length} favorita(s)
+              </span>
+            )}
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {music.map((track) => (
-              <div key={track.id} className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
-                <p className="truncate text-sm font-semibold text-white">{track.name}</p>
+            {sortedMusic.map((track) => {
+              const trackFavorite = favoriteMusicIds.has(track.id);
+              return (
+              <div key={track.id} className={`rounded-xl border p-3 transition-all ${trackFavorite ? 'border-amber-300/20 bg-amber-400/[0.07]' : 'border-white/[0.08] bg-black/20'}`}>
+                <div className="mb-1 flex items-start gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{track.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMusicFavorite(track.id)}
+                    title={trackFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                    aria-label={trackFavorite ? 'Remover musica dos favoritos' : 'Favoritar musica'}
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-all ${
+                      trackFavorite
+                        ? 'border-amber-200/45 bg-amber-400/18 text-amber-100'
+                        : 'border-white/10 bg-white/[0.045] text-white/42 hover:border-amber-200/30 hover:text-amber-100'
+                    }`}
+                  >
+                    <Star className="h-4 w-4" fill={trackFavorite ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
                 <p className="mb-2 text-xs text-white/35">
                   {track.library || track.source || 'custom'} - {track.category}
                   {track.providerArtist ? ` - ${track.providerArtist}` : ''}
@@ -899,7 +1025,8 @@ export default function TemplatesPage() {
                 )}
                 {track.musicUrl && <audio src={track.musicUrl} controls preload="none" className="h-9 w-full" />}
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       )}
@@ -922,6 +1049,8 @@ export default function TemplatesPage() {
                 template={template}
                 activeMotionId={activeMotionId}
                 setActiveMotionId={setActiveMotionId}
+                isFavorite={favoriteTemplateIds.has(template.id)}
+                onToggleFavorite={handleToggleTemplateFavorite}
               />
             ))}
           </div>
@@ -932,7 +1061,7 @@ export default function TemplatesPage() {
               </p>
               <Button
                 variant="secondary"
-                onClick={() => setVisibleCount((current) => Math.min(current + TEMPLATE_BATCH_SIZE, templates.length))}
+                onClick={() => setVisibleCount((current) => Math.min(current + TEMPLATE_BATCH_SIZE, filteredTemplates.length))}
               >
                 Carregar mais templates
               </Button>

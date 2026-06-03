@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Copy, ExternalLink, LockKeyhole, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { PlanCards } from '@/components/billing/PlanCards';
-import { PixInstallmentInfo } from '@/components/billing/PixInstallmentInfo';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
@@ -33,7 +32,6 @@ export default function BillingPage() {
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [installmentInfoOpen, setInstallmentInfoOpen] = useState(false);
   const autoStartedPlan = useRef<PlanId | null>(null);
   const periodEnd = formatDate(user?.currentPeriodEnd);
   const selectedPlanId = normalizeSelectedPlan(user?.planId || user?.entitlements?.planId, isAdmin);
@@ -86,13 +84,12 @@ export default function BillingPage() {
     return () => window.clearInterval(timer);
   }, [payment?.paymentId, payment?.status, paymentOpen, setUser]);
 
-  async function startPixPayment(planId: PlanId, options?: { showInstallmentInfo?: boolean }) {
+  async function startPixPayment(planId: PlanId) {
     try {
       setLoadingPlan(planId);
       const nextPayment = await createPixPayment(planId);
       setPayment(nextPayment);
       setPaymentOpen(true);
-      setInstallmentInfoOpen(Boolean(options?.showInstallmentInfo));
       toast.info('Cobranca Pix criada. Use o QR Code ou o Pix copia e cola para pagar.');
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
@@ -128,11 +125,6 @@ export default function BillingPage() {
     }
   }
 
-  function showQrCode() {
-    setPaymentOpen(true);
-    toast.info('QR Code Pix disponivel na tela de pagamento.');
-  }
-
   return (
     <div className="space-y-4 sm:space-y-6">
       {!hasActiveSubscription && !isAdmin && (
@@ -162,7 +154,6 @@ export default function BillingPage() {
         selectedPlanId={hasSelectedPlan ? selectedPlanId : null}
         selectedLabel={isAdmin ? 'Acesso ilimitado' : 'Selecionado'}
         selectedDescription={selectedDescription}
-        paymentHint="Pagamento via Pix. Para usar cartão, veja se seu banco oferece Pix parcelado."
       />
 
       <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Pagamento PixGo" size="xl">
@@ -175,7 +166,7 @@ export default function BillingPage() {
                     <p className="text-xs font-semibold uppercase tracking-normal text-white/40">Plano escolhido</p>
                     <h2 className="mt-1 text-xl font-bold leading-tight text-white">{payment.planName}</h2>
                     <p className="mt-1 text-sm text-white/55">
-                      Pagamento principal: Pix via PixGo. Cartão de crédito: somente por Pix parcelado feito pelo banco/carteira digital do cliente, quando disponível.
+                      Pagamento via PixGo. Depois da confirmacao via webhook, seu plano e liberado automaticamente.
                     </p>
                   </div>
                   <div className="shrink-0 rounded-xl border border-emerald-300/16 bg-emerald-400/[0.08] px-3 py-2 text-left sm:text-right">
@@ -239,33 +230,12 @@ export default function BillingPage() {
                   </div>
 
                   <div className="mt-4 grid gap-2 text-xs leading-relaxed text-white/52 sm:grid-cols-2">
-                    <p>Não armazenamos dados de cartão.</p>
-                    <p>O pagamento é confirmado automaticamente via Pix.</p>
-                    <p>Se seu banco oferecer Pix parcelado, você pode parcelar usando o cartão diretamente no aplicativo do banco.</p>
-                    <p>Taxas e parcelas são definidas pelo seu banco.</p>
+                    <p>Pagamento confirmado automaticamente via Pix.</p>
+                    <p>Use o QR Code ou o Pix copia e cola no app do seu banco.</p>
+                    <p>A liberacao do plano acontece apos a confirmacao da PixGo.</p>
+                    <p>Se o status demorar, a verificacao continua em segundo plano.</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
-                <button
-                  type="button"
-                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-sm font-semibold text-white transition hover:bg-white/[0.045] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35"
-                  onClick={() => setInstallmentInfoOpen((current) => !current)}
-                >
-                  <span>Pix parcelado pelo banco</span>
-                  <span className="text-xs text-white/42">{installmentInfoOpen ? 'Ocultar' : 'Ver explicação'}</span>
-                </button>
-                {installmentInfoOpen && (
-                  <div className="mt-3">
-                    <PixInstallmentInfo
-                      pixCode={payment.pixCode}
-                      onCopyPix={copyPixCode}
-                      onShowQrCode={showQrCode}
-                      onClose={() => setInstallmentInfoOpen(false)}
-                    />
-                  </div>
-                )}
               </div>
             </>
           )}
