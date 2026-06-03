@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/ui/LoadingState';
+import { BannedAccountNotice } from '@/components/auth/BannedAccountNotice';
 
 const AppShell = lazy(() => import('@/components/layout/AppShell').then((module) => ({ default: module.AppShell })));
 
@@ -37,6 +38,7 @@ function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
+  if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
   return <>{children}</>;
 }
 
@@ -51,6 +53,7 @@ function PaidRoute({ children }: { children: ReactNode }) {
   const { user, initialized, hasActiveSubscription } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
+  if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
   if (!hasActiveSubscription) return <LockedFeaturePage />;
   return <>{children}</>;
 }
@@ -59,6 +62,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
   const { user, initialized, isAdmin } = useAuth();
   if (!initialized) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
+  if (user.banned) return <BannedAccountNotice reason={user.banReason} expiresAt={user.banExpiresAt} />;
   if (!isAdmin) return <Navigate to="/app/billing" replace />;
   return <>{children}</>;
 }

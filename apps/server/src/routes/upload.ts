@@ -3,7 +3,7 @@ import multer from 'multer';
 import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { requireActiveSubscription, requirePlanFeature } from './auth';
 import { SUPABASE_BUCKETS, ensurePublicBucket, uploadFileToSupabase } from '../services/supabaseStorage';
 
@@ -11,7 +11,7 @@ export const uploadRouter = Router();
 
 const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska'];
 const ALLOWED_IMAGE = ['image/png', 'image/jpeg', 'image/webp'];
-const ALLOWED_TEMPLATE = ['image/png', 'image/svg+xml', 'image/webp', 'video/webm'];
+const ALLOWED_TEMPLATE = ['image/png', 'image/svg+xml', 'image/webp', 'video/webm', 'image/gif'];
 const ALLOWED_MUSIC = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/aac', 'audio/mp4', 'audio/ogg', 'audio/webm'];
 function envNumber(name: string, fallback: number) {
   const value = Number(process.env[name]);
@@ -37,6 +37,26 @@ function baseMime(mimetype = '') {
 
 function isAllowedByMime(mimetype: string, allowed: string[]) {
   return allowed.includes(baseMime(mimetype));
+}
+
+async function sanitizeSvgFile(file: Express.Multer.File) {
+  if (baseMime(file.mimetype) !== 'image/svg+xml') return;
+
+  const raw = await readFile(file.path, 'utf8');
+  if (raw.length > MAX_TEMPLATE_MB * 1024 * 1024) {
+    throw uploadError('SVG maior que o limite permitido.', 413);
+  }
+
+  if (/<\s*(script|iframe|object|embed|foreignObject)\b/i.test(raw) || /javascript\s*:/i.test(raw)) {
+    throw uploadError('SVG bloqueado por conter script ou embed inseguro.', 415);
+  }
+
+  const sanitized = raw
+    .replace(/\s+on[a-z]+\s*=\s*(['"]).*?\1/gi, '')
+    .replace(/\s+(href|xlink:href)\s*=\s*(['"])\s*(https?:|data:text\/html|javascript:).*?\2/gi, '')
+    .replace(/<\s*metadata\b[\s\S]*?<\s*\/\s*metadata\s*>/gi, '');
+
+  await writeFile(file.path, sanitized, 'utf8');
 }
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
@@ -201,6 +221,7 @@ uploadRouter.post('/template', requirePlanFeature('custom_template_upload'), tem
     const fileId = randomUUID();
     const ext = path.extname(req.file.originalname) || (req.file.mimetype === 'image/svg+xml' ? '.svg' : '.png');
     const userId = res.locals.user?.uid || 'unknown';
+    await sanitizeSvgFile(req.file);
     await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
     const uploaded = await uploadFileToSupabase({
       bucket: SUPABASE_BUCKETS.userTemplates,

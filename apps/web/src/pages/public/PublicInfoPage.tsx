@@ -576,26 +576,26 @@ const pages: Record<PublicInfoPageId, InfoPage> = {
     kicker: 'Acesso',
     title: 'Pagamento com liberacao segura de assinatura',
     lead:
-      'O pagamento libera recursos pagos sem colocar segredo no navegador. O checkout usa Stripe e o backend confirma o acesso por webhook antes de desbloquear a plataforma.',
+      'O pagamento libera recursos pagos sem colocar segredo no navegador. A cobrança Pix é criada pela PixGo e o backend confirma o acesso por webhook antes de desbloquear a plataforma.',
     icon: CreditCard,
     heroGradient: 'from-emerald-400/16 via-blue-500/16 to-violet-500/18',
     primaryAction: { label: 'Escolher plano', to: '/plans' },
     secondaryAction: { label: 'Criar conta', to: '/register' },
     stats: [
       ['Mensal', 'renovacao no dia da assinatura'],
-      ['Stripe', 'checkout e webhook'],
+      ['PixGo', 'Pix e webhook'],
       ['Seguro', 'segredos somente no servidor'],
     ],
     highlights: [
       {
         icon: CreditCard,
-        title: 'Cartao e carteiras',
-        description: 'Checkout preparado para metodos habilitados na Stripe, como cartao, Apple Pay, Google Pay e Link.',
+        title: 'Pix parcelado no banco',
+        description: 'Quem deseja usar cartão pode verificar no próprio banco ou carteira digital se existe Pix parcelado disponível.',
       },
       {
         icon: QrCode,
-        title: 'Pix quando habilitado',
-        description: 'Pix depende da configuracao e disponibilidade da conta Stripe usada no checkout.',
+        title: 'QR Code Pix',
+        description: 'A cobrança mostra QR Code Pix e código copia e cola para pagamento no aplicativo financeiro do cliente.',
       },
       {
         icon: LockKeyhole,
@@ -612,7 +612,7 @@ const pages: Record<PublicInfoPageId, InfoPage> = {
       {
         title: 'Como a liberacao acontece',
         description: 'A confirmacao nao deve depender do front-end.',
-        items: ['Usuario escolhe plano', 'Stripe cria checkout', 'Webhook confirma', 'Backend atualiza acesso', 'App libera recursos'],
+        items: ['Usuario escolhe plano', 'PixGo cria cobranca Pix', 'Webhook confirma', 'Backend atualiza acesso', 'App libera recursos'],
       },
       {
         title: 'Estados de assinatura',
@@ -621,13 +621,13 @@ const pages: Record<PublicInfoPageId, InfoPage> = {
       },
       {
         title: 'Seguranca',
-        description: 'O client nunca deve carregar chave secreta de Stripe, Firebase Admin, Supabase service role ou OpenAI.',
+        description: 'O client nunca deve carregar chave secreta de PixGo, Firebase Admin, Supabase service role ou OpenAI.',
         items: ['Env vars no Render', 'Webhook validado', 'Token Firebase', 'CORS controlado', 'Sem secrets no Git'],
       },
     ],
     checklistTitle: 'O que o pagamento precisa garantir',
     checklist: [
-      'Criar checkout apenas pelo backend.',
+      'Criar cobranca Pix apenas pelo backend.',
       'Confirmar pagamento por webhook.',
       'Renovar acesso mensalmente no mesmo dia da assinatura.',
       'Preservar videos antigos para usuario que ja pagou.',
@@ -636,7 +636,7 @@ const pages: Record<PublicInfoPageId, InfoPage> = {
     timelineTitle: 'Jornada de pagamento',
     timeline: [
       ['Plano', 'Usuario escolhe Essencial, Profissional ou Ilimitado.'],
-      ['Checkout', 'Stripe recebe os dados de pagamento.'],
+      ['Pix', 'PixGo gera QR Code e Pix copia e cola.'],
       ['Confirmacao', 'Webhook informa sucesso ao backend.'],
       ['Acesso', 'Recursos pagos sao liberados na conta.'],
     ],

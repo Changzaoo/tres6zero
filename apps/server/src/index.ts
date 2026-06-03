@@ -13,7 +13,7 @@ import { leadRouter } from './routes/leads';
 import { trackRouter } from './routes/track';
 import { authRouter } from './routes/auth';
 import { adminRouter } from './routes/admin';
-import { billingRouter, stripeWebhookHandler } from './routes/billing';
+import { billingRouter, pixgoWebhookHandler, stripeWebhookHandler } from './routes/billing';
 import { supportRouter } from './routes/support';
 import { eventsRouter } from './routes/events';
 import { notificationsRouter } from './routes/notifications';
@@ -96,6 +96,8 @@ app.use(cors({
   credentials: false,
 }));
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+app.post('/api/webhooks/pixgo', express.raw({ type: 'application/json' }), pixgoWebhookHandler);
+app.post('/api/billing/pixgo/webhook', express.raw({ type: 'application/json' }), pixgoWebhookHandler);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 

@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type Set
 import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Upload, Wand2, X, Zap } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
-import { getGeneratedTemplatesSeedJob, startGeneratedTemplatesSeedJob, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
+import { seedCuratedTemplates, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
 import { buildSunoPrompt, describeSunoStatus, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
 import { checkMusicLibraryLicense, getMusicLibraries, importMusicLibraryTrack } from '@/services/musicLibraryService';
 import { canUseTransparentMotionOverlay } from '@/services/browserVideoRenderer';
+import { TemplateOverlayRenderer } from '@/components/templates/TemplateOverlayRenderer';
+import { isTemplateAnimated } from '@/services/templateStorage';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,9 +23,24 @@ const TEMPLATE_BATCH_SIZE = 32;
 
 const categoryOptions = [
   { value: 'all', label: 'Todas' },
+  { value: 'brilhos_estrelas', label: 'Brilhos e estrelas' },
+  { value: 'confetes_festa', label: 'Confetes e festa' },
+  { value: 'neon_glow', label: 'Neon e glow' },
+  { value: 'circulos_animados', label: 'Circulos animados' },
+  { value: 'setas_chamadas', label: 'Setas e chamadas' },
+  { value: 'emojis_reacoes', label: 'Emojis e reacoes' },
+  { value: 'elementos_festivos', label: 'Elementos festivos' },
+  { value: 'cards_faixas', label: 'Cards e faixas' },
+  { value: 'tech_futurista', label: 'Tech e futurista' },
+  { value: 'cubos_isometricos', label: 'Cubos e isometricos' },
+  { value: 'flores_decorativos', label: 'Flores e decorativos' },
+  { value: 'minimal_premium', label: 'Minimal premium' },
   { value: 'birthday', label: 'Aniversario' },
   { value: 'wedding', label: 'Casamento' },
   { value: 'corporate', label: 'Corporativo' },
+  { value: 'gamer_neon', label: 'Gamer / neon' },
+  { value: 'tropical', label: 'Tropical' },
+  { value: 'booth_360', label: '360 Booth Premium' },
   { value: 'graduation', label: 'Formatura' },
   { value: 'party', label: 'Balada / Festa' },
   { value: 'store', label: 'Loja / Inauguracao' },
@@ -86,6 +103,7 @@ const licenseStatusClass: Record<MusicLicenseStatus, string> = {
 function templateAspectRatio(aspectRatio: AppTemplate['aspectRatio']) {
   if (aspectRatio === '16:9') return '16 / 9';
   if (aspectRatio === '1:1') return '1 / 1';
+  if (aspectRatio === 'auto') return '9 / 16';
   return '9 / 16';
 }
 
@@ -111,7 +129,13 @@ function searchableTemplateText(template: AppTemplate) {
     template.layout,
     template.variantName,
     template.designId,
+    template.type,
+    template.templateType,
+    template.format,
+    template.assetFormat,
+    template.layerMode,
     ...(template.effects || []),
+    ...(template.tags || []),
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
@@ -176,7 +200,10 @@ function TemplateCard({
 }) {
   const primary = template.colors?.primary || '#7c3aed';
   const secondary = template.colors?.secondary || '#00d4ff';
-  const isMotionActive = Boolean(template.animationUrl && activeMotionId === template.id && canUseTransparentMotionOverlay());
+  const motionVideoUrl = template.animationUrl && /\.(webm|mp4|mov)(\?|$)/i.test(template.animationUrl) ? template.animationUrl : '';
+  const isMotionActive = Boolean(motionVideoUrl && activeMotionId === template.id && canUseTransparentMotionOverlay());
+  const animated = isTemplateAnimated(template);
+  const premium = Boolean(template.isPremium || template.category === 'premium' || template.category === 'minimal_premium' || template.category === 'booth_360');
 
   return (
     <div
@@ -191,9 +218,9 @@ function TemplateCard({
           style={{ aspectRatio: templateAspectRatio(template.aspectRatio), background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
         >
           <BrandWordmark className="text-3xl drop-shadow-lg" />
-          {isMotionActive && template.animationUrl ? (
+          {isMotionActive && motionVideoUrl ? (
             <video
-              src={template.animationUrl}
+              src={motionVideoUrl}
               className="absolute inset-0 h-full w-full object-contain"
               autoPlay
               muted
@@ -201,15 +228,17 @@ function TemplateCard({
               playsInline
               preload="metadata"
             />
-          ) : template.overlayUrl ? (
-            <img
-              src={template.overlayUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-contain"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : null}
+          ) : (
+            <TemplateOverlayRenderer template={template} preferPreview />
+          )}
+          <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+            <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md ${animated ? 'border-cyan-300/25 bg-cyan-500/16 text-cyan-100' : 'border-white/15 bg-black/35 text-white/75'}`}>
+              {animated ? 'Animado' : 'Estatico'}
+            </span>
+            <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md ${premium ? 'border-yellow-300/25 bg-yellow-500/16 text-yellow-100' : 'border-emerald-300/20 bg-emerald-500/14 text-emerald-100'}`}>
+              {premium ? 'Premium' : 'Gratis'}
+            </span>
+          </div>
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
             <span className="rounded-full bg-black/45 px-3 py-1.5 text-xs font-medium text-white">Usar template</span>
           </div>
@@ -220,7 +249,7 @@ function TemplateCard({
             <Badge variant="purple">{template.category}</Badge>
             <span className="text-xs text-white/30">{template.aspectRatio}</span>
             {template.variantName && <span className="text-xs text-white/35">{template.variantName}</span>}
-            {template.animationUrl && <span className="text-xs text-cyan-200/80">animado</span>}
+            {animated && <span className="text-xs text-cyan-200/80">animado</span>}
             {template.source && <span className="text-xs text-white/30">{template.source}</span>}
           </div>
           {template.layout && (
@@ -256,6 +285,8 @@ export default function TemplatesPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [aspectFilter, setAspectFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [priceFilter, setPriceFilter] = useState('all');
   const [motionOnly, setMotionOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sunoOpen, setSunoOpen] = useState(false);
@@ -294,14 +325,20 @@ export default function TemplatesPage() {
   const filteredTemplates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return templates.filter((template) => {
+      const animated = isTemplateAnimated(template);
+      const premium = Boolean(template.isPremium || template.category === 'premium' || template.category === 'minimal_premium' || template.category === 'booth_360');
       if (query && !searchableTemplateText(template).includes(query)) return false;
       if (categoryFilter !== 'all' && template.category !== categoryFilter) return false;
       if (aspectFilter !== 'all' && template.aspectRatio !== aspectFilter) return false;
       if (sourceFilter !== 'all' && (template.source || 'generated') !== sourceFilter) return false;
-      if (motionOnly && !template.animationUrl) return false;
+      if (typeFilter === 'static' && animated) return false;
+      if (typeFilter === 'animated' && !animated) return false;
+      if (priceFilter === 'free' && premium) return false;
+      if (priceFilter === 'premium' && !premium) return false;
+      if (motionOnly && !animated) return false;
       return true;
     });
-  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter, templates]);
+  }, [aspectFilter, categoryFilter, motionOnly, priceFilter, searchTerm, sourceFilter, templates, typeFilter]);
   const visibleTemplates = useMemo(
     () => filteredTemplates.slice(0, visibleCount),
     [filteredTemplates, visibleCount]
@@ -311,6 +348,8 @@ export default function TemplatesPage() {
     || categoryFilter !== 'all'
     || aspectFilter !== 'all'
     || sourceFilter !== 'all'
+    || typeFilter !== 'all'
+    || priceFilter !== 'all'
     || motionOnly;
 
   useEffect(() => {
@@ -342,7 +381,7 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     setVisibleCount(INITIAL_TEMPLATE_COUNT);
-  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter]);
+  }, [aspectFilter, categoryFilter, motionOnly, priceFilter, searchTerm, sourceFilter, typeFilter]);
 
   useEffect(() => {
     if (!librariesOpen || libraryProviders.length > 0) return;
@@ -400,6 +439,8 @@ export default function TemplatesPage() {
     setCategoryFilter('all');
     setAspectFilter('all');
     setSourceFilter('all');
+    setTypeFilter('all');
+    setPriceFilter('all');
     setMotionOnly(false);
   }
 
@@ -416,7 +457,16 @@ export default function TemplatesPage() {
     setProgress(0);
     try {
       const uploaded = await uploadTemplateToServer(file, setProgress);
-      const isAnimated = uploaded.mimetype === 'video/webm';
+      const isAnimated = uploaded.mimetype === 'video/webm' || uploaded.mimetype === 'image/gif';
+      const assetFormat = uploaded.mimetype === 'video/webm'
+        ? 'webm'
+        : uploaded.mimetype === 'image/gif'
+          ? 'gif'
+          : uploaded.mimetype === 'image/webp'
+            ? 'webp'
+            : uploaded.mimetype === 'image/svg+xml'
+              ? 'svg'
+              : 'png';
       const template = await createTemplate({
         name: file.name.replace(/\.[^.]+$/, '') || 'Template personalizado',
         category: 'premium',
@@ -426,6 +476,13 @@ export default function TemplatesPage() {
         animationUrl: isAnimated ? uploaded.publicUrl || uploaded.templateUrl : undefined,
         storagePath: uploaded.storagePath,
         animationStoragePath: isAnimated ? uploaded.storagePath : undefined,
+        templateType: isAnimated ? 'animated' : 'static',
+        type: isAnimated ? 'animated' : 'static',
+        assetFormat,
+        format: assetFormat,
+        isPremium: true,
+        layerMode: 'frame',
+        opacityDefault: 1,
         ownerId: user.uid,
         source: 'custom',
         aspectRatio: '9:16',
@@ -554,28 +611,18 @@ export default function TemplatesPage() {
   async function handleSeedSupabase() {
     if (!isAdmin) return;
     setSeeding(true);
-    setSeedStatus('Preparando catalogo no Supabase...');
+    setSeedStatus('Publicando biblioteca 360 no Supabase...');
     try {
-      const job = await startGeneratedTemplatesSeedJob();
-      let currentJob = job;
-
-      while (currentJob.status === 'queued' || currentJob.status === 'running') {
-        setSeedStatus(`Templates ${currentJob.templateUploaded}/${currentJob.count} - animados ${currentJob.animatedUploaded}/${currentJob.animatedCount}`);
-        await new Promise((resolve) => window.setTimeout(resolve, 3500));
-        currentJob = await getGeneratedTemplatesSeedJob(currentJob.id);
-      }
-
-      if (currentJob.status === 'failed') throw new Error(currentJob.error || 'SEED_JOB_FAILED');
-
+      const curated = await seedCuratedTemplates();
       const { templates: loadedTemplates, music: loadedMusic } = await loadCatalog(user?.uid);
-      setTemplates(mergeTemplates(loadedTemplates));
+      setTemplates(mergeTemplates([...curated, ...loadedTemplates]));
       setMusic(loadedMusic);
       setVisibleCount(INITIAL_TEMPLATE_COUNT);
-      setSeedStatus('Catalogo salvo no Supabase.');
-      toast.success('Catalogo transparente, animado e musical salvo no Supabase.');
+      setSeedStatus(`${curated.length} templates 360 salvos no Supabase.`);
+      toast.success('Biblioteca 360 salva no Supabase.');
     } catch (error) {
       setSeedStatus('');
-      toast.error(error instanceof Error ? error.message : 'Erro ao semear catalogo.');
+      toast.error(error instanceof Error ? error.message : 'Erro ao publicar biblioteca 360.');
     } finally {
       setSeeding(false);
     }
@@ -689,13 +736,13 @@ export default function TemplatesPage() {
                 icon={<Database className="h-4 w-4" />}
                 className="col-span-2 sm:col-span-1"
               >
-                Salvar catalogo
+                Salvar biblioteca 360
               </Button>
             )}
             <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
               <span className="truncate">{uploading ? `${progress}%` : 'Template'}</span>
-              <input type="file" accept="image/png,image/svg+xml,image/webp,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
+              <input type="file" accept="image/png,image/svg+xml,image/webp,image/gif,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
             </label>
             <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -762,7 +809,7 @@ export default function TemplatesPage() {
             </button>
           </div>
 
-          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_auto_auto]`}>
+          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto]`}>
             <select
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
@@ -784,9 +831,33 @@ export default function TemplatesPage() {
             >
               {sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
+            <select
+              value={typeFilter}
+              onChange={(event) => {
+                setTypeFilter(event.target.value);
+                if (event.target.value !== 'all') setMotionOnly(false);
+              }}
+              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
+            >
+              <option value="all">Estaticos e animados</option>
+              <option value="static">Estaticos</option>
+              <option value="animated">Animados</option>
+            </select>
+            <select
+              value={priceFilter}
+              onChange={(event) => setPriceFilter(event.target.value)}
+              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
+            >
+              <option value="all">Gratis e premium</option>
+              <option value="free">Gratis</option>
+              <option value="premium">Premium</option>
+            </select>
             <button
               type="button"
-              onClick={() => setMotionOnly((current) => !current)}
+              onClick={() => {
+                setMotionOnly((current) => !current);
+                setTypeFilter('all');
+              }}
               className={`h-10 rounded-[16px] border px-3 text-sm font-bold transition-all ${
                 motionOnly ? 'border-cyan-300/50 bg-cyan-400/15 text-cyan-100' : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
               }`}

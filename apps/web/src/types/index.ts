@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'user';
+export type UserBanStatus = 'active' | 'expired' | 'revoked';
 
 export interface UserProfile {
   uid: string;
@@ -17,6 +18,14 @@ export interface UserProfile {
   trustedDevices?: TrustedDevice[];
   companyName?: string;
   avatarUrl?: string;
+  banned?: boolean;
+  banReason?: string;
+  bannedAt?: string;
+  bannedBy?: string;
+  banExpiresAt?: string | null;
+  banStatus?: UserBanStatus | string;
+  banRevokedAt?: string;
+  banRevokedBy?: string;
   notificationPreferences?: NotificationPreferences;
   createdAt: string;
   updatedAt: string;
@@ -148,6 +157,9 @@ export interface AppVideo {
   size?: number;
   format?: string;
   templateId?: string;
+  templateStoragePath?: string;
+  templateType?: 'static' | 'animated';
+  templateOpacity?: number;
   effect?: string;
   musicTheme?: string;
   musicUrl?: string;
@@ -159,7 +171,14 @@ export interface AppVideo {
 }
 
 export interface AdminUserDevice extends TrustedDevice {
+  browser?: string;
+  os?: string;
+  deviceType?: 'desktop' | 'mobile' | 'tablet' | 'unknown' | string;
   userAgent?: string | null;
+  loginCount?: number;
+  recentIps?: string[];
+  trusted?: boolean;
+  suspicious?: boolean;
   revokedAt?: string | null;
 }
 
@@ -174,10 +193,72 @@ export interface AdminUserOverview {
   planId?: string | null;
   companyName?: string;
   avatarUrl?: string;
+  provider?: string;
+  banned?: boolean;
+  banReason?: string;
+  bannedAt?: string | null;
+  bannedBy?: string | null;
+  banExpiresAt?: string | null;
+  banStatus?: UserBanStatus | string;
+  banRevokedAt?: string | null;
+  banRevokedBy?: string | null;
   createdAt: string;
   lastSignInAt?: string | null;
   lastRefreshAt?: string | null;
   devices: AdminUserDevice[];
+}
+
+export interface UserLoginEvent {
+  id: string;
+  userId?: string | null;
+  email?: string | null;
+  loginAt: string;
+  createdAt?: string;
+  ip?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  location?: string | null;
+  deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown' | string;
+  os: string;
+  browser: string;
+  userAgent?: string | null;
+  sessionId?: string | null;
+  deviceHash?: string | null;
+  deviceName?: string | null;
+  loginMethod: 'email' | 'google' | 'unknown' | string;
+  success: boolean;
+  failureReason?: string | null;
+  suspicious?: boolean;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action: 'USER_BANNED' | 'USER_UNBANNED' | string;
+  targetUserId?: string | null;
+  targetEmail?: string | null;
+  reason?: string;
+  performedBy?: string | null;
+  performedByEmail?: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface UserAdminDetails {
+  user: AdminUserOverview & {
+    loginCount?: number;
+    deviceCount?: number;
+    firstLoginAt?: string | null;
+    lastLoginAt?: string | null;
+    lastIp?: string | null;
+    lastUserAgent?: string | null;
+    signupSource?: string | null;
+    loginMethod?: string | null;
+    suspiciousEvents7d?: number;
+  };
+  loginEvents: UserLoginEvent[];
+  devices: AdminUserDevice[];
+  auditLogs: AdminAuditLog[];
 }
 
 export type AdminMediaKind =
@@ -275,7 +356,37 @@ export interface EngagementEvent {
   createdAt: string;
 }
 
-export type TemplateCategory = 'party' | 'wedding' | 'corporate' | 'birthday' | 'viral' | 'premium' | 'graduation' | 'store' | 'church';
+export type TemplateCategory =
+  | 'party'
+  | 'wedding'
+  | 'corporate'
+  | 'birthday'
+  | 'viral'
+  | 'premium'
+  | 'graduation'
+  | 'store'
+  | 'church'
+  | 'infantil'
+  | 'esportivo'
+  | 'natal'
+  | 'carnaval'
+  | 'cha_revelacao'
+  | 'halloween'
+  | 'brilhos_estrelas'
+  | 'confetes_festa'
+  | 'neon_glow'
+  | 'circulos_animados'
+  | 'setas_chamadas'
+  | 'emojis_reacoes'
+  | 'elementos_festivos'
+  | 'cards_faixas'
+  | 'tech_futurista'
+  | 'cubos_isometricos'
+  | 'flores_decorativos'
+  | 'minimal_premium'
+  | 'gamer_neon'
+  | 'tropical'
+  | 'booth_360';
 
 export interface AppTemplate {
   id: string;
@@ -291,12 +402,28 @@ export interface AppTemplate {
   overlayUrl?: string;
   animationUrl?: string;
   animationStoragePath?: string;
+  tags?: string[];
+  type?: 'static' | 'animated';
+  format?: 'png' | 'webp' | 'svg' | 'lottie' | 'webm' | 'gif';
+  templateType?: 'static' | 'animated';
+  assetFormat?: 'png' | 'webp' | 'svg' | 'lottie' | 'webm' | 'gif';
+  previewPath?: string;
+  thumbnailPath?: string;
+  isPremium?: boolean;
+  layerMode?: 'frame' | 'sticker' | 'full-overlay' | 'corner-decoration';
+  opacityDefault?: number;
+  safeArea?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
   frameUrl?: string;
   musicUrl?: string;
   storagePath?: string;
   ownerId?: string;
   source?: 'generated' | 'custom' | 'default';
-  aspectRatio: '9:16' | '1:1' | '16:9';
+  aspectRatio: '9:16' | '1:1' | '16:9' | 'auto';
   effects: string[];
   isGlobal: boolean;
   isActive: boolean;

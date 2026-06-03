@@ -44,7 +44,7 @@ export type PasswordRecoveryVerifyResponse = {
   expiresIn?: number;
 };
 
-type ApiError = Error & { code?: string; status?: number };
+type ApiError = Error & { code?: string; status?: number; banReason?: string; banExpiresAt?: string | null };
 
 function isBrowser() {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
@@ -314,6 +314,8 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     const error = new Error(payload?.error || payload?.code || 'Erro ao autenticar.') as ApiError;
     error.code = payload?.code || payload?.error;
     error.status = response.status;
+    error.banReason = typeof payload?.banReason === 'string' ? payload.banReason : undefined;
+    error.banExpiresAt = typeof payload?.banExpiresAt === 'string' ? payload.banExpiresAt : payload?.banExpiresAt === null ? null : undefined;
     throw error;
   }
 
@@ -446,6 +448,7 @@ const FIREBASE_ERRORS: Record<string, string> = {
   PAYMENT_REQUIRED: 'Assinatura necessária para liberar este recurso.',
   DEVICE_ID_REQUIRED: 'Nao foi possivel identificar este dispositivo.',
   DEVICE_DISCONNECTED: 'Este dispositivo foi desconectado da conta.',
+  BAN_ACTIVE: 'Sua conta foi suspensa.',
 };
 
 export function parseFirebaseError(code?: string): string {

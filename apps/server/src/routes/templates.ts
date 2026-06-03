@@ -7,6 +7,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { requireAdmin, requireActiveSubscription, requirePlanFeature } from './auth';
 import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
 import { GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
+import { buildCuratedTemplates, getCuratedTemplate, renderCuratedTemplateSvg } from '../services/curatedTemplates';
 import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
 import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
@@ -25,8 +26,12 @@ const templateCategories = [
   'party', 'wedding', 'corporate', 'birthday', 'viral', 'premium',
   'graduation', 'store', 'church',
   'infantil', 'esportivo', 'natal', 'carnaval', 'cha_revelacao', 'halloween',
+  'brilhos_estrelas', 'confetes_festa', 'neon_glow', 'circulos_animados',
+  'setas_chamadas', 'emojis_reacoes', 'elementos_festivos', 'cards_faixas',
+  'tech_futurista', 'cubos_isometricos', 'flores_decorativos', 'minimal_premium',
+  'gamer_neon', 'tropical', 'booth_360',
 ] as const;
-const aspectRatios = ['9:16', '1:1', '16:9'] as const;
+const aspectRatios = ['9:16', '1:1', '16:9', 'auto'] as const;
 
 const templateSchema = z.object({
   name: z.string().min(1),
@@ -44,6 +49,16 @@ const templateSchema = z.object({
   overlayUrl: z.string().optional(),
   animationUrl: z.string().optional(),
   animationStoragePath: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  type: z.enum(['static', 'animated']).optional(),
+  format: z.enum(['png', 'webp', 'svg', 'lottie', 'webm', 'gif']).optional(),
+  previewPath: z.string().optional(),
+  thumbnailPath: z.string().optional(),
+  isPremium: z.boolean().optional(),
+  layerMode: z.enum(['frame', 'sticker', 'full-overlay', 'corner-decoration']).optional(),
+  opacityDefault: z.number().min(0.2).max(1).optional(),
+  templateType: z.enum(['static', 'animated']).optional(),
+  assetFormat: z.enum(['png', 'webp', 'svg', 'lottie', 'webm', 'gif']).optional(),
   frameUrl: z.string().optional(),
   musicUrl: z.string().optional(),
   storagePath: z.string().optional(),
@@ -176,6 +191,10 @@ function generatedRenderUrl(req: Request, id: string) {
   return `${publicRequestBase(req)}/api/templates/render/${encodeURIComponent(id)}.png`;
 }
 
+function curatedRenderUrl(req: Request, id: string) {
+  return `${publicRequestBase(req)}/api/templates/curated/render/${encodeURIComponent(id)}.svg`;
+}
+
 function heavyAssetJobsEnabled() {
   return process.env.SIX3_HEAVY_ASSET_JOBS_ENABLED === 'true';
 }
@@ -207,6 +226,20 @@ templatesRouter.get('/render/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+templatesRouter.get('/curated/render/:id', async (req, res, next) => {
+  try {
+    const template = getCuratedTemplate(req.params.id.replace(/\.svg$/i, ''), true);
+    if (!template || !template.svg) {
+      res.status(404).json({ error: 'CURATED_TEMPLATE_NOT_FOUND' });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000');
+    res.send(template.svg);
+  } catch (e) { next(e); }
+});
+
 templatesRouter.get('/render-motion/:id', (_req, res) => {
   res.status(410).json({
     error: 'SERVER_MOTION_RENDER_DISABLED',
@@ -215,6 +248,17 @@ templatesRouter.get('/render-motion/:id', (_req, res) => {
 });
 
 templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
+  const curatedTemplates = buildCuratedTemplates({
+    includeSvg: false,
+    urlForPath: (path) => publicUrl(SUPABASE_BUCKETS.projectTemplates, path),
+  }).map((template) => ({
+    ...template,
+    previewUrl: curatedRenderUrl(req, template.id),
+    overlayUrl: curatedRenderUrl(req, template.id),
+    frameUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.storagePath),
+    templateType: template.type,
+    assetFormat: template.format,
+  }));
   const templates = buildGeneratedTemplates(GENERATED_TEMPLATE_CATALOG_SIZE, 0, { includeSvg: false, includeDataUrl: false }).map(({ svg, ...template }) => ({
     ...template,
     previewUrl: generatedRenderUrl(req, template.id),
@@ -227,7 +271,7 @@ templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
     animationUrl: publicUrl(SUPABASE_BUCKETS.projectTemplates, template.animationStoragePath),
   }));
 
-  res.json({ templates: [...animatedTemplates, ...templates] });
+  res.json({ templates: [...curatedTemplates, ...animatedTemplates, ...templates] });
 });
 
 templatesRouter.get('/generated-music', requireActiveSubscription, (_req, res) => {
@@ -448,6 +492,63 @@ async function uploadProjectAnimatedTemplates(count: number, offset = 0, onUploa
   });
 }
 
+async function uploadCuratedTemplates(adminUid?: string) {
+  await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
+  const db = getFirebaseAdminFirestore();
+  const templates = buildCuratedTemplates({ includeSvg: true });
+
+  return mapConcurrent(templates, seedConcurrency(), async (template) => {
+    const svg = template.svg || renderCuratedTemplateSvg(template);
+    const buffer = Buffer.from(svg, 'utf8');
+    const [asset, preview] = await Promise.all([
+      uploadBufferToSupabase({
+        bucket: SUPABASE_BUCKETS.projectTemplates,
+        prefix: template.type === 'animated' ? 'templates/animated' : 'templates/static',
+        fileName: `${template.id}.svg`,
+        fallbackExt: '.svg',
+        buffer,
+        contentType: 'image/svg+xml; charset=utf-8',
+        objectPath: template.storagePath,
+        upsert: true,
+      }),
+      uploadBufferToSupabase({
+        bucket: SUPABASE_BUCKETS.projectTemplates,
+        prefix: template.type === 'animated' ? 'templates/previews/animated' : 'templates/previews/static',
+        fileName: `${template.id}.svg`,
+        fallbackExt: '.svg',
+        buffer,
+        contentType: 'image/svg+xml; charset=utf-8',
+        objectPath: template.previewPath,
+        upsert: true,
+      }),
+    ]);
+
+    const { svg: _svg, ...publicTemplate } = template;
+    const savedTemplate = stripUndefined({
+      ...publicTemplate,
+      overlayUrl: asset.publicUrl,
+      previewUrl: preview.publicUrl,
+      frameUrl: asset.publicUrl,
+      storagePath: asset.path,
+      previewPath: preview.path,
+      templateType: publicTemplate.type,
+      assetFormat: publicTemplate.format,
+      createdBy: adminUid || 'system',
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    });
+
+    if (db) {
+      await db.collection('templates').doc(publicTemplate.id).set(savedTemplate, { merge: true }).catch((error) => {
+        console.warn('[templates] curated metadata skipped:', error instanceof Error ? error.message : error);
+      });
+    }
+
+    const { _ts, ...responseTemplate } = savedTemplate as Record<string, unknown>;
+    return responseTemplate;
+  });
+}
+
 async function uploadProjectMusic(count: number) {
   await ensurePublicBucket(SUPABASE_BUCKETS.projectMusic);
   const tracks = buildGeneratedMusic(count);
@@ -571,6 +672,19 @@ templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) =
     const animatedTemplates = animatedCount > 0 ? await uploadProjectAnimatedTemplates(animatedCount, offset) : [];
     const music = musicCount > 0 ? await uploadProjectMusic(musicCount) : [];
     res.json({ templates: [...animatedTemplates, ...templates], music });
+  } catch (e) { next(e); }
+});
+
+templatesRouter.post('/seed-curated', requireAdmin, async (_req, res, next) => {
+  try {
+    const adminUid = typeof res.locals.user?.uid === 'string' ? res.locals.user.uid : undefined;
+    const templates = await uploadCuratedTemplates(adminUid);
+    res.json({
+      ok: true,
+      bucket: SUPABASE_BUCKETS.projectTemplates,
+      templateCount: templates.length,
+      templates,
+    });
   } catch (e) { next(e); }
 });
 

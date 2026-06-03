@@ -331,6 +331,20 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  .template-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .template-sticker {
+    position: absolute;
+    pointer-events: none;
+    z-index: 25;
+  }
   .six3-loader {
     display: block;
     animation: six3-loader-rotate 1.35s linear infinite;

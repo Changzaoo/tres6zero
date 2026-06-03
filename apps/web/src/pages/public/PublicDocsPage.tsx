@@ -127,7 +127,7 @@ const legalClauses: DocCard[] = [
   { title: '1. O que é o SIX3', description: 'Plataforma online para operadores de Photo Booth 360 e empresas de eventos criarem, editarem, organizarem e compartilharem vídeos 360.' },
   { title: '2. Quem pode usar', description: 'O usuário deve ter capacidade legal para contratar serviços online. Se usar por empresa, declara ter autorização para representá-la.' },
   { title: '3. Conta do usuário', description: 'O usuário é responsável por dados verdadeiros, senha segura, não compartilhar acesso indevidamente e avisar o suporte sobre acessos suspeitos.' },
-  { title: '4. Planos e pagamento', description: 'A assinatura é mensal em reais. Pagamentos são processados por provedor externo, como Stripe; o SIX3 não armazena número completo de cartão.' },
+  { title: '4. Planos e pagamento', description: 'A assinatura é mensal em reais. Pagamentos são processados via Pix por provedor externo. O SIX3 não armazena dados de cartão.' },
   { title: '5. Renovação e acesso', description: 'Enquanto a assinatura estiver ativa, os recursos do plano ficam liberados. Falha, vencimento ou cancelamento podem bloquear novos recursos pagos.' },
   { title: '6. Cancelamento', description: 'O cancelamento pode ser solicitado pelo painel ou suporte. Em contratação online, pode haver direito de arrependimento em até 7 dias conforme lei aplicável.' },
   { title: '7. Uso permitido', description: 'Eventos, festas, casamentos, formaturas, ativações, conteúdo autorizado, entrega de vídeos para clientes e captação de leads com consentimento.' },
@@ -149,7 +149,7 @@ const privacyClauses: DocCard[] = [
   { title: 'Finalidades', description: 'Criar e proteger conta, liberar plano, processar pagamentos, permitir eventos e vídeos, publicar links, exibir métricas, organizar leads e prestar suporte.' },
   { title: 'Convidados e leads', description: 'O operador deve informar pessoas sobre coleta. O SIX3 fornece a ferramenta, mas o operador também é responsável pelo uso correto dos dados.' },
   { title: 'Vídeos e imagem', description: 'Vídeos podem conter imagem de convidados. O operador deve ter autorização do evento, contratante ou participantes quando necessário.' },
-  { title: 'Fornecedores', description: 'Podem ser usados Firebase, Supabase, Stripe, Vercel, Render e ferramentas de suporte/monitoramento necessárias para operar o produto.' },
+  { title: 'Fornecedores', description: 'Podem ser usados Firebase, Supabase, PixGo, Vercel, Render e ferramentas de suporte/monitoramento necessárias para operar o produto.' },
   { title: 'Retenção', description: 'Dados são mantidos enquanto necessário para serviço, obrigações legais, segurança, suporte ou resolução de disputas.' },
   { title: 'Direitos do titular', description: 'Acesso, correção, exclusão quando aplicável, informação sobre compartilhamento e revogação de consentimento quando aplicável.' },
   { title: 'Segurança', description: 'Autenticação, separação frontend/backend, secrets fora do cliente, controle de acesso, limites de upload, logs e regras de permissão.' },
@@ -201,7 +201,7 @@ const docs: Record<PublicDocsPageId, DocPage> = {
         columns: ['Problema', 'Roteiro de resolução'],
         rows: [
           ['Login', 'Confirmar usuário/e-mail, recuperar senha, testar aba anônima, limpar cache, outro navegador e verificar conta no admin.'],
-          ['Pagamento', 'Confirmar checkout, e-mail do pagamento, status Stripe, webhook, plano no Firestore e liberação manual se comprovado.'],
+          ['Pagamento', 'Confirmar cobrança Pix, e-mail do pagamento, status PixGo, webhook, plano no Firestore e liberação manual se comprovado.'],
           ['Upload', 'Verificar internet, tamanho/formato, MP4 menor, outra rede, desktop e limite do plano.'],
           ['Câmera', 'Permissão do navegador, HTTPS, câmera livre, Chrome/Android ou Safari/iOS atualizado.'],
           ['Vídeo preto', 'Testar preview original, render sem efeito/template, reduzir duração, trocar navegador e verificar codec.'],
@@ -224,7 +224,7 @@ const docs: Record<PublicDocsPageId, DocPage> = {
     stats: [
       ['15 tópicos', 'base contratual'],
       ['Mensal', 'assinatura em reais'],
-      ['Stripe', 'pagamento externo'],
+      ['PixGo', 'pagamento Pix'],
     ],
     sections: [
       {

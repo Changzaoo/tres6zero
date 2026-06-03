@@ -250,6 +250,14 @@ export async function seedGeneratedTemplates(count?: number, animatedCount?: num
   return { templates, music: music || [] };
 }
 
+export async function seedCuratedTemplates() {
+  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/seed-curated', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  return templates;
+}
+
 export async function startGeneratedTemplatesSeedJob(count?: number, animatedCount?: number, musicCount = 72) {
   const { job } = await authedJson<{ job: SeedTemplatesJob }>('/api/templates/seed-transparent-job', {
     method: 'POST',

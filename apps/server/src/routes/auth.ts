@@ -87,6 +87,19 @@ type FirebaseUserRecord = {
 
 type UserRole = 'admin' | 'user';
 
+type StoredProfileData = {
+  companyName?: string;
+  avatarUrl?: string;
+  banned?: boolean;
+  banReason?: string;
+  bannedAt?: string;
+  bannedBy?: string;
+  banExpiresAt?: string | null;
+  banStatus?: 'active' | 'expired' | 'revoked';
+  banRevokedAt?: string;
+  banRevokedBy?: string;
+};
+
 type RecoveryOption = {
   id: string;
   value: string;
@@ -165,12 +178,59 @@ async function getUserFromIdToken(idToken: string) {
   return lookup.users?.[0];
 }
 
+function banError(data: { banReason?: string; banExpiresAt?: string | null }): never {
+  const err = new Error('Sua conta foi suspensa.');
+  (err as any).status = 403;
+  (err as any).code = 'BAN_ACTIVE';
+  (err as any).banReason = data.banReason || '';
+  (err as any).banExpiresAt = data.banExpiresAt || null;
+  throw err;
+}
+
+async function activeBanForUid(uid: string) {
+  const db = getFirebaseAdminFirestore();
+  if (!db) return null;
+
+  const ref = db.collection('users').doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+
+  const data = snap.data() as StoredProfileData;
+  if (!data.banned || data.banStatus === 'revoked' || data.banStatus === 'expired') return null;
+
+  const expiresAt = typeof data.banExpiresAt === 'string' ? data.banExpiresAt : null;
+  if (expiresAt && Date.parse(expiresAt) <= Date.now()) {
+    await ref.set({
+      banned: false,
+      banStatus: 'expired',
+      banExpiredAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true }).catch(() => undefined);
+    return null;
+  }
+
+  return {
+    banned: true,
+    banReason: typeof data.banReason === 'string' ? data.banReason : '',
+    banExpiresAt: expiresAt,
+    banStatus: 'active' as const,
+  };
+}
+
+async function assertUserNotBanned(user: FirebaseUserRecord) {
+  const ban = await activeBanForUid(user.localId);
+  if (ban) banError(ban);
+}
+
 export async function getAuthenticatedUser(req: Request) {
   const idToken = getBearerToken(req.headers.authorization);
   if (!idToken) authError();
 
   const user = await getUserFromIdToken(idToken);
   if (!user) authError();
+
+  await assertUserNotBanned(user);
 
   const updatedDevice = await assertTrustedDevice(req, user);
   if (updatedDevice) {
@@ -534,10 +594,19 @@ function planFromUser(user: FirebaseUserRecord) {
   }
 
   const email = (user.email || '').toLowerCase();
-  const status = custom.subscriptionStatus === 'active' || paidEmails.has(email) ? 'active' : 'unpaid';
+  const currentPeriodEnd = typeof custom.currentPeriodEnd === 'string' ? custom.currentPeriodEnd : null;
+  const currentPeriodTime = currentPeriodEnd ? Date.parse(currentPeriodEnd) : 0;
+  const hasFuturePeriod = currentPeriodEnd ? Number.isFinite(currentPeriodTime) && currentPeriodTime > Date.now() : true;
+  const status = (custom.subscriptionStatus === 'active' || paidEmails.has(email)) && hasFuturePeriod ? 'active' : 'unpaid';
   const planId = typeof custom.planId === 'string' ? custom.planId : null;
+  const renewalDay = typeof custom.renewalDay === 'number' ? custom.renewalDay : Number(custom.renewalDay || 0) || null;
 
-  return { status, planId };
+  return {
+    status,
+    planId: status === 'active' ? planId : null,
+    currentPeriodEnd: status === 'active' ? currentPeriodEnd : null,
+    renewalDay: status === 'active' ? renewalDay : null,
+  };
 }
 
 function getConfiguredAdminEmail() {
@@ -577,10 +646,18 @@ async function storedUserProfile(uid: string) {
   const snap = await db.collection('users').doc(uid).get();
   if (!snap.exists) return {};
 
-  const data = snap.data() as { companyName?: string; avatarUrl?: string };
+  const data = snap.data() as StoredProfileData;
   return {
     companyName: typeof data.companyName === 'string' ? data.companyName : '',
     avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : '',
+    banned: Boolean(data.banned),
+    banReason: typeof data.banReason === 'string' ? data.banReason : '',
+    bannedAt: typeof data.bannedAt === 'string' ? data.bannedAt : '',
+    bannedBy: typeof data.bannedBy === 'string' ? data.bannedBy : '',
+    banExpiresAt: typeof data.banExpiresAt === 'string' ? data.banExpiresAt : null,
+    banStatus: data.banStatus || (data.banned ? 'active' : undefined),
+    banRevokedAt: typeof data.banRevokedAt === 'string' ? data.banRevokedAt : '',
+    banRevokedBy: typeof data.banRevokedBy === 'string' ? data.banRevokedBy : '',
   };
 }
 
@@ -609,10 +686,18 @@ async function userProfile(user: FirebaseUserRecord, fallbackName = 'Usuário') 
     subscriptionStatus: role === 'admin' ? 'active' : access?.subscriptionStatus || plan.status,
     planId: role === 'admin' ? 'unlimited' : access?.planId || plan.planId,
     entitlements: getPlanEntitlements(role === 'admin' ? 'unlimited' : access?.planId || plan.planId),
-    currentPeriodEnd: role === 'admin' ? null : access?.currentPeriodEnd || null,
-    renewalDay: role === 'admin' ? null : access?.renewalDay || null,
+    currentPeriodEnd: role === 'admin' ? null : access?.currentPeriodEnd || plan.currentPeriodEnd || null,
+    renewalDay: role === 'admin' ? null : access?.renewalDay || plan.renewalDay || null,
     companyName: storedProfile.companyName || '',
     avatarUrl: storedProfile.avatarUrl || '',
+    banned: Boolean(storedProfile.banned),
+    banReason: storedProfile.banReason || '',
+    bannedAt: storedProfile.bannedAt || '',
+    bannedBy: storedProfile.bannedBy || '',
+    banExpiresAt: storedProfile.banExpiresAt || null,
+    banStatus: storedProfile.banStatus || (storedProfile.banned ? 'active' : undefined),
+    banRevokedAt: storedProfile.banRevokedAt || '',
+    banRevokedBy: storedProfile.banRevokedBy || '',
     notificationPreferences,
     createdAt: user.createdAt ? new Date(Number(user.createdAt)).toISOString() : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -634,6 +719,7 @@ async function sessionFromAuthResponse(auth: FirebaseAuthResponse, req: Request,
   };
 
   await registerTrustedDevice(req, initialUser);
+  await assertUserNotBanned(initialUser);
 
   return {
     token: auth.idToken,

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Check, Crown, Info, ShieldCheck } from 'lucide-react';
+import { Check, CreditCard, Crown, Info, ShieldCheck } from 'lucide-react';
 import { PLANS, type PlanId } from '@/config/plans';
 import { Button } from '@/components/ui/Button';
 
@@ -7,9 +7,14 @@ type PlanCardsProps = {
   ctaLabel: string;
   onSelect: (planId: PlanId) => void;
   disabled?: boolean;
+  loadingPlanId?: PlanId | null;
+  loadingLabel?: string;
   selectedPlanId?: PlanId | null;
   selectedLabel?: string;
   selectedDescription?: string | null;
+  paymentHint?: string;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: (planId: PlanId) => void;
 };
 
 const priceFormatter = new Intl.NumberFormat('pt-BR', {
@@ -17,7 +22,19 @@ const priceFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 });
 
-export function PlanCards({ ctaLabel, onSelect, disabled, selectedPlanId, selectedLabel = 'Selecionado', selectedDescription }: PlanCardsProps) {
+export function PlanCards({
+  ctaLabel,
+  onSelect,
+  disabled,
+  loadingPlanId,
+  loadingLabel,
+  selectedPlanId,
+  selectedLabel = 'Selecionado',
+  selectedDescription,
+  paymentHint,
+  secondaryActionLabel,
+  onSecondaryAction,
+}: PlanCardsProps) {
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
   const lastPointerType = useRef<string | null>(null);
 
@@ -29,6 +46,18 @@ export function PlanCards({ ctaLabel, onSelect, disabled, selectedPlanId, select
       <div className="flex snap-x snap-mandatory gap-3 sm:gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
         {PLANS.map((plan) => {
           const isSelected = selectedPlanId === plan.id;
+          const isPlanLoading = loadingPlanId === plan.id;
+          const hasBusyPlan = Boolean(loadingPlanId);
+          const isInteractionDisabled = Boolean(disabled || hasBusyPlan);
+          const buttonLabel = isSelected
+            ? selectedLabel
+            : isPlanLoading
+              ? loadingLabel || ctaLabel
+              : hasBusyPlan
+                ? 'Aguarde...'
+                : disabled
+                  ? 'Acesso ativo'
+                  : ctaLabel;
 
           return (
           <div
@@ -139,11 +168,25 @@ export function PlanCards({ ctaLabel, onSelect, disabled, selectedPlanId, select
             <Button
               className="mt-6 w-full justify-center"
               variant={plan.highlight || isSelected ? 'primary' : 'secondary'}
-              disabled={disabled}
+              disabled={isInteractionDisabled}
               onClick={() => onSelect(plan.id)}
             >
-              {isSelected ? selectedLabel : disabled ? 'Acesso ativo' : plan.id === 'unlimited' ? 'Liberar ilimitado' : ctaLabel}
+              {buttonLabel}
             </Button>
+            {!isSelected && paymentHint && (
+              <p className="mt-3 text-center text-xs leading-relaxed text-white/46">{paymentHint}</p>
+            )}
+            {!isSelected && onSecondaryAction && secondaryActionLabel && (
+              <button
+                type="button"
+                className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold text-sky-100/82 transition hover:bg-sky-400/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/35 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={isInteractionDisabled}
+                onClick={() => onSecondaryAction(plan.id)}
+              >
+                <CreditCard className="h-4 w-4" />
+                {secondaryActionLabel}
+              </button>
+            )}
           </div>
           );
         })}

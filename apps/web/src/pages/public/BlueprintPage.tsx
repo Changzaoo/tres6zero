@@ -21,20 +21,20 @@ const stack = [
   ['Backend', 'Express, TypeScript, Render'],
   ['Auth e dados', 'Firebase Auth, Firebase Admin, Firestore'],
   ['Storage', 'Supabase Storage para videos, templates e musicas'],
-  ['Pagamento', 'Stripe Checkout e webhook'],
+  ['Pagamento', 'PixGo, QR Code Pix e webhook'],
   ['Editor', 'Canvas, MediaRecorder, templates, efeitos e trilhas'],
 ];
 
 const featureStatus = [
   ['Login/cadastro', 'Pronto'],
-  ['Planos e checkout', 'Pronto'],
+  ['Planos e PixGo', 'Pronto'],
   ['Dashboard real', 'Pronto'],
   ['Eventos e galerias', 'Pronto'],
   ['Gravacao/upload', 'Pronto'],
   ['Editor local', 'Pronto'],
   ['Templates e musicas', 'Parcial'],
   ['Offline/PWA', 'Parcial'],
-  ['Recorrencia nativa Stripe', 'Planejado'],
+  ['Recorrencia automatizada Pix', 'Planejado'],
 ];
 
 const roadmap = [

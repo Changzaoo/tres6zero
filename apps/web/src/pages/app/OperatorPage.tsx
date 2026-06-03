@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { toast } from '@/components/ui/Toast';
+import { TemplateOverlayRenderer } from '@/components/templates/TemplateOverlayRenderer';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents } from '@/services/eventService';
 import { createVideo } from '@/services/videoService';
@@ -18,6 +19,7 @@ import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import { EffectSelector } from '@/features/effects/EffectSelector';
 import { getVideoEffect, videoEffects } from '@/features/effects/effects.config';
 import { API_URL } from '@/config/api';
+import { isTemplateAnimated } from '@/services/templateStorage';
 import type { AppEvent, AppMusic, AppTemplate } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
@@ -88,6 +90,7 @@ function videoOrientationFromSize(width?: number, height?: number): VideoOrienta
 
 function templateMatchesVideoOrientation(template: AppTemplate, orientation: VideoOrientation | null) {
   if (!orientation) return true;
+  if (template.aspectRatio === 'auto' || template.aspectRatio === '1:1') return true;
   return orientation === 'portrait'
     ? template.aspectRatio === '9:16'
     : template.aspectRatio === '16:9';
@@ -214,7 +217,7 @@ function generatedTemplateRenderUrl(template?: AppTemplate) {
 
 function generatedTemplateMotionUrl(template?: AppTemplate) {
   const animationUrl = template?.animationUrl;
-  return animationUrl && !/render-motion/i.test(animationUrl) ? animationUrl : undefined;
+  return animationUrl && /\.(webm|mp4|mov)(\?|$)/i.test(animationUrl) && !/render-motion/i.test(animationUrl) ? animationUrl : undefined;
 }
 
 function templateImageSources(template?: AppTemplate) {
@@ -223,6 +226,7 @@ function templateImageSources(template?: AppTemplate) {
     template?.overlayUrl,
     template?.frameUrl,
     template?.previewUrl,
+    template?.animationUrl && !/\.(webm|mp4|mov)(\?|$)/i.test(template.animationUrl) ? template.animationUrl : undefined,
   ]);
 }
 
@@ -237,7 +241,7 @@ function templateRenderAssets(template?: AppTemplate) {
   };
 }
 
-function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
+function TemplateOverlayPreview({ template, opacity }: { template?: AppTemplate; opacity?: number }) {
   const imageSources = useMemo(() => templateImageSources(template), [template]);
   const motionSrc = generatedTemplateMotionUrl(template);
   const [imageIndex, setImageIndex] = useState(0);
@@ -249,13 +253,14 @@ function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
     setMotionFailed(false);
   }, [template?.id, template?.overlayUrl, template?.animationUrl]);
 
-  const className = 'absolute inset-0 h-full w-full object-contain opacity-95 pointer-events-none';
+  const className = 'absolute inset-0 h-full w-full object-contain pointer-events-none';
   if (useMotionPreview && motionSrc) {
     return (
       <video
         key={`${template?.id}-${motionSrc}`}
         src={motionSrc}
         className={className}
+        style={{ opacity: opacity ?? template?.opacityDefault ?? 0.95 }}
         muted
         autoPlay
         loop
@@ -264,6 +269,10 @@ function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
         onError={() => setMotionFailed(true)}
       />
     );
+  }
+
+  if (template && imageSources.length === 0) {
+    return <TemplateOverlayRenderer template={template} opacity={opacity} />;
   }
 
   const src = imageSources[imageIndex];
@@ -275,6 +284,7 @@ function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
       src={src}
       alt=""
       className={className}
+      style={{ opacity: opacity ?? template?.opacityDefault ?? 0.95 }}
       loading="lazy"
       decoding="async"
       onError={() => setImageIndex((current) => Math.min(current + 1, imageSources.length))}
@@ -301,12 +311,14 @@ function MockVideoPreview({ effect }: { effect: string }) {
 function VideoPreviewFrame({
   children,
   template,
+  templateOpacity,
   effect,
   label,
   className = '',
 }: {
   children?: ReactNode;
   template?: AppTemplate;
+  templateOpacity?: number;
   effect: string;
   label: string;
   className?: string;
@@ -320,7 +332,7 @@ function VideoPreviewFrame({
       ) : (
         <MockVideoPreview effect={effect} />
       )}
-      <TemplateOverlayPreview template={template} />
+      <TemplateOverlayPreview template={template} opacity={templateOpacity} />
       <EffectPreviewLayer effect={effect} />
       <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-md">
         <Eye className="h-3.5 w-3.5" />
@@ -486,6 +498,21 @@ const CATEGORY_LABELS: Record<string, string> = {
   carnaval: 'Carnaval',
   cha_revelacao: 'Chá Revelação',
   halloween: 'Halloween',
+  brilhos_estrelas: 'Brilhos',
+  confetes_festa: 'Confetes',
+  neon_glow: 'Neon',
+  circulos_animados: 'Circulos',
+  setas_chamadas: 'Setas',
+  emojis_reacoes: 'Reacoes',
+  elementos_festivos: 'Festa',
+  cards_faixas: 'Cards',
+  tech_futurista: 'Tech',
+  cubos_isometricos: 'Cubos',
+  flores_decorativos: 'Flores',
+  minimal_premium: 'Minimal',
+  gamer_neon: 'Gamer',
+  tropical: 'Tropical',
+  booth_360: '360 Booth',
 };
 
 function TemplatePicker({
@@ -653,6 +680,63 @@ function TemplatePicker({
           })()}
         </div>
       )}
+    </div>
+  );
+}
+
+function TemplateFineControls({
+  template,
+  opacity,
+  onOpacityChange,
+  onRemove,
+}: {
+  template?: AppTemplate;
+  opacity: number;
+  onOpacityChange: (value: number) => void;
+  onRemove: () => void;
+}) {
+  if (!template) return null;
+
+  const opacityOptions = [0.2, 0.4, 0.6, 0.8, 1];
+  const premium = Boolean(template.isPremium || template.category === 'premium' || template.category === 'minimal_premium' || template.category === 'booth_360');
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-bold uppercase text-white/52">
+          {isTemplateAnimated(template) ? 'Animado' : 'Estatico'}
+        </span>
+        <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${premium ? 'border-yellow-300/25 bg-yellow-500/12 text-yellow-100' : 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100'}`}>
+          {premium ? 'Premium' : 'Gratis'}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="ml-auto inline-flex h-7 items-center gap-1 rounded-full border border-white/10 bg-white/[0.045] px-2 text-[10px] font-bold text-white/52 transition hover:bg-white/[0.08] hover:text-white"
+        >
+          <X className="h-3 w-3" />
+          Remover
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-bold uppercase text-white/35">Opacidade</p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {opacityOptions.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onOpacityChange(value)}
+              className={`h-8 rounded-full border text-[10px] font-bold transition-all ${
+                Math.abs(opacity - value) < 0.01
+                  ? 'border-brand-300/60 bg-brand-500/22 text-white'
+                  : 'border-white/10 bg-white/[0.04] text-white/50 hover:text-white'
+              }`}
+            >
+              {Math.round(value * 100)}%
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1073,6 +1157,7 @@ export default function OperatorPage() {
   const [musicCatalog, setMusicCatalog] = useState<AppMusic[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templateOpacity, setTemplateOpacity] = useState(1);
   const [effect, setEffect] = useState('clean');
   const [musicTheme, setMusicTheme] = useState<string>(operatorPreferences.defaultMusicTheme);
   const [step, setStep] = useState<Step>('select');
@@ -1109,8 +1194,10 @@ export default function OperatorPage() {
       setEvents(evs.filter(e => e.status !== 'archived'));
     });
     seedTemplates().then(() => getTemplates(user.uid)).then((items) => {
-      setTemplates(items.filter((item) => item.isActive));
-      if (items[0]) setSelectedTemplateId(items[0].id);
+      const activeItems = items.filter((item) => item.isActive);
+      setTemplates(activeItems);
+      const firstAvailable = activeItems.find((item) => !item.isPremium && item.category !== 'premium' && item.category !== 'minimal_premium' && item.category !== 'booth_360') || activeItems[0];
+      if (firstAvailable) setSelectedTemplateId(firstAvailable.id);
     }).catch(() => undefined);
     Promise.all([
       getGeneratedMusic().catch(() => []),
@@ -1133,7 +1220,7 @@ export default function OperatorPage() {
   const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
   const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.requiredFeature, isAdmin);
   const canUseTemplate = !selectedTemplate || isAdmin
-    || selectedTemplate.category !== 'premium'
+    || (!selectedTemplate.isPremium && selectedTemplate.category !== 'premium' && selectedTemplate.category !== 'minimal_premium' && selectedTemplate.category !== 'booth_360')
     || hasFeature(user?.planId, 'premium_templates', isAdmin);
   const filteredTemplates = useMemo(
     () => templates.filter((template) => templateMatchesVideoOrientation(template, videoOrientation)),
@@ -1162,7 +1249,9 @@ export default function OperatorPage() {
   const templateOptions = [
     { value: '', label: videoOrientation ? `Sem overlay (${videoOrientationLabel(videoOrientation)})` : 'Sem overlay' },
     ...filteredTemplates.slice(0, 240).map(t => {
-      const locked = !isAdmin && t.category === 'premium' && !hasFeature(user?.planId, 'premium_templates', isAdmin);
+      const locked = !isAdmin
+        && Boolean(t.isPremium || t.category === 'premium' || t.category === 'minimal_premium' || t.category === 'booth_360')
+        && !hasFeature(user?.planId, 'premium_templates', isAdmin);
       return { value: t.id, label: `${locked ? 'Bloqueado - ' : ''}${t.name}` };
     }),
   ];
@@ -1235,6 +1324,10 @@ export default function OperatorPage() {
     if (filteredTemplates.some((template) => template.id === selectedTemplateId)) return;
     setSelectedTemplateId(filteredTemplates[0]?.id || '');
   }, [filteredTemplates, selectedTemplateId, videoOrientation]);
+
+  useEffect(() => {
+    setTemplateOpacity(selectedTemplate?.opacityDefault ?? 1);
+  }, [selectedTemplate?.id, selectedTemplate?.opacityDefault]);
 
   useEffect(() => {
     if (step !== 'capture') return;
@@ -1628,6 +1721,7 @@ export default function OperatorPage() {
         overlayUrl: templateAssets.overlayUrl,
         animationUrl: templateAssets.animationUrl,
         fallbackOverlayUrl: templateAssets.fallbackOverlayUrl,
+        overlayOpacity: selectedTemplate ? templateOpacity : undefined,
         effect: browserEffect,
         effectSegments: effectSegments.length > 0 ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
           effect: segmentEffect,
@@ -1656,6 +1750,9 @@ export default function OperatorPage() {
         views: 0, downloads: 0, shares: 0,
         size: renderedBlob.size, format: renderedBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
+        templateStoragePath: selectedTemplate?.storagePath,
+        templateType: selectedTemplate ? (selectedTemplate.templateType || selectedTemplate.type || (selectedTemplate.animationUrl ? 'animated' : 'static')) : undefined,
+        templateOpacity: selectedTemplate ? templateOpacity : undefined,
         effect,
         musicTheme: effect === 'ai_auto' && musicTheme === 'none' ? aiDirection.musicTheme : storedMusicTheme,
         musicUrl: processingMusicUrl,
@@ -1764,6 +1861,12 @@ export default function OperatorPage() {
               onChange={setSelectedTemplateId}
               videoOrientation={videoOrientation}
             />
+            <TemplateFineControls
+              template={selectedTemplate}
+              opacity={templateOpacity}
+              onOpacityChange={setTemplateOpacity}
+              onRemove={() => setSelectedTemplateId('')}
+            />
             <EffectSelector
               value={effect}
               onChange={setEffect}
@@ -1795,7 +1898,7 @@ export default function OperatorPage() {
               </div>
             )}
             <div className="hidden gap-4 border-t border-white/[0.08] pt-4 sm:grid sm:grid-cols-[180px_minmax(0,1fr)]">
-              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Preview" className={templatePreviewClass} />
+              <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={previewEffect} label="Preview" className={templatePreviewClass} />
               <div className="min-w-0 space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -1852,7 +1955,7 @@ export default function OperatorPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid lg:grid-cols-[minmax(320px,520px)_1fr] gap-4">
           <div className="space-y-4">
             <div className="relative">
-              <VideoPreviewFrame template={selectedTemplate} effect={previewEffect} label="Ao vivo" className={livePreviewFrameClass}>
+              <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={previewEffect} label="Ao vivo" className={livePreviewFrameClass}>
                 <video ref={videoRef} autoPlay muted playsInline onLoadedMetadata={handleLiveMetadata} className="h-full w-full object-cover" />
               </VideoPreviewFrame>
               {countdown > 0 && (
@@ -1924,7 +2027,7 @@ export default function OperatorPage() {
       {step === 'preview' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
-            <VideoPreviewFrame template={selectedTemplate} effect={editorPreviewEffect} label="Editor" className={videoPreviewFrameClass}>
+            <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={editorPreviewEffect} label="Editor" className={videoPreviewFrameClass}>
               <video
                 ref={previewRef}
                 src={videoUrl}
@@ -2009,6 +2112,12 @@ export default function OperatorPage() {
                 selectedId={selectedTemplateId}
                 onChange={setSelectedTemplateId}
                 videoOrientation={videoOrientation}
+              />
+              <TemplateFineControls
+                template={selectedTemplate}
+                opacity={templateOpacity}
+                onOpacityChange={setTemplateOpacity}
+                onRemove={() => setSelectedTemplateId('')}
               />
 
               {/* Effect — minimal: only dropdown, no detail panel */}

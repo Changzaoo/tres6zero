@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
 import { MouseAura } from '@/components/landing/MouseAura';
 import { LoginSupportChat } from '@/components/support/LoginSupportChat';
+import { BannedAccountNotice } from '@/components/auth/BannedAccountNotice';
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -23,6 +24,7 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
+  const [banNotice, setBanNotice] = useState<{ reason?: string | null; expiresAt?: string | null } | null>(null);
   const setUser = useAuthStore((state) => state.setUser);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -32,8 +34,16 @@ export default function LoginPage() {
       setUser(session.user);
       navigate(session.user.subscriptionStatus === 'active' ? '/app/dashboard' : '/app/billing');
     } catch (error: any) {
+      if (error?.code === 'BAN_ACTIVE') {
+        setBanNotice({ reason: error.banReason, expiresAt: error.banExpiresAt });
+        return;
+      }
       toast.error(parseFirebaseError(error.code));
     }
+  }
+
+  if (banNotice) {
+    return <BannedAccountNotice reason={banNotice.reason} expiresAt={banNotice.expiresAt} />;
   }
 
   return (

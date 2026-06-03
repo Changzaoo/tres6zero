@@ -26,6 +26,7 @@ export type BrowserVideoRenderOptions = {
   overlayUrl?: string;
   animationUrl?: string;
   fallbackOverlayUrl?: string;
+  overlayOpacity?: number;
   musicUrl?: string;
   musicTheme?: string;
   onProgress?: (pct: number) => void;
@@ -809,11 +810,15 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
       ctx.filter = 'none';
 
       if (overlayImage) {
+        ctx.globalAlpha = Math.min(1, Math.max(0.2, options.overlayOpacity ?? 1));
         drawFullFrame(ctx, overlayImage.element, width, height);
+        ctx.globalAlpha = 1;
       }
 
       if (overlayVideo && overlayVideo.element.readyState >= 2) {
+        ctx.globalAlpha = Math.min(1, Math.max(0.2, options.overlayOpacity ?? 1));
         drawFullFrame(ctx, overlayVideo.element, width, height);
+        ctx.globalAlpha = 1;
       }
 
       drawEffectOverlay(ctx, currentEffect, effectState.localElapsed, width, height);

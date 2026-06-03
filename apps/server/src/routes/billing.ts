@@ -8,6 +8,7 @@ import {
   getStripe,
   listActivePaidCustomers,
 } from '../services/stripeBilling';
+import { createPixGoPayment, getPixGoPaymentStatus, handlePixGoWebhook } from '../services/pixgoBilling';
 import { createNotification } from '../services/notifications';
 
 export const billingRouter = Router();
@@ -16,6 +17,10 @@ type CheckoutSession = Awaited<ReturnType<ReturnType<typeof getStripe>['checkout
 type CheckoutSessionParams = Parameters<ReturnType<typeof getStripe>['checkout']['sessions']['create']>[0];
 
 const checkoutSchema = z.object({
+  planId: z.enum(['starter', 'pro', 'unlimited']),
+});
+
+const pixgoPaymentSchema = z.object({
   planId: z.enum(['starter', 'pro', 'unlimited']),
 });
 
@@ -117,6 +122,25 @@ billingRouter.post('/checkout', async (req, res, next) => {
   }
 });
 
+billingRouter.post('/pixgo/create-payment', async (req, res, next) => {
+  try {
+    const data = pixgoPaymentSchema.parse(req.body);
+    const user = await getAuthenticatedUser(req);
+    res.status(201).json({ payment: await createPixGoPayment(user, data.planId) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+billingRouter.get('/pixgo/payments/:paymentId', async (req, res, next) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    res.json({ payment: await getPixGoPaymentStatus(req.params.paymentId, user) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 billingRouter.get('/admin/customers', requireAdmin, async (_req, res, next) => {
   try {
     res.json({ customers: await listActivePaidCustomers() });
@@ -150,6 +174,15 @@ export async function stripeWebhookHandler(req: Request, res: Response, next: Ne
     }
 
     res.json({ received: true });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function pixgoWebhookHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body || {}));
+    res.json(await handlePixGoWebhook(rawBody, req.headers));
   } catch (e) {
     next(e);
   }

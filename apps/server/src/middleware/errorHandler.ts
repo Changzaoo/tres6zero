@@ -11,8 +11,15 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   }
 
   const status = (err as any).status || 500;
-  res.status(status).json({
+  const payload: Record<string, unknown> = {
     error: err.message || 'Erro interno do servidor',
     code: (err as any).code || err.message,
-  });
+  };
+
+  if ((err as any).code === 'BAN_ACTIVE') {
+    payload.banReason = (err as any).banReason || '';
+    payload.banExpiresAt = (err as any).banExpiresAt || null;
+  }
+
+  res.status(status).json(payload);
 }
