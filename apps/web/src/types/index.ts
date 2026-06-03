@@ -158,6 +158,96 @@ export interface AppVideo {
   updatedAt: string;
 }
 
+export interface AdminUserDevice extends TrustedDevice {
+  userAgent?: string | null;
+  revokedAt?: string | null;
+}
+
+export interface AdminUserOverview {
+  uid: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  disabled: boolean;
+  emailVerified: boolean;
+  subscriptionStatus?: string | null;
+  planId?: string | null;
+  companyName?: string;
+  avatarUrl?: string;
+  createdAt: string;
+  lastSignInAt?: string | null;
+  lastRefreshAt?: string | null;
+  devices: AdminUserDevice[];
+}
+
+export type AdminMediaKind =
+  | 'event_cover'
+  | 'event_avatar'
+  | 'event_logo'
+  | 'event_media'
+  | 'video'
+  | 'raw_video'
+  | 'thumbnail'
+  | 'music';
+
+export interface AdminMediaItem {
+  id: string;
+  kind: AdminMediaKind | string;
+  url: string;
+  fileName: string;
+  ownerId: string;
+  source: 'event' | 'video';
+  sourceId: string;
+  sourceTitle: string;
+  eventId?: string | null;
+  videoId?: string | null;
+  storagePath?: string | null;
+  createdAt: string;
+}
+
+export interface AuthAuditLog {
+  id: string;
+  category: 'auth' | string;
+  type: 'register' | 'login' | 'password_reset' | 'logout' | string;
+  uid?: string | null;
+  email?: string | null;
+  success: boolean;
+  reason?: string | null;
+  ip: string;
+  userAgent?: string | null;
+  deviceHash?: string | null;
+  deviceName?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  location?: string | null;
+  method?: string | null;
+  path?: string | null;
+  origin?: string | null;
+  referer?: string | null;
+  createdAt: string;
+}
+
+export interface AdminOverviewSummary {
+  totalUsers: number;
+  totalEvents: number;
+  totalVideos: number;
+  totalMedia: number;
+  loginAttempts24h: number;
+  failedLoginAttempts24h: number;
+  disabledUsers: number;
+}
+
+export interface AdminOverview {
+  generatedAt: string;
+  summary: AdminOverviewSummary;
+  users: AdminUserOverview[];
+  events: AppEvent[];
+  videos: AppVideo[];
+  media: AdminMediaItem[];
+  loginLogs: AuthAuditLog[];
+}
+
 export interface Lead {
   id: string;
   eventId: string;

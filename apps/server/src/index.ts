@@ -12,6 +12,7 @@ import { qrRouter } from './routes/qr';
 import { leadRouter } from './routes/leads';
 import { trackRouter } from './routes/track';
 import { authRouter } from './routes/auth';
+import { adminRouter } from './routes/admin';
 import { billingRouter, stripeWebhookHandler } from './routes/billing';
 import { supportRouter } from './routes/support';
 import { eventsRouter } from './routes/events';
@@ -103,6 +104,7 @@ app.use('/api', memoryPressureGuard);
 
 app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/video', videoRouter);

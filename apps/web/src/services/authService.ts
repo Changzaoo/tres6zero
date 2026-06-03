@@ -146,6 +146,7 @@ function canCacheApiResponse(path: string, options: RequestInit) {
   if (!path.startsWith('/api/')) return false;
   return ![
     '/api/auth/',
+    '/api/admin/',
     '/api/billing/',
     '/api/support/',
     '/api/notifications/',

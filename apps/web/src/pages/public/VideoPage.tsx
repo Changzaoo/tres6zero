@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { getEvent } from '@/services/eventService';
 import { createLead } from '@/services/leadService';
 import { getVideo, incrementVideoStat } from '@/services/videoService';
+import { downloadUrlAsFile } from '@/services/downloadService';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -45,8 +46,14 @@ export default function VideoPage() {
       setLeadOpen(true);
       return;
     }
-    window.open(video.videoUrl, '_blank');
-    incrementVideoStat(video.id, 'downloads');
+    try {
+      await downloadUrlAsFile(video.videoUrl, video.title || `six3-video-${video.id}`);
+      incrementVideoStat(video.id, 'downloads');
+      toast.success('Download iniciado.');
+    } catch (error) {
+      console.warn('[video] Download failed:', error);
+      toast.error('Nao foi possivel baixar o video.');
+    }
   }
 
   async function handleLeadSubmit() {
@@ -66,9 +73,14 @@ export default function VideoPage() {
     });
     setLeadSaved(true);
     setLeadOpen(false);
-    window.open(video.videoUrl, '_blank');
-    incrementVideoStat(video.id, 'downloads');
-    toast.success('Obrigado! O download foi iniciado.');
+    try {
+      await downloadUrlAsFile(video.videoUrl, video.title || `six3-video-${video.id}`);
+      incrementVideoStat(video.id, 'downloads');
+      toast.success('Obrigado! O download foi iniciado.');
+    } catch (error) {
+      console.warn('[video] Lead download failed:', error);
+      toast.error('Cadastro salvo, mas nao foi possivel baixar o video.');
+    }
   }
 
   if (!video) {

@@ -46,6 +46,19 @@ export function canRenderVideoInBrowser() {
     && typeof HTMLCanvasElement.prototype.captureStream === 'function';
 }
 
+export function canUseTransparentMotionOverlay() {
+  if (typeof navigator === 'undefined') return false;
+
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+  const isIOS = /iPad|iPhone|iPod/i.test(userAgent)
+    || (platform === 'MacIntel' && maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(userAgent);
+
+  return !isIOS && !isAndroid;
+}
+
 function supportedMimeType() {
   const candidates = [
     'video/webm;codecs=vp9,opus',
@@ -671,7 +684,9 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     if (!ctx) throw new Error('CANVAS_CONTEXT_UNAVAILABLE');
 
     const imageOverlayUrl = looksLikeVideoUrl(options.overlayUrl) ? undefined : options.overlayUrl;
-    const motionOverlayUrl = options.animationUrl || (looksLikeVideoUrl(options.overlayUrl) ? options.overlayUrl : undefined);
+    const motionOverlayUrl = canUseTransparentMotionOverlay()
+      ? options.animationUrl || (looksLikeVideoUrl(options.overlayUrl) ? options.overlayUrl : undefined)
+      : undefined;
     const [loadedOverlayImage, loadedOverlayVideo, loadedMusicBuffer] = await Promise.all([
       loadFirstImage([imageOverlayUrl, options.fallbackOverlayUrl]).catch(() => undefined),
       loadOverlayVideo(motionOverlayUrl).catch(() => undefined),

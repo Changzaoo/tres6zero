@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { BILLING_PLANS, getStripeAccessForUser } from '../services/stripeBilling';
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore, toFirebaseUserRecord } from '../services/firebaseAdmin';
+import { auditReasonFromError, recordAuthAuditLog } from '../services/auditLog';
 import { createNotification, getNotificationPreferences } from '../services/notifications';
 import {
   assertTrustedDevice,
@@ -59,6 +60,12 @@ const passwordSchema = z.object({
 });
 
 const deviceIdSchema = z.string().regex(/^[a-f0-9]{64}$/);
+
+function attemptedEmailFromBody(body: unknown) {
+  if (!body || typeof body !== 'object' || !('email' in body)) return null;
+  const email = (body as { email?: unknown }).email;
+  return typeof email === 'string' ? email.trim().toLowerCase() : null;
+}
 
 type FirebaseAuthResponse = {
   idToken: string;
@@ -637,9 +644,11 @@ async function sessionFromAuthResponse(auth: FirebaseAuthResponse, req: Request,
 }
 
 authRouter.post('/register', async (req, res, next) => {
+  let attemptedEmail = attemptedEmailFromBody(req.body);
   try {
     ensureTrustedDeviceSecurityConfigured();
     const data = registerSchema.parse(req.body);
+    attemptedEmail = data.email;
     const auth = await firebaseAuthRequest<FirebaseAuthResponse>('accounts:signUp', {
       email: data.email,
       password: data.password,
@@ -664,37 +673,78 @@ authRouter.post('/register', async (req, res, next) => {
       priority: 'normal',
     }).catch((error) => console.warn('[notifications] welcome skipped:', error instanceof Error ? error.message : error));
 
-    res.status(201).json(await sessionFromAuthResponse(auth, req, data.name));
+    const session = await sessionFromAuthResponse(auth, req, data.name);
+    await recordAuthAuditLog(req, {
+      type: 'register',
+      uid: auth.localId,
+      email: auth.email || data.email,
+      success: true,
+    });
+    res.status(201).json(session);
   } catch (e) {
+    await recordAuthAuditLog(req, {
+      type: 'register',
+      email: attemptedEmail,
+      success: false,
+      reason: auditReasonFromError(e),
+    });
     next(e);
   }
 });
 
 authRouter.post('/login', async (req, res, next) => {
+  let attemptedEmail = attemptedEmailFromBody(req.body);
   try {
     ensureTrustedDeviceSecurityConfigured();
     const data = loginSchema.parse(req.body);
+    attemptedEmail = data.email;
     const auth = await firebaseAuthRequest<FirebaseAuthResponse>('accounts:signInWithPassword', {
       email: data.email,
       password: data.password,
       returnSecureToken: true,
     });
 
-    res.json(await sessionFromAuthResponse(auth, req));
+    const session = await sessionFromAuthResponse(auth, req);
+    await recordAuthAuditLog(req, {
+      type: 'login',
+      uid: auth.localId,
+      email: auth.email || data.email,
+      success: true,
+    });
+    res.json(session);
   } catch (e) {
+    await recordAuthAuditLog(req, {
+      type: 'login',
+      email: attemptedEmail,
+      success: false,
+      reason: auditReasonFromError(e),
+    });
     next(e);
   }
 });
 
 authRouter.post('/password-reset', async (req, res, next) => {
+  let attemptedEmail = attemptedEmailFromBody(req.body);
   try {
     const data = resetSchema.parse(req.body);
+    attemptedEmail = data.email;
     await firebaseAuthRequest('accounts:sendOobCode', {
       requestType: 'PASSWORD_RESET',
       email: data.email,
     });
+    await recordAuthAuditLog(req, {
+      type: 'password_reset',
+      email: data.email,
+      success: true,
+    });
     res.json({ ok: true });
   } catch (e) {
+    await recordAuthAuditLog(req, {
+      type: 'password_reset',
+      email: attemptedEmail,
+      success: false,
+      reason: auditReasonFromError(e),
+    });
     next(e);
   }
 });

@@ -3,6 +3,7 @@ import { Copy, Download, ExternalLink, Eye, MessageCircle, PlayCircle, Share2, V
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserVideos, incrementVideoStat } from '@/services/videoService';
+import { downloadUrlAsFile } from '@/services/downloadService';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/components/ui/Toast';
@@ -128,9 +129,15 @@ export default function VideosPage() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  function downloadVideo(video: AppVideo) {
-    window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
-    bumpStat(video.id, 'downloads');
+  async function downloadVideo(video: AppVideo) {
+    try {
+      await downloadUrlAsFile(video.videoUrl, video.title || `six3-video-${video.id}`);
+      bumpStat(video.id, 'downloads');
+      toast.success('Download iniciado.');
+    } catch (error) {
+      console.warn('[videos] Download failed:', error);
+      toast.error('Nao foi possivel baixar o video.');
+    }
   }
 
   if (loading) {

@@ -12,7 +12,7 @@ import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
 import { uploadVideoToServer, getGeneratedMusic } from '@/services/serverMediaService';
 import { describeSunoStatus, generateSunoMusic, waitForSunoMusic } from '@/services/sunoMusicService';
-import { canRenderVideoInBrowser, renderVideoInBrowser } from '@/services/browserVideoRenderer';
+import { canRenderVideoInBrowser, canUseTransparentMotionOverlay, renderVideoInBrowser } from '@/services/browserVideoRenderer';
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import { EffectSelector } from '@/features/effects/EffectSelector';
@@ -232,7 +232,7 @@ function templateRenderAssets(template?: AppTemplate) {
 
   return {
     overlayUrl: imageSources[0] || renderFallback,
-    animationUrl: generatedTemplateMotionUrl(template),
+    animationUrl: canUseTransparentMotionOverlay() ? generatedTemplateMotionUrl(template) : undefined,
     fallbackOverlayUrl: renderFallback,
   };
 }
@@ -242,6 +242,7 @@ function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
   const motionSrc = generatedTemplateMotionUrl(template);
   const [imageIndex, setImageIndex] = useState(0);
   const [motionFailed, setMotionFailed] = useState(false);
+  const useMotionPreview = Boolean(motionSrc && !motionFailed && canUseTransparentMotionOverlay());
 
   useEffect(() => {
     setImageIndex(0);
@@ -249,7 +250,7 @@ function TemplateOverlayPreview({ template }: { template?: AppTemplate }) {
   }, [template?.id, template?.overlayUrl, template?.animationUrl]);
 
   const className = 'absolute inset-0 h-full w-full object-contain opacity-95 pointer-events-none';
-  if (motionSrc && !motionFailed) {
+  if (useMotionPreview && motionSrc) {
     return (
       <video
         key={`${template?.id}-${motionSrc}`}
@@ -1928,6 +1929,8 @@ export default function OperatorPage() {
                 ref={previewRef}
                 src={videoUrl}
                 controls
+                playsInline
+                preload="metadata"
                 onLoadedMetadata={handlePreviewMetadata}
                 onTimeUpdate={handlePreviewTimeUpdate}
                 onSeeked={handlePreviewTimeUpdate}

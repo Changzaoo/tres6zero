@@ -5,6 +5,7 @@ import { createMusic, getUserMusic } from '@/services/musicService';
 import { getGeneratedTemplatesSeedJob, startGeneratedTemplatesSeedJob, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
 import { buildSunoPrompt, describeSunoStatus, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
 import { checkMusicLibraryLicense, getMusicLibraries, importMusicLibraryTrack } from '@/services/musicLibraryService';
+import { canUseTransparentMotionOverlay } from '@/services/browserVideoRenderer';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -175,7 +176,7 @@ function TemplateCard({
 }) {
   const primary = template.colors?.primary || '#7c3aed';
   const secondary = template.colors?.secondary || '#00d4ff';
-  const isMotionActive = Boolean(template.animationUrl && activeMotionId === template.id);
+  const isMotionActive = Boolean(template.animationUrl && activeMotionId === template.id && canUseTransparentMotionOverlay());
 
   return (
     <div
