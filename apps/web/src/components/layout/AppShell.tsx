@@ -1,34 +1,16 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { MouseAura } from '@/components/landing/MouseAura';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
-import { MobileBottomNav } from './MobileBottomNav';
-import { useAuth } from '@/hooks/useAuth';
-import { useNotificationPolling } from '@/hooks/useNotificationPolling';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { OfflineConflictWatcher } from '@/components/offline/OfflineConflictWatcher';
 import { OfflineReadyToast } from '@/components/offline/OfflineReadyToast';
 import { PendingSyncPanel } from '@/components/offline/PendingSyncPanel';
-
-const PAGE_TITLES: Record<string, string> = {
-  '/app/dashboard': 'Dashboard',
-  '/app/events': 'Eventos',
-  '/app/operator': 'Gravar',
-  '/app/gravar': 'Gravar',
-  '/app/videos': 'Vídeos',
-  '/app/templates': 'Templates',
-  '/app/leads': 'Resultados',
-  '/app/analytics': 'Resultados',
-  '/app/billing': 'Planos',
-  '/app/settings': 'Configurações',
-  '/app/support': 'Suporte',
-  '/app/admin': 'Admin',
-};
+import { useNotificationPolling } from '@/hooks/useNotificationPolling';
+import { useAuth } from '@/hooks/useAuth';
+import { MobileBottomNav } from './MobileBottomNav';
+import { Sidebar } from './Sidebar';
 
 export function AppShell() {
-  const location = useLocation();
   const { user } = useAuth();
-  const title = PAGE_TITLES[location.pathname] || 'SIX3°';
   useNotificationPolling(user);
 
   return (
@@ -36,7 +18,6 @@ export function AppShell() {
       <MouseAura />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header title={title} />
         <OfflineBanner />
         <main className="relative z-10 flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-28 lg:pb-6">
           <Outlet />
