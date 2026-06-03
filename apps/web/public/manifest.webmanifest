@@ -1,0 +1,26 @@
+{
+  "name": "SIX3°",
+  "short_name": "SIX3°",
+  "description": "Editor e plataforma 360 para eventos, com suporte offline no dispositivo.",
+  "start_url": "/app/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/app-icon.png",
+      "sizes": "2000x2000",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon.png",
+      "sizes": "2000x2000",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
+

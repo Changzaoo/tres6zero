@@ -79,6 +79,12 @@ function formatPreciseTime(seconds: number) {
   return `${mins}:${secs}`;
 }
 
+function createEffectSegmentId() {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+}
+
 function effectLabel(effectId: string) {
   return getVideoEffect(effectId)?.name || VIDEO_EFFECTS.find((item) => item.value === effectId)?.label || effectId;
 }
@@ -156,29 +162,53 @@ function getSupportedRecordingMimeType() {
   ].find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
 }
 
-async function requestCameraStream() {
+function orientationFromViewport(): VideoOrientation {
+  if (typeof window === 'undefined') return 'portrait';
+  return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+}
+
+function cameraVideoConstraints(orientation: VideoOrientation): MediaTrackConstraints {
+  const portrait = orientation === 'portrait';
+  const constraints: MediaTrackConstraints & { resizeMode?: string } = {
+    facingMode: 'user',
+    width: { ideal: portrait ? 1080 : 1920 },
+    height: { ideal: portrait ? 1920 : 1080 },
+    aspectRatio: { ideal: portrait ? 9 / 16 : 16 / 9 },
+    resizeMode: 'crop-and-scale',
+  };
+  return constraints;
+}
+
+async function requestCameraStream(orientation: VideoOrientation) {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('CAMERA_API_UNAVAILABLE');
   }
 
-  const video = {
+  const video = cameraVideoConstraints(orientation);
+  const portrait = orientation === 'portrait';
+  const simpleVideo: MediaTrackConstraints = {
     facingMode: 'user',
-    width: { ideal: 1080 },
-    height: { ideal: 1920 },
+    width: { ideal: portrait ? 720 : 1280 },
+    height: { ideal: portrait ? 1280 : 720 },
   };
+  const fallbackVideo = { facingMode: 'user' as const };
+  const attempts: MediaStreamConstraints[] = [
+    { video, audio: { echoCancellation: true, noiseSuppression: true } },
+    { video, audio: false },
+    { video: simpleVideo, audio: false },
+    { video: fallbackVideo, audio: false },
+  ];
 
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      video,
-      audio: { echoCancellation: true, noiseSuppression: true },
-    });
-  } catch (error) {
+  let lastError: unknown;
+  for (const attempt of attempts) {
     try {
-      return await navigator.mediaDevices.getUserMedia({ video, audio: false });
-    } catch {
-      throw error;
+      return await navigator.mediaDevices.getUserMedia(attempt);
+    } catch (error) {
+      lastError = error;
     }
   }
+
+  throw lastError instanceof Error ? lastError : new Error('CAMERA_STREAM_UNAVAILABLE');
 }
 
 function getEffectPreviewStyle(effect: string): CSSProperties {
@@ -751,11 +781,14 @@ function EditorTimeline({
   musicLabel,
   effect,
   effectSegments,
+  selectedEffectSegmentId,
   onSeek,
   onTrimStartChange,
   onTrimEndChange,
   onEffectSegmentStartChange,
   onEffectSegmentEndChange,
+  onEffectSegmentSelect,
+  onEffectSegmentEffectChange,
   templateOptions,
   selectedTemplateId,
   onTemplateChange,
@@ -773,11 +806,14 @@ function EditorTimeline({
   musicLabel: string;
   effect: string;
   effectSegments: EffectSegment[];
+  selectedEffectSegmentId?: string | null;
   onSeek?: (t: number) => void;
   onTrimStartChange?: (v: number) => void;
   onTrimEndChange?: (v: number) => void;
-  onEffectSegmentStartChange?: (v: number) => void;
-  onEffectSegmentEndChange?: (v: number) => void;
+  onEffectSegmentStartChange?: (id: string, v: number) => void;
+  onEffectSegmentEndChange?: (id: string, v: number) => void;
+  onEffectSegmentSelect?: (id: string) => void;
+  onEffectSegmentEffectChange?: (id: string, effect: string) => void;
   templateOptions?: { value: string; label: string }[];
   selectedTemplateId?: string;
   onTemplateChange?: (v: string) => void;
@@ -798,7 +834,7 @@ function EditorTimeline({
   const outputEnd = clamp(outputStart + outputDuration, outputStart, timelineDuration);
   const safeTrimEnd = clamp(trimEnd, outputStart, timelineDuration);
   const playhead = clamp(currentTime, 0, timelineDuration);
-  const effectSegment = effectSegments[0];
+  const selectedEffectSegment = effectSegments.find((segment) => segment.id === selectedEffectSegmentId) || effectSegments[0];
   const allEffectOptions = videoEffects.map((e) => ({ value: e.id, label: e.name }));
 
   // Adaptive time markers based on zoom
@@ -1032,24 +1068,40 @@ function EditorTimeline({
 
           {/* EFFECT ROW */}
           <TimelineRow icon={<Sparkles className="h-3.5 w-3.5" />} label="Efeito" trackRef={effectTrackRef}>
-            {effectSegment ? (
+            {effectSegments.length > 0 ? (
               <>
-                <TimelineClip
-                  label={effectLabel(effectSegment.effect)}
-                  start={outputStart + effectSegment.start}
-                  end={outputStart + effectSegment.end}
-                  duration={timelineDuration}
-                  className="border-violet-400/42 bg-gradient-to-r from-violet-600/32 to-violet-400/20"
-                  onLeftHandleDown={onEffectSegmentStartChange
-                    ? makeDrag(effectTrackRef, (t) => onEffectSegmentStartChange(t - outputStart), outputStart, outputStart + effectSegment.end - MIN_EFFECT_SEGMENT_SECONDS)
-                    : undefined}
-                  onRightHandleDown={onEffectSegmentEndChange
-                    ? makeDrag(effectTrackRef, (t) => onEffectSegmentEndChange(t - outputStart), outputStart + effectSegment.start + MIN_EFFECT_SEGMENT_SECONDS, outputStart + outputDuration)
-                    : undefined}
-                  onClick={onEffectChange ? () => setEditingRow(editingRow === 'effect' ? null : 'effect') : undefined}
-                />
-                {editingRow === 'effect' && onEffectChange && (
-                  <InlineSelectPopover options={allEffectOptions} value={effect} onChange={onEffectChange} onClose={() => setEditingRow(null)} />
+                {effectSegments.map((segment, index) => {
+                  const selected = selectedEffectSegment?.id === segment.id;
+                  return (
+                    <TimelineClip
+                      key={segment.id}
+                      label={`${index + 1}. ${effectLabel(segment.effect)}`}
+                      start={outputStart + segment.start}
+                      end={outputStart + segment.end}
+                      duration={timelineDuration}
+                      className={selected
+                        ? 'border-fuchsia-300/70 bg-gradient-to-r from-fuchsia-600/42 to-violet-400/24 shadow-[0_0_0_1px_rgba(240,171,252,.25)]'
+                        : 'border-violet-400/42 bg-gradient-to-r from-violet-600/32 to-violet-400/20'}
+                      onLeftHandleDown={onEffectSegmentStartChange
+                        ? makeDrag(effectTrackRef, (t) => onEffectSegmentStartChange(segment.id, t - outputStart), outputStart, outputStart + segment.end - MIN_EFFECT_SEGMENT_SECONDS)
+                        : undefined}
+                      onRightHandleDown={onEffectSegmentEndChange
+                        ? makeDrag(effectTrackRef, (t) => onEffectSegmentEndChange(segment.id, t - outputStart), outputStart + segment.start + MIN_EFFECT_SEGMENT_SECONDS, outputStart + outputDuration)
+                        : undefined}
+                      onClick={onEffectSegmentSelect ? () => {
+                        onEffectSegmentSelect(segment.id);
+                        setEditingRow(editingRow === 'effect' && selected ? null : 'effect');
+                      } : undefined}
+                    />
+                  );
+                })}
+                {editingRow === 'effect' && selectedEffectSegment && onEffectSegmentEffectChange && (
+                  <InlineSelectPopover
+                    options={allEffectOptions}
+                    value={selectedEffectSegment.effect}
+                    onChange={(nextEffect) => onEffectSegmentEffectChange(selectedEffectSegment.id, nextEffect)}
+                    onClose={() => setEditingRow(null)}
+                  />
                 )}
               </>
             ) : effect === 'ai_auto' ? (
@@ -1171,11 +1223,12 @@ export default function OperatorPage() {
   const [duration, setDuration] = useState<number>(operatorPreferences.defaultDuration);
   const [sourceDuration, setSourceDuration] = useState(0);
   const [videoOrientation, setVideoOrientation] = useState<VideoOrientation | null>(null);
+  const [recordingOrientation, setRecordingOrientation] = useState<VideoOrientation>(() => orientationFromViewport());
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState<number>(operatorPreferences.defaultDuration);
   const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
-  const [effectSegmentStart, setEffectSegmentStart] = useState(0);
-  const [effectSegmentEnd, setEffectSegmentEnd] = useState<number>(operatorPreferences.defaultDuration);
+  const [effectSegmentsDraft, setEffectSegmentsDraft] = useState<EffectSegment[]>([]);
+  const [activeEffectSegmentId, setActiveEffectSegmentId] = useState<string | null>(null);
   const [generatingAiMusic, setGeneratingAiMusic] = useState(false);
   const [aiMusicStatus, setAiMusicStatus] = useState('');
   const [timelineExpanded, setTimelineExpanded] = useState(false);
@@ -1218,7 +1271,7 @@ export default function OperatorPage() {
   );
   const previewEffect = aiAutoSelected ? aiPreviewDirection.effect : effect;
   const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
-  const canUseEffect = !effectMeta || hasFeature(user?.planId, effectMeta.requiredFeature, isAdmin);
+  const canUseSelectedEffect = !effectMeta || hasFeature(user?.planId, effectMeta.requiredFeature, isAdmin);
   const canUseTemplate = !selectedTemplate || isAdmin
     || (!selectedTemplate.isPremium && selectedTemplate.category !== 'premium' && selectedTemplate.category !== 'minimal_premium' && selectedTemplate.category !== 'booth_360')
     || hasFeature(user?.planId, 'premium_templates', isAdmin);
@@ -1294,12 +1347,23 @@ export default function OperatorPage() {
     ? `A IA local vai aplicar ${effectLabel(previewEffect)} para este contexto.`
     : effectMeta?.shortDescription || 'Acabamento aplicado pelo editor.';
   const effectSegments = useMemo<EffectSegment[]>(() => {
-    if (effect === 'clean' || effect === 'ai_auto') return [];
+    if (effect === 'ai_auto') return [];
 
-    const start = clamp(effectSegmentStart, 0, Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
-    const end = clamp(effectSegmentEnd, start + MIN_EFFECT_SEGMENT_SECONDS, outputDuration);
-    return [{ id: 'main-effect', effect, start, end }];
-  }, [effect, effectSegmentEnd, effectSegmentStart, outputDuration]);
+    return effectSegmentsDraft
+      .map((segment) => {
+        const start = clamp(segment.start, 0, Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
+        const end = clamp(segment.end, start + MIN_EFFECT_SEGMENT_SECONDS, outputDuration);
+        return { ...segment, start, end };
+      })
+      .filter((segment) => segment.effect !== 'clean' && segment.end - segment.start >= MIN_EFFECT_SEGMENT_SECONDS)
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+  }, [effect, effectSegmentsDraft, outputDuration]);
+  const activeEffectSegment = effectSegments.find((segment) => segment.id === activeEffectSegmentId) || effectSegments[0];
+  const lockedEffectSegment = effectSegments.find((segment) => {
+    const meta = getVideoEffect(segment.effect);
+    return meta && !hasFeature(user?.planId, meta.requiredFeature, isAdmin);
+  });
+  const canUseEffect = canUseSelectedEffect && !lockedEffectSegment;
   const processingBaseEffect = effectSegments.length > 0 ? 'clean' : effect;
   const previewLocalTime = clamp(previewCurrentTime - safeTrimStart, 0, outputDuration);
   const previewInsideOutput = previewCurrentTime >= safeTrimStart - 0.04 && previewCurrentTime <= safeTrimStart + outputDuration + 0.04;
@@ -1315,8 +1379,13 @@ export default function OperatorPage() {
   }, [sourceTimelineDuration]);
 
   useEffect(() => {
-    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS)));
-    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, outputDuration));
+    setEffectSegmentsDraft((current) => current
+      .map((segment) => {
+        const start = clamp(segment.start, 0, Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
+        const end = clamp(segment.end, start + MIN_EFFECT_SEGMENT_SECONDS, outputDuration);
+        return { ...segment, start, end };
+      })
+      .filter((segment) => segment.end - segment.start >= MIN_EFFECT_SEGMENT_SECONDS));
   }, [outputDuration]);
 
   useEffect(() => {
@@ -1365,14 +1434,29 @@ export default function OperatorPage() {
   async function startCamera() {
     try {
       streamRef.current?.getTracks().forEach((track) => track.stop());
-      const stream = await requestCameraStream();
+      const stream = await requestCameraStream(recordingOrientation);
       streamRef.current = stream;
-      const settings = stream.getVideoTracks()[0]?.getSettings?.();
-      const nextOrientation = videoOrientationFromSize(settings?.width, settings?.height);
-      if (nextOrientation) setVideoOrientation(nextOrientation);
+      setVideoOrientation(recordingOrientation);
       setStep('capture');
     } catch {
       toast.error('Nao foi possivel abrir a camera. Verifique a permissao do app ou use o upload manual.');
+    }
+  }
+
+  async function restartCameraWithOrientation(orientation: VideoOrientation) {
+    chooseRecordingOrientation(orientation);
+    if (recording) return;
+    try {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const stream = await requestCameraStream(orientation);
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => undefined);
+      }
+      setVideoOrientation(orientation);
+    } catch {
+      toast.error('Nao foi possivel trocar o formato da camera.');
     }
   }
 
@@ -1440,12 +1524,11 @@ export default function OperatorPage() {
       setTrimStart(0);
       setTrimEnd(duration);
       setPreviewCurrentTime(0);
-      setEffectSegmentStart(0);
-      setEffectSegmentEnd(duration);
+      setEffectSegmentsDraft([]);
+      setActiveEffectSegmentId(null);
+      setVideoOrientation(recordingOrientation);
       setStep('preview');
       readVideoMetadata(url).then((metadata) => {
-        const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
-        if (nextOrientation) setVideoOrientation(nextOrientation);
         if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
           setSourceDuration(metadata.duration);
           setTrimEnd(Math.min(metadata.duration, duration));
@@ -1486,8 +1569,8 @@ export default function OperatorPage() {
   }
 
   function handleLiveMetadata(event: SyntheticEvent<HTMLVideoElement>) {
-    const nextOrientation = videoOrientationFromSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight);
-    if (nextOrientation) setVideoOrientation(nextOrientation);
+    event.currentTarget.dataset.sourceSize = `${event.currentTarget.videoWidth}x${event.currentTarget.videoHeight}`;
+    setVideoOrientation(recordingOrientation);
   }
 
   function seekPreview(time: number) {
@@ -1502,24 +1585,25 @@ export default function OperatorPage() {
     setDuration(seconds);
     const nextEnd = clamp(safeTrimStart + seconds, safeTrimStart + MIN_TRIM_SECONDS, sourceTimelineDuration);
     setTrimEnd(nextEnd);
-    setEffectSegmentStart(0);
-    setEffectSegmentEnd(Math.max(MIN_EFFECT_SEGMENT_SECONDS, nextEnd - safeTrimStart));
+  }
+
+  function chooseRecordingOrientation(orientation: VideoOrientation) {
+    setRecordingOrientation(orientation);
+    if (step === 'select' || step === 'capture') {
+      setVideoOrientation(orientation);
+    }
   }
 
   function updateTrimStart(value: number) {
     const nextStart = clamp(value, 0, Math.max(0, safeTrimEnd - MIN_TRIM_SECONDS));
     setTrimStart(nextStart);
     seekPreview(nextStart);
-    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, safeTrimEnd - nextStart - MIN_EFFECT_SEGMENT_SECONDS)));
-    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, safeTrimEnd - nextStart)));
   }
 
   function updateTrimEnd(value: number) {
     const nextEnd = clamp(value, safeTrimStart + MIN_TRIM_SECONDS, sourceTimelineDuration);
     setTrimEnd(nextEnd);
     if (previewCurrentTime > nextEnd) seekPreview(nextEnd);
-    setEffectSegmentStart((current) => clamp(current, 0, Math.max(0, nextEnd - safeTrimStart - MIN_EFFECT_SEGMENT_SECONDS)));
-    setEffectSegmentEnd((current) => clamp(current, MIN_EFFECT_SEGMENT_SECONDS, Math.max(MIN_EFFECT_SEGMENT_SECONDS, nextEnd - safeTrimStart)));
   }
 
   function markTrimAtCurrent(edge: 'start' | 'end') {
@@ -1535,35 +1619,105 @@ export default function OperatorPage() {
     return clamp(previewCurrentTime - safeTrimStart, 0, outputDuration);
   }
 
-  function updateEffectStart(value: number) {
+  function addEffectSegment(effectId = effect !== 'clean' && effect !== 'ai_auto' ? effect : 'cinematic') {
+    const id = createEffectSegmentId();
+    const segmentSize = clamp(outputDuration * 0.28, MIN_EFFECT_SEGMENT_SECONDS, outputDuration);
+    const cursorStart = currentTimeInsideCut();
+    const start = clamp(cursorStart, 0, Math.max(0, outputDuration - segmentSize));
+    const end = Math.min(outputDuration, start + segmentSize);
+    const segment: EffectSegment = { id, effect: effectId, start, end };
+    setEffect(effectId);
+    setEffectSegmentsDraft((current) => [...current, segment].sort((a, b) => a.start - b.start));
+    setActiveEffectSegmentId(id);
+    setTimelineExpanded(true);
+    return segment;
+  }
+
+  function removeEffectSegment(id: string) {
+    setEffectSegmentsDraft((current) => current.filter((segment) => segment.id !== id));
+    setActiveEffectSegmentId((current) => current === id ? null : current);
+  }
+
+  function updateEffectSegmentEffect(id: string, nextEffect: string) {
+    if (nextEffect === 'clean' || nextEffect === 'ai_auto') {
+      removeEffectSegment(id);
+      setEffect(nextEffect);
+      return;
+    }
+    setEffect(nextEffect);
+    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id ? { ...segment, effect: nextEffect } : segment));
+    setActiveEffectSegmentId(id);
+  }
+
+  function applyEffectSelection(nextEffect: string) {
+    if (nextEffect === 'clean') {
+      setEffect('clean');
+      setEffectSegmentsDraft([]);
+      setActiveEffectSegmentId(null);
+      return;
+    }
+
+    if (nextEffect === 'ai_auto') {
+      enableAiAutoEdit();
+      return;
+    }
+
+    const activeId = activeEffectSegment?.id;
+    if (activeId) {
+      updateEffectSegmentEffect(activeId, nextEffect);
+      return;
+    }
+
+    const id = createEffectSegmentId();
+    setEffect(nextEffect);
+    setEffectSegmentsDraft([{
+      id,
+      effect: nextEffect,
+      start: 0,
+      end: outputDuration,
+    }]);
+    setActiveEffectSegmentId(id);
+    setTimelineExpanded(true);
+  }
+
+  function updateEffectStart(id: string, value: number) {
+    const currentSegment = effectSegments.find((segment) => segment.id === id);
+    if (!currentSegment) return;
     const maxStart = Math.max(0, outputDuration - MIN_EFFECT_SEGMENT_SECONDS);
     const nextStart = clamp(value, 0, maxStart);
-    setEffectSegmentStart(nextStart);
-    setEffectSegmentEnd((currentEnd) => Math.max(currentEnd, nextStart + MIN_EFFECT_SEGMENT_SECONDS));
+    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id
+      ? { ...segment, start: nextStart, end: Math.max(segment.end, nextStart + MIN_EFFECT_SEGMENT_SECONDS) }
+      : segment));
+    setActiveEffectSegmentId(id);
     seekPreview(safeTrimStart + nextStart);
   }
 
-  function updateEffectEnd(value: number) {
-    const minEnd = Math.min(outputDuration, effectSegmentStart + MIN_EFFECT_SEGMENT_SECONDS);
+  function updateEffectEnd(id: string, value: number) {
+    const currentSegment = effectSegments.find((segment) => segment.id === id);
+    if (!currentSegment) return;
+    const minEnd = Math.min(outputDuration, currentSegment.start + MIN_EFFECT_SEGMENT_SECONDS);
     const nextEnd = clamp(value, minEnd, outputDuration);
-    setEffectSegmentEnd(nextEnd);
+    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id ? { ...segment, end: nextEnd } : segment));
+    setActiveEffectSegmentId(id);
     seekPreview(safeTrimStart + nextEnd);
   }
 
   function markEffectAtCurrent(edge: 'start' | 'end') {
     if (effect === 'clean' || effect === 'ai_auto') return;
+    const segment = activeEffectSegment || addEffectSegment();
     const localTime = currentTimeInsideCut();
     if (edge === 'start') {
-      updateEffectStart(Math.min(localTime, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
+      updateEffectStart(segment.id, Math.min(localTime, outputDuration - MIN_EFFECT_SEGMENT_SECONDS));
       return;
     }
-    updateEffectEnd(Math.max(localTime, effectSegmentStart + MIN_EFFECT_SEGMENT_SECONDS));
+    updateEffectEnd(segment.id, Math.max(localTime, segment.start + MIN_EFFECT_SEGMENT_SECONDS));
   }
 
   function setEffectRangePreset(preset: 'all' | 'intro' | 'center' | 'ending') {
+    const segment = activeEffectSegment || addEffectSegment();
     if (preset === 'all') {
-      setEffectSegmentStart(0);
-      setEffectSegmentEnd(outputDuration);
+      setEffectSegmentsDraft((current) => current.map((item) => item.id === segment.id ? { ...item, start: 0, end: outputDuration } : item));
+      setActiveEffectSegmentId(segment.id);
       return;
     }
 
@@ -1574,8 +1728,10 @@ export default function OperatorPage() {
       ending: Math.max(0, outputDuration - segmentSize),
     };
 
-    setEffectSegmentStart(starts[preset]);
-    setEffectSegmentEnd(Math.min(outputDuration, starts[preset] + segmentSize));
+    setEffectSegmentsDraft((current) => current.map((item) => item.id === segment.id
+      ? { ...item, start: starts[preset], end: Math.min(outputDuration, starts[preset] + segmentSize) }
+      : item));
+    setActiveEffectSegmentId(segment.id);
     seekPreview(safeTrimStart + starts[preset]);
   }
 
@@ -1587,8 +1743,8 @@ export default function OperatorPage() {
 
     setEffect('ai_auto');
     setMusicTheme('none');
-    setEffectSegmentStart(0);
-    setEffectSegmentEnd(outputDuration);
+    setEffectSegmentsDraft([]);
+    setActiveEffectSegmentId(null);
     toast.success('IA automatica ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
   }
 
@@ -1667,12 +1823,15 @@ export default function OperatorPage() {
     setTrimStart(0);
     setTrimEnd(duration);
     setPreviewCurrentTime(0);
-    setEffectSegmentStart(0);
-    setEffectSegmentEnd(duration);
+    setEffectSegmentsDraft([]);
+    setActiveEffectSegmentId(null);
     setStep('preview');
     readVideoMetadata(url).then((metadata) => {
       const nextOrientation = videoOrientationFromSize(metadata.width, metadata.height);
-      if (nextOrientation) setVideoOrientation(nextOrientation);
+      if (nextOrientation) {
+        setVideoOrientation(nextOrientation);
+        setRecordingOrientation(nextOrientation);
+      }
       if (Number.isFinite(metadata.duration) && metadata.duration > 0) {
         setSourceDuration(metadata.duration);
         setTrimEnd(Math.min(metadata.duration, duration));
@@ -1722,6 +1881,7 @@ export default function OperatorPage() {
         animationUrl: templateAssets.animationUrl,
         fallbackOverlayUrl: templateAssets.fallbackOverlayUrl,
         overlayOpacity: selectedTemplate ? templateOpacity : undefined,
+        outputOrientation: videoOrientation || recordingOrientation,
         effect: browserEffect,
         effectSegments: effectSegments.length > 0 ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
           effect: segmentEffect,
@@ -1762,7 +1922,11 @@ export default function OperatorPage() {
       setSavedVideoId(video.id);
       setProgress(100);
       setStep('done');
-      toast.success('Video editado no navegador e publicado sem sobrecarregar o servidor.');
+      if (uploaded.status === 'pending_offline' || video.id.startsWith('local_')) {
+        toast.info('Video salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+      } else {
+        toast.success('Video editado no navegador e publicado sem sobrecarregar o servidor.');
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao processar video.');
       setStep('preview');
@@ -1783,6 +1947,8 @@ export default function OperatorPage() {
     setTrimStart(0);
     setTrimEnd(duration);
     setPreviewCurrentTime(0);
+    setEffectSegmentsDraft([]);
+    setActiveEffectSegmentId(null);
     setSavedVideoId('');
     setProgress(0);
     setProcessingLabel('Preparando video...');
@@ -1807,6 +1973,28 @@ export default function OperatorPage() {
           <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:space-y-5 sm:p-6">
             <Select label="Evento vinculado" options={eventOptions} value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)} />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-white">Formato da gravacao</p>
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+                {(['portrait', 'landscape'] as const).map((orientation) => (
+                  <button
+                    key={orientation}
+                    type="button"
+                    onClick={() => chooseRecordingOrientation(orientation)}
+                    className={`min-h-11 rounded-xl px-3 text-sm font-bold transition ${
+                      recordingOrientation === orientation
+                        ? 'bg-brand-500 text-white shadow-glow'
+                        : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
+                    }`}
+                  >
+                    {orientation === 'portrait' ? 'Retrato 9:16' : 'Paisagem 16:9'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-white/40">
+                No iOS/Android, escolha aqui antes de abrir a camera para gravar em pe ou deitado.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <button
                 type="button"
@@ -1869,7 +2057,7 @@ export default function OperatorPage() {
             />
             <EffectSelector
               value={effect}
-              onChange={setEffect}
+              onChange={applyEffectSelection}
               isEffectLocked={isEffectLocked}
               compact
               onApply={(selected) => toast.success(`${selected.name} aplicado ao editor.`)}
@@ -1970,6 +2158,24 @@ export default function OperatorPage() {
                   <span className="text-xs text-red-400 font-medium">Gravando</span>
                 </div>
               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+              {(['portrait', 'landscape'] as const).map((orientation) => (
+                <button
+                  key={orientation}
+                  type="button"
+                  disabled={recording}
+                  onClick={() => restartCameraWithOrientation(orientation)}
+                  className={`min-h-10 rounded-xl px-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                    recordingOrientation === orientation
+                      ? 'bg-brand-500 text-white'
+                      : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
+                  }`}
+                >
+                  {orientation === 'portrait' ? 'Retrato' : 'Paisagem'}
+                </button>
+              ))}
             </div>
 
             <div className="flex items-center gap-3">
@@ -2125,12 +2331,111 @@ export default function OperatorPage() {
                 <p className="text-xs font-semibold text-white/52">Efeito</p>
                 <EffectSelector
                   value={effect}
-                  onChange={setEffect}
+                  onChange={applyEffectSelection}
                   isEffectLocked={isEffectLocked}
                   compact
                   minimal
                   onApply={(selected) => toast.success(`${selected.name} aplicado.`)}
                 />
+              </div>
+
+              <div className="space-y-2 rounded-2xl border border-white/[0.08] bg-black/15 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-white/52">Efeitos no video</p>
+                  <button
+                    type="button"
+                    onClick={() => addEffectSegment()}
+                    disabled={effect === 'ai_auto'}
+                    className="rounded-full border border-brand-300/25 bg-brand-500/15 px-2.5 py-1 text-[11px] font-bold text-brand-100 transition hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    + Adicionar
+                  </button>
+                </div>
+
+                {effect === 'ai_auto' ? (
+                  <p className="rounded-xl border border-brand-300/18 bg-brand-500/10 px-3 py-2 text-xs text-brand-100/75">
+                    A IA automatica controla os efeitos neste modo.
+                  </p>
+                ) : effectSegments.length === 0 ? (
+                  <p className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2 text-xs text-white/38">
+                    Selecione um efeito ou toque em adicionar para criar um trecho.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {effectSegments.map((segment, index) => (
+                      <div
+                        key={segment.id}
+                        className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 ${
+                          activeEffectSegment?.id === segment.id
+                            ? 'border-fuchsia-300/35 bg-fuchsia-500/12'
+                            : 'border-white/8 bg-white/[0.035]'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveEffectSegmentId(segment.id);
+                            setEffect(segment.effect);
+                            seekPreview(safeTrimStart + segment.start);
+                            setTimelineExpanded(true);
+                          }}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block truncate text-xs font-bold text-white">{index + 1}. {effectLabel(segment.effect)}</span>
+                          <span className="block text-[11px] text-white/38">
+                            {formatPreciseTime(segment.start)} - {formatPreciseTime(segment.end)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeEffectSegment(segment.id)}
+                          className="rounded-lg p-1.5 text-white/35 transition hover:bg-white/8 hover:text-rose-200"
+                          title="Remover efeito"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeEffectSegment && effect !== 'ai_auto' && (
+                  <div className="space-y-2 border-t border-white/[0.06] pt-2">
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        ['all', 'Tudo'],
+                        ['intro', 'Inicio'],
+                        ['center', 'Meio'],
+                        ['ending', 'Fim'],
+                      ].map(([preset, label]) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setEffectRangePreset(preset as 'all' | 'intro' | 'center' | 'ending')}
+                          className="h-8 rounded-lg border border-white/8 bg-white/[0.04] text-[11px] font-bold text-white/55 transition hover:border-brand-300/25 hover:text-white"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => markEffectAtCurrent('start')}
+                        className="h-8 rounded-lg border border-white/8 bg-white/[0.04] text-[11px] font-bold text-white/55 transition hover:border-brand-300/25 hover:text-white"
+                      >
+                        Inicio aqui
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => markEffectAtCurrent('end')}
+                        className="h-8 rounded-lg border border-white/8 bg-white/[0.04] text-[11px] font-bold text-white/55 transition hover:border-brand-300/25 hover:text-white"
+                      >
+                        Fim aqui
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Music */}
@@ -2225,15 +2530,18 @@ export default function OperatorPage() {
                 musicLabel={selectedMusicLabel}
                 effect={effect}
                 effectSegments={effectSegments}
+                selectedEffectSegmentId={activeEffectSegment?.id}
                 onSeek={seekPreview}
                 onTrimStartChange={updateTrimStart}
                 onTrimEndChange={updateTrimEnd}
                 onEffectSegmentStartChange={updateEffectStart}
                 onEffectSegmentEndChange={updateEffectEnd}
+                onEffectSegmentSelect={setActiveEffectSegmentId}
+                onEffectSegmentEffectChange={updateEffectSegmentEffect}
                 templateOptions={templateOptions}
                 selectedTemplateId={selectedTemplateId}
                 onTemplateChange={setSelectedTemplateId}
-                onEffectChange={setEffect}
+                onEffectChange={applyEffectSelection}
                 resolvedMusicOptions={resolvedMusicOptions}
                 selectedMusicValue={musicTheme}
                 onMusicChange={setMusicTheme}

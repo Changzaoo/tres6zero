@@ -34,18 +34,18 @@ const categoryOptions = [
   { value: 'tech_futurista', label: 'Tech e futurista' },
   { value: 'cubos_isometricos', label: 'Cubos e isometricos' },
   { value: 'flores_decorativos', label: 'Flores e decorativos' },
-  { value: 'minimal_premium', label: 'Minimal premium' },
+  { value: 'minimal_premium', label: 'Minimal' },
   { value: 'birthday', label: 'Aniversario' },
   { value: 'wedding', label: 'Casamento' },
   { value: 'corporate', label: 'Corporativo' },
   { value: 'gamer_neon', label: 'Gamer / neon' },
   { value: 'tropical', label: 'Tropical' },
-  { value: 'booth_360', label: '360 Booth Premium' },
+  { value: 'booth_360', label: '360 Booth' },
   { value: 'graduation', label: 'Formatura' },
   { value: 'party', label: 'Balada / Festa' },
   { value: 'store', label: 'Loja / Inauguracao' },
   { value: 'church', label: 'Igreja' },
-  { value: 'premium', label: 'Premium / Luxo' },
+  { value: 'premium', label: 'Luxo' },
   { value: 'infantil', label: 'Infantil' },
   { value: 'esportivo', label: 'Esportivo' },
   { value: 'natal', label: 'Natal / Ano Novo' },
@@ -79,7 +79,7 @@ const musicCategoryOptions: { value: AppMusic['category']; label: string }[] = [
   { value: 'store', label: 'Loja' },
   { value: 'church', label: 'Igreja' },
   { value: 'viral', label: 'Viral' },
-  { value: 'premium', label: 'Premium' },
+  { value: 'premium', label: 'Luxo' },
 ];
 
 const licenseStatusLabels: Record<MusicLicenseStatus, string> = {
@@ -203,7 +203,6 @@ function TemplateCard({
   const motionVideoUrl = template.animationUrl && /\.(webm|mp4|mov)(\?|$)/i.test(template.animationUrl) ? template.animationUrl : '';
   const isMotionActive = Boolean(motionVideoUrl && activeMotionId === template.id && canUseTransparentMotionOverlay());
   const animated = isTemplateAnimated(template);
-  const premium = Boolean(template.isPremium || template.category === 'premium' || template.category === 'minimal_premium' || template.category === 'booth_360');
 
   return (
     <div
@@ -234,9 +233,6 @@ function TemplateCard({
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md ${animated ? 'border-cyan-300/25 bg-cyan-500/16 text-cyan-100' : 'border-white/15 bg-black/35 text-white/75'}`}>
               {animated ? 'Animado' : 'Estatico'}
-            </span>
-            <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md ${premium ? 'border-yellow-300/25 bg-yellow-500/16 text-yellow-100' : 'border-emerald-300/20 bg-emerald-500/14 text-emerald-100'}`}>
-              {premium ? 'Premium' : 'Gratis'}
             </span>
           </div>
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
@@ -286,7 +282,6 @@ export default function TemplatesPage() {
   const [aspectFilter, setAspectFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all');
   const [motionOnly, setMotionOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sunoOpen, setSunoOpen] = useState(false);
@@ -326,19 +321,16 @@ export default function TemplatesPage() {
     const query = searchTerm.trim().toLowerCase();
     return templates.filter((template) => {
       const animated = isTemplateAnimated(template);
-      const premium = Boolean(template.isPremium || template.category === 'premium' || template.category === 'minimal_premium' || template.category === 'booth_360');
       if (query && !searchableTemplateText(template).includes(query)) return false;
       if (categoryFilter !== 'all' && template.category !== categoryFilter) return false;
       if (aspectFilter !== 'all' && template.aspectRatio !== aspectFilter) return false;
       if (sourceFilter !== 'all' && (template.source || 'generated') !== sourceFilter) return false;
       if (typeFilter === 'static' && animated) return false;
       if (typeFilter === 'animated' && !animated) return false;
-      if (priceFilter === 'free' && premium) return false;
-      if (priceFilter === 'premium' && !premium) return false;
       if (motionOnly && !animated) return false;
       return true;
     });
-  }, [aspectFilter, categoryFilter, motionOnly, priceFilter, searchTerm, sourceFilter, templates, typeFilter]);
+  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter, templates, typeFilter]);
   const visibleTemplates = useMemo(
     () => filteredTemplates.slice(0, visibleCount),
     [filteredTemplates, visibleCount]
@@ -349,7 +341,6 @@ export default function TemplatesPage() {
     || aspectFilter !== 'all'
     || sourceFilter !== 'all'
     || typeFilter !== 'all'
-    || priceFilter !== 'all'
     || motionOnly;
 
   useEffect(() => {
@@ -381,7 +372,7 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     setVisibleCount(INITIAL_TEMPLATE_COUNT);
-  }, [aspectFilter, categoryFilter, motionOnly, priceFilter, searchTerm, sourceFilter, typeFilter]);
+  }, [aspectFilter, categoryFilter, motionOnly, searchTerm, sourceFilter, typeFilter]);
 
   useEffect(() => {
     if (!librariesOpen || libraryProviders.length > 0) return;
@@ -440,7 +431,6 @@ export default function TemplatesPage() {
     setAspectFilter('all');
     setSourceFilter('all');
     setTypeFilter('all');
-    setPriceFilter('all');
     setMotionOnly(false);
   }
 
@@ -809,7 +799,7 @@ export default function TemplatesPage() {
             </button>
           </div>
 
-          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto]`}>
+          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]`}>
             <select
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
@@ -842,15 +832,6 @@ export default function TemplatesPage() {
               <option value="all">Estaticos e animados</option>
               <option value="static">Estaticos</option>
               <option value="animated">Animados</option>
-            </select>
-            <select
-              value={priceFilter}
-              onChange={(event) => setPriceFilter(event.target.value)}
-              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
-            >
-              <option value="all">Gratis e premium</option>
-              <option value="free">Gratis</option>
-              <option value="premium">Premium</option>
             </select>
             <button
               type="button"

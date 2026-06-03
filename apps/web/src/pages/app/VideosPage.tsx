@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Copy, Download, ExternalLink, Eye, MessageCircle, PlayCircle, Share2, Video } from 'lucide-react';
+import { CheckSquare, Copy, Download, ExternalLink, Eye, MessageCircle, PlayCircle, Share2, Square, Trash2, Video, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { getUserVideos, incrementVideoStat } from '@/services/videoService';
+import { deleteVideo, getUserVideos, incrementVideoStat } from '@/services/videoService';
 import { downloadUrlAsFile } from '@/services/downloadService';
+import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
 import type { AppVideo } from '@/types';
 
@@ -46,11 +48,13 @@ function ActionButton({
   children,
   icon,
   disabled,
+  tone = 'default',
   onClick,
 }: {
   children: ReactNode;
   icon: ReactNode;
   disabled?: boolean;
+  tone?: 'default' | 'danger';
   onClick: () => void;
 }) {
   return (
@@ -58,7 +62,11 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 text-xs font-semibold text-white/70 transition hover:border-white/20 hover:bg-white/[0.1] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        tone === 'danger'
+          ? 'border-red-300/20 bg-red-500/[0.08] text-red-200 hover:border-red-300/35 hover:bg-red-500/[0.14] hover:text-red-50'
+          : 'border-white/10 bg-white/[0.055] text-white/70 hover:border-white/20 hover:bg-white/[0.1] hover:text-white'
+      }`}
     >
       {icon}
       <span>{children}</span>
@@ -71,6 +79,9 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<AppVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -90,6 +101,61 @@ export default function VideosPage() {
         : video
     )));
     void incrementVideoStat(videoId, field);
+  }
+
+  function toggleSelection(videoId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(videoId)) next.delete(videoId);
+      else next.add(videoId);
+      return next;
+    });
+  }
+
+  function selectAllVideos() {
+    setSelectedIds(new Set(videos.map((video) => video.id)));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  function openDeleteConfirmation(ids: string[]) {
+    if (ids.length === 0) return;
+    setDeleteIds(ids);
+  }
+
+  async function confirmDelete() {
+    if (!deleteIds?.length) return;
+    setDeleting(true);
+
+    const results = await Promise.allSettled(deleteIds.map((id) => deleteVideo(id)));
+    const deletedIds = deleteIds.filter((_, index) => results[index].status === 'fulfilled');
+    const failedCount = results.length - deletedIds.length;
+
+    if (deletedIds.length) {
+      setVideos((current) => current.filter((video) => !deletedIds.includes(video.id)));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        deletedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setExpandedVideoId((current) => current && deletedIds.includes(current) ? null : current);
+      if (navigator.onLine) {
+        toast.success(deletedIds.length === 1 ? 'Video excluido.' : `${deletedIds.length} videos excluidos.`);
+      } else {
+        toast.info(deletedIds.length === 1
+          ? 'Video removido deste dispositivo. A exclusao sera enviada depois.'
+          : `${deletedIds.length} videos removidos deste dispositivo. As exclusoes serao enviadas depois.`);
+      }
+    }
+
+    if (failedCount) {
+      toast.error(failedCount === 1 ? 'Nao foi possivel excluir 1 video.' : `Nao foi possivel excluir ${failedCount} videos.`);
+    }
+
+    setDeleteIds(null);
+    setDeleting(false);
   }
 
   async function copyLink(video: AppVideo) {
@@ -148,11 +214,52 @@ export default function VideosPage() {
     );
   }
 
+  const selectedCount = selectedIds.size;
+  const allSelected = videos.length > 0 && selectedCount === videos.length;
+  const deleteCount = deleteIds?.length || 0;
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Vídeos</h1>
-        <p className="text-sm text-white/40">{videos.length} vídeo(s)</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Vídeos</h1>
+          <p className="text-sm text-white/40">{videos.length} vídeo(s)</p>
+        </div>
+        {videos.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-semibold text-white/62 transition hover:bg-white/[0.08] hover:text-white"
+              onClick={allSelected ? clearSelection : selectAllVideos}
+            >
+              {allSelected ? <CheckSquare className="h-4 w-4 text-brand-200" /> : <Square className="h-4 w-4" />}
+              {allSelected ? 'Limpar seleção' : 'Selecionar todos'}
+            </button>
+            {selectedCount > 0 && (
+              <>
+                <span className="rounded-full border border-brand-300/20 bg-brand-500/10 px-3 py-2 text-xs font-semibold text-brand-100">
+                  {selectedCount} selecionado(s)
+                </span>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  icon={<Trash2 className="h-4 w-4" />}
+                  onClick={() => openDeleteConfirmation([...selectedIds])}
+                >
+                  Excluir selecionados
+                </Button>
+                <button
+                  type="button"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.045] text-white/45 transition hover:bg-white/[0.08] hover:text-white"
+                  onClick={clearSelection}
+                  aria-label="Limpar seleção"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {videos.length === 0 ? (
@@ -163,6 +270,7 @@ export default function VideosPage() {
             const isExpanded = expandedVideoId === video.id;
             const canPlay = Boolean(video.videoUrl);
             const shareUrl = videoShareUrl(video);
+            const isSelected = selectedIds.has(video.id);
 
             return (
               <motion.div
@@ -172,6 +280,18 @@ export default function VideosPage() {
                 className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-4"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                  <button
+                    type="button"
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
+                      isSelected
+                        ? 'border-brand-300/35 bg-brand-500/18 text-brand-100'
+                        : 'border-white/10 bg-white/[0.045] text-white/38 hover:bg-white/[0.08] hover:text-white'
+                    }`}
+                    onClick={() => toggleSelection(video.id)}
+                    aria-label={isSelected ? 'Remover vídeo da seleção' : 'Selecionar vídeo'}
+                  >
+                    {isSelected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
+                  </button>
                   <button
                     type="button"
                     disabled={!canPlay}
@@ -220,6 +340,9 @@ export default function VideosPage() {
                     <ActionButton disabled={!canPlay} onClick={() => openVideo(video)} icon={<ExternalLink className="h-4 w-4" />}>
                       Abrir
                     </ActionButton>
+                    <ActionButton tone="danger" onClick={() => openDeleteConfirmation([video.id])} icon={<Trash2 className="h-4 w-4" />}>
+                      Excluir
+                    </ActionButton>
                   </div>
                 </div>
 
@@ -258,6 +381,22 @@ export default function VideosPage() {
           })}
         </div>
       )}
+
+      <Modal open={Boolean(deleteIds?.length)} onClose={() => !deleting && setDeleteIds(null)} title={deleteCount === 1 ? 'Excluir vídeo' : 'Excluir vídeos'}>
+        <p className="mb-6 text-sm leading-relaxed text-white/70">
+          {deleteCount === 1
+            ? 'Tem certeza que deseja excluir este vídeo? Esta ação não pode ser desfeita.'
+            : `Tem certeza que deseja excluir ${deleteCount} vídeos selecionados? Esta ação não pode ser desfeita.`}
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button variant="secondary" className="flex-1 justify-center" disabled={deleting} onClick={() => setDeleteIds(null)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" className="flex-1 justify-center" loading={deleting} onClick={confirmDelete}>
+            Excluir
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

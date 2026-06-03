@@ -113,11 +113,19 @@ export default function EventFormPage() {
 
     try {
       if (isEdit) {
-        await updateEvent(id!, payload);
-        toast.success('Evento atualizado!');
+        const updated = await updateEvent(id!, payload);
+        if (!navigator.onLine || updated?.id?.startsWith('local_')) {
+          toast.info('Evento salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+        } else {
+          toast.success('Evento atualizado!');
+        }
       } else {
         const created = await createEvent(user.uid, payload);
-        toast.success('Evento criado!');
+        if (!navigator.onLine || created.id.startsWith('local_')) {
+          toast.info('Evento salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+        } else {
+          toast.success('Evento criado!');
+        }
         navigate(`/app/events/${created.id}`);
         return;
       }

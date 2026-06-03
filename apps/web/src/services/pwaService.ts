@@ -1,3 +1,6 @@
+import { logOffline } from '@/offline/offlineLogger';
+import { runOfflineSync } from '@/offline/syncEngine';
+
 function canUseServiceWorker() {
   return typeof window !== 'undefined'
     && 'serviceWorker' in navigator
@@ -15,11 +18,25 @@ function requestPersistentStorage() {
 export function registerServiceWorker() {
   if (!canUseServiceWorker()) return;
 
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'SIX3_BACKGROUND_SYNC') {
+      runOfflineSync().catch((error) => {
+        logOffline('warn', 'service-worker', 'Falha ao sincronizar pelo service worker.', {
+          error: error instanceof Error ? error.message : String(error),
+        }).catch(() => undefined);
+      });
+    }
+  });
+
   const register = () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
       .then((registration) => {
         requestPersistentStorage();
         registration.update().catch(() => {});
+        const syncRegistration = registration as ServiceWorkerRegistration & {
+          sync?: { register: (tag: string) => Promise<void> };
+        };
+        syncRegistration.sync?.register('six3-sync-queue').catch(() => undefined);
       })
       .catch((error) => {
         console.warn('[pwa] Service worker registration failed:', error);

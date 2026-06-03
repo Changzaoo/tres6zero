@@ -19,6 +19,7 @@ type BoomerangFrameCache = {
 export type BrowserVideoRenderOptions = {
   input: Blob;
   durationSeconds: number;
+  outputOrientation?: 'portrait' | 'landscape';
   trimStartSeconds?: number;
   trimEndSeconds?: number;
   effect?: string;
@@ -220,7 +221,15 @@ async function loadMusicBuffer(audioContext: AudioContext | undefined, url?: str
   }
 }
 
-function scaledCanvasSize(videoWidth: number, videoHeight: number) {
+function scaledCanvasSize(videoWidth: number, videoHeight: number, outputOrientation?: 'portrait' | 'landscape') {
+  if (outputOrientation === 'portrait') {
+    return { width: 405, height: 720 };
+  }
+
+  if (outputOrientation === 'landscape') {
+    return { width: 720, height: 405 };
+  }
+
   const safeWidth = Math.max(videoWidth || 0, MIN_RENDER_SIDE);
   const safeHeight = Math.max(videoHeight || 0, MIN_RENDER_SIDE);
   const scale = Math.min(1, MAX_RENDER_SIDE / Math.max(safeWidth, safeHeight));
@@ -677,7 +686,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
   try {
     await audioContext?.resume().catch(() => undefined);
     await waitForEvent(sourceVideo, 'loadedmetadata', 15000);
-    const { width, height } = scaledCanvasSize(sourceVideo.videoWidth, sourceVideo.videoHeight);
+    const { width, height } = scaledCanvasSize(sourceVideo.videoWidth, sourceVideo.videoHeight, options.outputOrientation);
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;

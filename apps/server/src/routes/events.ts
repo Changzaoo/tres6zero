@@ -188,16 +188,30 @@ eventsRouter.post('/', requireActiveSubscription, async (req, res, next) => {
   try {
     const user = res.locals.user as UserProfile;
     const data = eventSchema.parse(req.body || {});
+    const clientMutationId = req.get('x-six3-client-mutation-id') || (typeof req.body?.clientMutationId === 'string' ? req.body.clientMutationId : undefined);
+    const collection = getDb().collection('events');
+    if (clientMutationId) {
+      const existing = await collection
+        .where('ownerId', '==', user.uid)
+        .where('clientMutationId', '==', clientMutationId)
+        .limit(1)
+        .get();
+      if (!existing.empty) {
+        res.json({ event: eventFromDoc(existing.docs[0]) });
+        return;
+      }
+    }
     const now = new Date().toISOString();
     const event = stripUndefined({
       ...data,
       ownerId: user.uid,
+      clientMutationId,
       slug: slugify(data.name),
       createdAt: now,
       updatedAt: now,
       _ts: FieldValue.serverTimestamp(),
     });
-    const ref = await getDb().collection('events').add(event);
+    const ref = await collection.add(event);
     const { _ts, ...publicEvent } = event;
     await createNotification({
       recipientUid: user.uid,

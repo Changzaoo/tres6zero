@@ -163,8 +163,6 @@ export default function BillingPage() {
         selectedLabel={isAdmin ? 'Acesso ilimitado' : 'Selecionado'}
         selectedDescription={selectedDescription}
         paymentHint="Pagamento via Pix. Para usar cartão, veja se seu banco oferece Pix parcelado."
-        secondaryActionLabel="Quero usar cartão de crédito"
-        onSecondaryAction={(planId) => startPixPayment(planId, { showInstallmentInfo: true })}
       />
 
       <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Pagamento PixGo" size="xl">
@@ -255,7 +253,7 @@ export default function BillingPage() {
                   className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-sm font-semibold text-white transition hover:bg-white/[0.045] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35"
                   onClick={() => setInstallmentInfoOpen((current) => !current)}
                 >
-                  <span>Quero usar cartão de crédito</span>
+                  <span>Pix parcelado pelo banco</span>
                   <span className="text-xs text-white/42">{installmentInfoOpen ? 'Ocultar' : 'Ver explicação'}</span>
                 </button>
                 {installmentInfoOpen && (

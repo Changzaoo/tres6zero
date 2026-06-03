@@ -1,5 +1,9 @@
 import { API_URL } from '@/config/api';
 import { deviceHeaders, getAuthToken, getCachedUser } from '@/services/authService';
+import { saveOfflineFile } from '@/offline/fileOfflineStore';
+import { readOfflineJsonCache, writeOfflineJsonCache } from '@/offline/offlineApiClient';
+import { logOffline } from '@/offline/offlineLogger';
+import { enqueueSyncOperation } from '@/offline/syncQueue';
 import type { AppTemplate } from '@/types';
 import type { AppMusic } from '@/types';
 
@@ -88,7 +92,14 @@ function cacheKey(path: string) {
   return `${JSON_CACHE_PREFIX}${hashString(`${scope}|${path}`)}`;
 }
 
-function readJsonCache<T>(path: string) {
+function jsonCacheScope() {
+  return getCachedUser()?.uid || 'public';
+}
+
+async function readJsonCache<T>(path: string) {
+  const indexed = await readOfflineJsonCache<T>(jsonCacheScope(), path);
+  if (indexed) return indexed;
+
   const raw = storageGet(cacheKey(path));
   if (!raw) return null;
 
@@ -101,7 +112,8 @@ function readJsonCache<T>(path: string) {
   }
 }
 
-function writeJsonCache<T>(path: string, value: T) {
+async function writeJsonCache<T>(path: string, value: T) {
+  await writeOfflineJsonCache(jsonCacheScope(), path, value, JSON_CACHE_MAX_AGE_MS);
   storageSet(cacheKey(path), JSON.stringify({ value, savedAt: Date.now() }));
 }
 
@@ -143,7 +155,55 @@ function normalizeGeneratedTemplateAssetUrls(template: AppTemplate) {
   };
 }
 
+function resultForOfflineUpload(path: string, file: File | Blob, fileId: string, placeholder: string): MediaUploadResult {
+  const fallbackName = file instanceof File ? file.name : 'capture.webm';
+  const result: MediaUploadResult = {
+    id: fileId,
+    fileName: fallbackName,
+    storagePath: placeholder,
+    publicUrl: placeholder,
+    size: file.size,
+    mimetype: file.type || 'application/octet-stream',
+    status: 'pending_offline',
+    createdAt: new Date().toISOString(),
+  };
+
+  if (path.includes('/video')) result.videoUrl = placeholder;
+  if (path.includes('/image')) result.imageUrl = placeholder;
+  if (path.includes('/avatar')) result.avatarUrl = placeholder;
+  if (path.includes('/template')) result.templateUrl = placeholder;
+  if (path.includes('/music')) result.musicUrl = placeholder;
+
+  return result;
+}
+
+async function queueOfflineUpload(path: string, file: File | Blob, onProgress?: (pct: number) => void) {
+  const previewUrl = isBrowser() ? URL.createObjectURL(file) : undefined;
+  const { record, placeholder } = await saveOfflineFile({ file, endpoint: path, previewUrl });
+  await enqueueSyncOperation({
+    type: 'UPLOAD',
+    entity: 'upload',
+    entityId: record.id,
+    method: 'POST',
+    endpoint: path,
+    fileRef: record.id,
+    priority: 90,
+    dedupe: false,
+  });
+  onProgress?.(100);
+  await logOffline('info', 'upload', 'Arquivo aguardando internet para envio.', {
+    fileId: record.id,
+    endpoint: path,
+    size: record.size,
+  });
+  return resultForOfflineUpload(path, file, record.id, placeholder);
+}
+
 function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: number) => void): Promise<MediaUploadResult> {
+  if (isBrowser() && !navigator.onLine) {
+    return queueOfflineUpload(path, file, onProgress);
+  }
+
   return new Promise((resolve, reject) => {
     const body = new FormData();
     const fallbackName = file instanceof File ? file.name : 'capture.webm';
@@ -159,7 +219,9 @@ function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: num
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
-    xhr.onerror = () => reject(new Error('UPLOAD_FAILED'));
+    xhr.onerror = () => {
+      queueOfflineUpload(path, file, onProgress).then(resolve).catch(() => reject(new Error('UPLOAD_FAILED')));
+    };
     xhr.onload = () => {
       let payload: Record<string, unknown>;
       try {
@@ -169,6 +231,10 @@ function uploadMultipart(path: string, file: File | Blob, onProgress?: (pct: num
       }
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(payload as MediaUploadResult);
+        return;
+      }
+      if (xhr.status === 503 || (isBrowser() && !navigator.onLine)) {
+        queueOfflineUpload(path, file, onProgress).then(resolve).catch(() => reject(new Error('UPLOAD_FAILED')));
         return;
       }
       reject(new Error(String(payload?.error || payload?.code || 'UPLOAD_FAILED')));
@@ -189,7 +255,7 @@ async function authedJson<T>(path: string, options: RequestInit = {}): Promise<T
   try {
     response = await fetch(`${API_URL}${path}`, { ...options, headers });
   } catch (error) {
-    const cached = cacheable ? readJsonCache<T>(path) : null;
+    const cached = cacheable ? await readJsonCache<T>(path) : null;
     if (cached) return cached;
     throw error;
   }
@@ -198,7 +264,7 @@ async function authedJson<T>(path: string, options: RequestInit = {}): Promise<T
 
   if (!response.ok) {
     const cached = cacheable && (response.status === 503 || (isBrowser() && !window.navigator.onLine))
-      ? readJsonCache<T>(path)
+      ? await readJsonCache<T>(path)
       : null;
     if (cached) return cached;
 
@@ -206,7 +272,7 @@ async function authedJson<T>(path: string, options: RequestInit = {}): Promise<T
   }
 
   if (cacheable) {
-    writeJsonCache(path, payload as T);
+    await writeJsonCache(path, payload as T);
   }
 
   return payload as T;
@@ -233,7 +299,7 @@ export function uploadMusicToServer(file: File | Blob, onProgress?: (pct: number
 }
 
 export async function getGeneratedTemplates() {
-  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/generated?v=render-v2');
+  const { templates } = await authedJson<{ templates: AppTemplate[] }>('/api/templates/generated?v=curated-v3');
   return templates.map(normalizeGeneratedTemplateAssetUrls);
 }
 

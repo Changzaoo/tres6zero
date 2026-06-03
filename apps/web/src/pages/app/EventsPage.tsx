@@ -38,21 +38,21 @@ export default function EventsPage() {
     await deleteEvent(deleteId);
     setEvents(e => e.filter(ev => ev.id !== deleteId));
     setDeleteId(null);
-    toast.success('Evento excluído.');
+    toast.success(navigator.onLine ? 'Evento excluido.' : 'Evento removido deste dispositivo. A exclusao sera enviada depois.');
   }
 
   async function handleDuplicate(id: string) {
     if (!user) return;
     const copy = await duplicateEvent(id, user.uid);
     setEvents(e => [copy, ...e]);
-    toast.success('Evento duplicado!');
+    toast.success(navigator.onLine && !copy.id.startsWith('local_') ? 'Evento duplicado!' : 'Copia salva neste dispositivo.');
     setMenuId(null);
   }
 
   async function handleArchive(id: string) {
     await updateEvent(id, { status: 'archived' });
     setEvents(e => e.map(ev => ev.id === id ? { ...ev, status: 'archived' } : ev));
-    toast.success('Evento arquivado.');
+    toast.success(navigator.onLine ? 'Evento arquivado.' : 'Evento arquivado neste dispositivo. A alteracao sera enviada depois.');
     setMenuId(null);
   }
 

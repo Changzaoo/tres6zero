@@ -1,4 +1,4 @@
-const VERSION = '2026-06-02.4';
+const VERSION = '2026-06-03.offline-1';
 const SHELL_CACHE = `six3-shell-${VERSION}`;
 const STATIC_CACHE = `six3-static-${VERSION}`;
 const RUNTIME_CACHE = `six3-runtime-${VERSION}`;
@@ -7,6 +7,8 @@ const CACHE_PREFIX = 'six3-';
 
 const SHELL_ASSETS = [
   '/',
+  '/offline.html',
+  '/manifest.webmanifest',
   '/site.webmanifest',
   '/app-icon.png',
   '/logo.svg',
@@ -180,6 +182,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+async function notifyClients(message) {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  clients.forEach((client) => client.postMessage(message));
+}
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SIX3_SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'six3-sync-queue') {
+    event.waitUntil(notifyClients({ type: 'SIX3_BACKGROUND_SYNC' }));
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -196,7 +215,7 @@ self.addEventListener('fetch', (event) => {
   if (isNavigationRequest(request)) {
     event.respondWith(
       networkFirst(request, SHELL_CACHE, new Request('/'), 12)
-        .catch(() => caches.match('/'))
+        .catch(() => caches.match('/').then((cached) => cached || caches.match('/offline.html')))
     );
     return;
   }

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { AI_EFFECTS, BASIC_EFFECTS, POPULAR_EFFECTS, featureForEffect, hasPlanFeature } from '../services/planEntitlements';
-import { getSupabaseUrl } from '../services/supabaseStorage';
+import { getSupabase, getSupabaseUrl, SUPABASE_BUCKETS } from '../services/supabaseStorage';
 import { requireActiveSubscription } from './auth';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification } from '../services/notifications';
@@ -196,16 +196,30 @@ videoRouter.post('/', requireActiveSubscription, async (req, res, next) => {
   try {
     const user = res.locals.user as UserProfile;
     const data = videoSchema.parse(req.body || {});
+    const clientMutationId = req.get('x-six3-client-mutation-id') || (typeof req.body?.clientMutationId === 'string' ? req.body.clientMutationId : undefined);
+    const collection = getDb().collection('videos');
+    if (clientMutationId) {
+      const existing = await collection
+        .where('ownerId', '==', user.uid)
+        .where('clientMutationId', '==', clientMutationId)
+        .limit(1)
+        .get();
+      if (!existing.empty) {
+        res.json({ video: videoFromDoc(existing.docs[0]) });
+        return;
+      }
+    }
     const now = new Date().toISOString();
     const video = stripUndefined({
       ...data,
       ownerId: user.uid,
       operatorId: user.uid,
+      clientMutationId,
       createdAt: now,
       updatedAt: now,
       _ts: FieldValue.serverTimestamp(),
     });
-    const ref = await getDb().collection('videos').add(video);
+    const ref = await collection.add(video);
     const { _ts, ...publicVideo } = video;
     res.status(201).json({ video: { id: ref.id, ...publicVideo } });
   } catch (e) { next(e); }
@@ -360,6 +374,26 @@ videoRouter.put('/:id', requireActiveSubscription, async (req, res, next) => {
     });
     const snap = await getDb().collection('videos').doc(req.params.id).get();
     res.json({ video: videoFromDoc(snap) });
+  } catch (e) { next(e); }
+});
+
+videoRouter.delete('/:id', requireActiveSubscription, async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const video = await loadManageableVideo(req.params.id, user);
+    const storagePath = typeof video.storagePath === 'string' ? video.storagePath : null;
+
+    await getDb().collection('videos').doc(req.params.id).delete();
+
+    if (storagePath) {
+      getSupabase()
+        .storage
+        .from(SUPABASE_BUCKETS.videos)
+        .remove([storagePath])
+        .catch((error) => console.warn('[videos] storage delete skipped:', error instanceof Error ? error.message : error));
+    }
+
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

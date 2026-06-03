@@ -1,4 +1,6 @@
 import { API_URL } from '@/config/api';
+import { readOfflineJsonCache, writeOfflineJsonCache } from '@/offline/offlineApiClient';
+import { logOffline } from '@/offline/offlineLogger';
 import type { UserProfile } from '@/types';
 
 const TOKEN_KEY = 'six3.authToken';
@@ -162,7 +164,14 @@ function apiCacheKey(path: string) {
   return `${API_CACHE_PREFIX}${hashString(`${userScope}|${path}`)}`;
 }
 
-function readApiCache<T>(path: string): T | null {
+function apiCacheScope() {
+  return getCachedUser()?.uid || 'public';
+}
+
+async function readApiCache<T>(path: string): Promise<T | null> {
+  const indexed = await readOfflineJsonCache<T>(apiCacheScope(), path);
+  if (indexed) return indexed;
+
   const raw = storageGet(apiCacheKey(path));
   if (!raw) return null;
 
@@ -179,7 +188,8 @@ function readApiCache<T>(path: string): T | null {
   }
 }
 
-function writeApiCache<T>(path: string, value: T) {
+async function writeApiCache<T>(path: string, value: T) {
+  await writeOfflineJsonCache(apiCacheScope(), path, value, API_CACHE_MAX_AGE_MS);
   storageSet(apiCacheKey(path), JSON.stringify({ value, savedAt: Date.now() }));
 }
 
@@ -281,8 +291,11 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   try {
     response = await send();
   } catch (error) {
-    const cached = cacheable ? readApiCache<T>(path) : null;
-    if (cached) return cached;
+    const cached = cacheable ? await readApiCache<T>(path) : null;
+    if (cached) {
+      await logOffline('warn', 'api', 'Resposta carregada deste dispositivo.', { path });
+      return cached;
+    }
     throw error;
   }
 
@@ -292,8 +305,11 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
       try {
         response = await send(refreshedToken);
       } catch (error) {
-        const cached = cacheable ? readApiCache<T>(path) : null;
-        if (cached) return cached;
+        const cached = cacheable ? await readApiCache<T>(path) : null;
+        if (cached) {
+          await logOffline('warn', 'api', 'Resposta carregada deste dispositivo.', { path });
+          return cached;
+        }
         throw error;
       }
     }
@@ -303,9 +319,12 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 
   if (!response.ok) {
     const cached = cacheable && (response.status === 503 || !isBrowser() || !window.navigator.onLine)
-      ? readApiCache<T>(path)
+      ? await readApiCache<T>(path)
       : null;
-    if (cached) return cached;
+    if (cached) {
+      await logOffline('warn', 'api', 'Resposta carregada deste dispositivo.', { path, status: response.status });
+      return cached;
+    }
 
     if (payload?.code === 'DEVICE_DISCONNECTED' || payload?.error === 'DEVICE_DISCONNECTED') {
       clearAuthSession();
@@ -320,7 +339,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   }
 
   if (cacheable) {
-    writeApiCache(path, payload as T);
+    await writeApiCache(path, payload as T);
   }
 
   return payload as T;

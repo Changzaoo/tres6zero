@@ -9,7 +9,7 @@ import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplat
 import { GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
 import { buildCuratedTemplates, getCuratedTemplate, renderCuratedTemplateSvg } from '../services/curatedTemplates';
 import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
-import { ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
+import { ensurePublicBucket, getSupabase, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification } from '../services/notifications';
 
@@ -549,6 +549,77 @@ async function uploadCuratedTemplates(adminUid?: string) {
   });
 }
 
+async function listStoragePathsRecursive(prefix: string): Promise<string[]> {
+  const bucket = getSupabase().storage.from(SUPABASE_BUCKETS.projectTemplates);
+  const paths: string[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await bucket.list(prefix, { limit: 1000, offset });
+    if (error) {
+      const err = new Error(`SUPABASE_LIST_FAILED: ${error.message}`);
+      (err as any).status = 502;
+      throw err;
+    }
+
+    const entries = data || [];
+    for (const entry of entries) {
+      const entryPath = `${prefix}/${entry.name}`;
+      if (entry.metadata) {
+        paths.push(entryPath);
+      } else {
+        paths.push(...await listStoragePathsRecursive(entryPath));
+      }
+    }
+
+    if (entries.length < 1000) break;
+    offset += entries.length;
+  }
+
+  return paths;
+}
+
+async function removeStoragePaths(paths: string[]) {
+  const bucket = getSupabase().storage.from(SUPABASE_BUCKETS.projectTemplates);
+  let deleted = 0;
+
+  for (let index = 0; index < paths.length; index += 100) {
+    const chunk = paths.slice(index, index + 100);
+    if (chunk.length === 0) continue;
+    const { error } = await bucket.remove(chunk);
+    if (error) {
+      console.warn('[templates] curated storage cleanup skipped:', error.message);
+      continue;
+    }
+    deleted += chunk.length;
+  }
+
+  return deleted;
+}
+
+async function cleanupCuratedTemplates() {
+  await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
+  const prefixes = ['templates/static', 'templates/animated', 'templates/previews/static', 'templates/previews/animated'];
+  const paths = (await Promise.all(prefixes.map((prefix) => listStoragePathsRecursive(prefix)))).flat();
+  const storageDeleted = await removeStoragePaths(paths);
+  let metadataDeleted = 0;
+
+  const db = getFirebaseAdminFirestore();
+  if (db) {
+    const snap = await db.collection('templates').get();
+    const docs = snap.docs.filter((doc) => doc.id.startsWith('curated-'));
+
+    for (let index = 0; index < docs.length; index += 450) {
+      const batch = db.batch();
+      docs.slice(index, index + 450).forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+      metadataDeleted += Math.min(450, docs.length - index);
+    }
+  }
+
+  return { storageDeleted, metadataDeleted };
+}
+
 async function uploadProjectMusic(count: number) {
   await ensurePublicBucket(SUPABASE_BUCKETS.projectMusic);
   const tracks = buildGeneratedMusic(count);
@@ -678,10 +749,12 @@ templatesRouter.post('/seed-transparent', requireAdmin, async (req, res, next) =
 templatesRouter.post('/seed-curated', requireAdmin, async (_req, res, next) => {
   try {
     const adminUid = typeof res.locals.user?.uid === 'string' ? res.locals.user.uid : undefined;
+    const cleanup = await cleanupCuratedTemplates();
     const templates = await uploadCuratedTemplates(adminUid);
     res.json({
       ok: true,
       bucket: SUPABASE_BUCKETS.projectTemplates,
+      cleanup,
       templateCount: templates.length,
       templates,
     });

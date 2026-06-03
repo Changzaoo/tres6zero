@@ -5,6 +5,10 @@ import { Header } from './Header';
 import { MobileBottomNav } from './MobileBottomNav';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationPolling } from '@/hooks/useNotificationPolling';
+import { OfflineBanner } from '@/components/offline/OfflineBanner';
+import { OfflineConflictWatcher } from '@/components/offline/OfflineConflictWatcher';
+import { OfflineReadyToast } from '@/components/offline/OfflineReadyToast';
+import { PendingSyncPanel } from '@/components/offline/PendingSyncPanel';
 
 const PAGE_TITLES: Record<string, string> = {
   '/app/dashboard': 'Dashboard',
@@ -33,10 +37,14 @@ export function AppShell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header title={title} />
+        <OfflineBanner />
         <main className="relative z-10 flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-28 lg:pb-6">
           <Outlet />
         </main>
         <MobileBottomNav />
+        <PendingSyncPanel />
+        <OfflineConflictWatcher />
+        <OfflineReadyToast />
       </div>
     </div>
   );
