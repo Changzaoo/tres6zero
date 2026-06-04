@@ -29,6 +29,7 @@ import type { AppEvent, AppMusic, AppTemplate, AppVideo } from '@/types';
 
 type Step = 'select' | 'capture' | 'preview' | 'processing' | 'done';
 type VideoOrientation = 'portrait' | 'landscape';
+type CameraFacing = 'user' | 'environment';
 
 type EffectSegment = {
   id: string;
@@ -115,6 +116,15 @@ function templateOrientationPlural(orientation: VideoOrientation) {
   return orientation === 'portrait' ? 'retratos' : 'paisagens';
 }
 
+function cameraFacingLabel(facing: CameraFacing) {
+  return facing === 'environment' ? 'Traseira' : 'Frontal';
+}
+
+function cameraFacingFromStream(stream: MediaStream, fallback: CameraFacing): CameraFacing {
+  const facingMode = stream.getVideoTracks()[0]?.getSettings().facingMode;
+  return facingMode === 'environment' || facingMode === 'user' ? facingMode : fallback;
+}
+
 function readVideoMetadata(url: string) {
   return new Promise<{ duration: number; width: number; height: number }>((resolve, reject) => {
     const video = document.createElement('video');
@@ -176,36 +186,37 @@ function orientationFromViewport(): VideoOrientation {
   return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
 }
 
-function cameraVideoConstraints(orientation: VideoOrientation): MediaTrackConstraints {
+function cameraVideoConstraints(orientation: VideoOrientation, facingMode: CameraFacing, strictFacing = false): MediaTrackConstraints {
   const portrait = orientation === 'portrait';
-  const constraints: MediaTrackConstraints & { resizeMode?: string } = {
-    facingMode: 'user',
+  const constraints: MediaTrackConstraints = {
+    facingMode: strictFacing ? { exact: facingMode } : { ideal: facingMode },
     width: { ideal: portrait ? 1080 : 1920 },
     height: { ideal: portrait ? 1920 : 1080 },
-    aspectRatio: { ideal: portrait ? 9 / 16 : 16 / 9 },
-    resizeMode: 'crop-and-scale',
   };
   return constraints;
 }
 
-async function requestCameraStream(orientation: VideoOrientation) {
+async function requestCameraStream(orientation: VideoOrientation, facingMode: CameraFacing) {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('CAMERA_API_UNAVAILABLE');
   }
 
-  const video = cameraVideoConstraints(orientation);
+  const strictVideo = cameraVideoConstraints(orientation, facingMode, true);
+  const preferredVideo = cameraVideoConstraints(orientation, facingMode);
   const portrait = orientation === 'portrait';
   const simpleVideo: MediaTrackConstraints = {
-    facingMode: 'user',
+    facingMode: { ideal: facingMode },
     width: { ideal: portrait ? 720 : 1280 },
     height: { ideal: portrait ? 1280 : 720 },
   };
-  const fallbackVideo = { facingMode: 'user' as const };
+  const fallbackVideo: MediaTrackConstraints = { facingMode: { ideal: facingMode } };
   const attempts: MediaStreamConstraints[] = [
-    { video, audio: { echoCancellation: true, noiseSuppression: true } },
-    { video, audio: false },
+    { video: strictVideo, audio: { echoCancellation: true, noiseSuppression: true } },
+    { video: preferredVideo, audio: { echoCancellation: true, noiseSuppression: true } },
+    { video: preferredVideo, audio: false },
     { video: simpleVideo, audio: false },
     { video: fallbackVideo, audio: false },
+    { video: true, audio: false },
   ];
 
   let lastError: unknown;
@@ -1285,6 +1296,7 @@ export default function OperatorPage() {
   const [sourceDuration, setSourceDuration] = useState(0);
   const [videoOrientation, setVideoOrientation] = useState<VideoOrientation | null>(null);
   const [recordingOrientation, setRecordingOrientation] = useState<VideoOrientation>(() => orientationFromViewport());
+  const [cameraFacing, setCameraFacing] = useState<CameraFacing>('user');
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState<number>(operatorPreferences.defaultDuration);
   const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
@@ -1640,8 +1652,9 @@ export default function OperatorPage() {
   async function startCamera() {
     try {
       streamRef.current?.getTracks().forEach((track) => track.stop());
-      const stream = await requestCameraStream(recordingOrientation);
+      const stream = await requestCameraStream(recordingOrientation, cameraFacing);
       streamRef.current = stream;
+      setCameraFacing(cameraFacingFromStream(stream, cameraFacing));
       setVideoOrientation(recordingOrientation);
       setStep('capture');
     } catch {
@@ -1654,8 +1667,9 @@ export default function OperatorPage() {
     if (recording) return;
     try {
       streamRef.current?.getTracks().forEach((track) => track.stop());
-      const stream = await requestCameraStream(orientation);
+      const stream = await requestCameraStream(orientation, cameraFacing);
       streamRef.current = stream;
+      setCameraFacing(cameraFacingFromStream(stream, cameraFacing));
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => undefined);
@@ -1663,6 +1677,27 @@ export default function OperatorPage() {
       setVideoOrientation(orientation);
     } catch {
       toast.error('Não foi possível trocar o formato da câmera.');
+    }
+  }
+
+  async function restartCameraWithFacing(facing: CameraFacing) {
+    if (recording) return;
+    if (step !== 'capture') {
+      setCameraFacing(facing);
+      return;
+    }
+    try {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const stream = await requestCameraStream(recordingOrientation, facing);
+      streamRef.current = stream;
+      setCameraFacing(cameraFacingFromStream(stream, facing));
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => undefined);
+      }
+      setVideoOrientation(recordingOrientation);
+    } catch {
+      toast.error('Não foi possível trocar a câmera.');
     }
   }
 
@@ -2234,8 +2269,27 @@ export default function OperatorPage() {
                 ))}
               </div>
               <p className="text-xs text-white/40">
-                No iOS/Android, escolha aqui antes de abrir a câmera para gravar em pe ou deitado.
+                No iOS/Android, escolha aqui antes de abrir a câmera para gravar em pé ou deitado.
               </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-white">Câmera</p>
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+                {(['user', 'environment'] as const).map((facing) => (
+                  <button
+                    key={facing}
+                    type="button"
+                    onClick={() => setCameraFacing(facing)}
+                    className={`min-h-11 rounded-xl px-3 text-sm font-bold transition ${
+                      cameraFacing === facing
+                        ? 'bg-brand-500 text-white shadow-glow'
+                        : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
+                    }`}
+                  >
+                    {cameraFacingLabel(facing)}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <button
@@ -2406,7 +2460,7 @@ export default function OperatorPage() {
           <div className="space-y-4">
             <div className="relative">
               <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={previewEffect} label="Ao vivo" className={livePreviewFrameClass}>
-                <video ref={videoRef} autoPlay muted playsInline onLoadedMetadata={handleLiveMetadata} className="h-full w-full object-cover" />
+                <video ref={videoRef} autoPlay muted playsInline onLoadedMetadata={handleLiveMetadata} className="h-full w-full object-contain" />
               </VideoPreviewFrame>
               {countdown > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -2436,6 +2490,24 @@ export default function OperatorPage() {
                   }`}
                 >
                   {orientation === 'portrait' ? 'Retrato' : 'Paisagem'}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+              {(['user', 'environment'] as const).map((facing) => (
+                <button
+                  key={facing}
+                  type="button"
+                  disabled={recording}
+                  onClick={() => restartCameraWithFacing(facing)}
+                  className={`min-h-10 rounded-xl px-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                    cameraFacing === facing
+                      ? 'bg-brand-500 text-white'
+                      : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
+                  }`}
+                >
+                  {cameraFacingLabel(facing)}
                 </button>
               ))}
             </div>
