@@ -22,6 +22,8 @@ const schema = z.object({
   status: z.enum(['draft', 'active', 'closed', 'archived']),
   description: z.string().optional(),
   profileHeadline: z.string().optional(),
+  primaryColor: z.string().min(4),
+  secondaryColor: z.string().min(4),
   leadCaptureEnabled: z.boolean(),
   leadCaptureRequired: z.boolean(),
   shareMessage: z.string().optional(),
@@ -49,16 +51,42 @@ export default function EventFormPage() {
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [assetLoading, setAssetLoading] = useState('');
 
-  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { status: 'draft', type: 'other', leadCaptureEnabled: false, leadCaptureRequired: false },
+    defaultValues: {
+      status: 'draft',
+      type: 'other',
+      primaryColor: '#7c3aed',
+      secondaryColor: '#4f46e5',
+      leadCaptureEnabled: false,
+      leadCaptureRequired: false,
+    },
   });
+  const primaryColor = watch('primaryColor') || '#7c3aed';
+  const secondaryColor = watch('secondaryColor') || '#4f46e5';
+  const previewGradient = {
+    background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+  };
 
   useEffect(() => {
     if (!id) return;
     getEvent(id).then(e => {
       if (!e) return;
-      reset(e as any);
+      reset({
+        name: e.name,
+        clientName: e.clientName,
+        date: e.date,
+        location: e.location,
+        type: e.type,
+        status: e.status,
+        description: e.description || '',
+        profileHeadline: e.profileHeadline || '',
+        primaryColor: e.branding?.primaryColor || '#7c3aed',
+        secondaryColor: e.branding?.secondaryColor || '#4f46e5',
+        leadCaptureEnabled: e.leadCaptureEnabled,
+        leadCaptureRequired: e.leadCaptureRequired,
+        shareMessage: e.shareMessage || '',
+      });
       setCoverUrl(e.coverUrl || '');
       setAvatarUrl(e.avatarUrl || e.logoUrl || '');
       setMediaUrls(e.mediaUrls || []);
@@ -100,15 +128,16 @@ export default function EventFormPage() {
 
   async function onSubmit(data: FormData) {
     if (!user) return;
+    const { primaryColor: nextPrimaryColor, secondaryColor: nextSecondaryColor, ...eventData } = data;
     const payload = {
-      ...data,
+      ...eventData,
       coverUrl,
       avatarUrl,
       logoUrl: avatarUrl,
       mediaUrls,
       ownerId: user.uid,
       passwordEnabled: false,
-      branding: { primaryColor: '#7c3aed', secondaryColor: '#4f46e5', logoUrl: avatarUrl },
+      branding: { primaryColor: nextPrimaryColor, secondaryColor: nextSecondaryColor, logoUrl: avatarUrl },
     };
 
     try {
@@ -175,9 +204,16 @@ export default function EventFormPage() {
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
               <p className="text-sm font-semibold text-white">Perfil público</p>
-              <div className="relative h-24 rounded-xl overflow-hidden bg-white/5">
-                {coverUrl ? <img src={coverUrl} alt="" className="w-full h-full object-cover" /> : <div className="h-full bg-gradient-brand opacity-50" />}
-                {avatarUrl && <img src={avatarUrl} alt="" className="absolute left-3 -bottom-5 w-16 h-16 rounded-2xl object-cover border-2 border-surface bg-surface" />}
+              <div className="relative pb-7">
+                <div className="h-24 overflow-hidden rounded-xl bg-white/5">
+                  {coverUrl ? <img src={coverUrl} alt="" className="w-full h-full object-cover" /> : <div className="h-full opacity-70" style={previewGradient} />}
+                </div>
+                <div
+                  className="absolute bottom-0 left-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-surface bg-gradient-brand text-lg font-black text-white shadow-xl"
+                  style={!avatarUrl ? previewGradient : undefined}
+                >
+                  {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full rounded-full object-cover" /> : watch('name')?.charAt(0) || 'S'}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 pt-4">
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white/[0.06] px-3 py-2 text-xs font-bold text-white hover:bg-white/[0.1]">
@@ -187,6 +223,16 @@ export default function EventFormPage() {
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white/[0.06] px-3 py-2 text-xs font-bold text-white hover:bg-white/[0.1]">
                   <Upload className="w-4 h-4" /> Avatar
                   <input type="file" accept="image/*" className="hidden" disabled={assetLoading === 'avatar'} onChange={handleSingleUpload('avatar')} />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <label className="space-y-1">
+                  <span className="block text-xs font-semibold text-white/55">Cor principal</span>
+                  <input type="color" className="h-10 w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.06] p-1" {...register('primaryColor')} />
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-xs font-semibold text-white/55">Cor secundária</span>
+                  <input type="color" className="h-10 w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.06] p-1" {...register('secondaryColor')} />
                 </label>
               </div>
             </div>

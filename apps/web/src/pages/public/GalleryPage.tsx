@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarDays, Download, Lock, MapPin, QrCode, Share2, Sparkles, Video } from 'lucide-react';
+import { CalendarDays, Download, Lock, Pencil, MapPin, QrCode, Share2, Sparkles, Video } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { getEventBySlug } from '@/services/eventService';
 import { getEventVideos } from '@/services/videoService';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
+import { useAuth } from '@/hooks/useAuth';
 import type { AppEvent, AppVideo } from '@/types';
 
 function isVideoUrl(url: string) {
@@ -18,6 +19,7 @@ function isVideoUrl(url: string) {
 export default function GalleryPage() {
   const { eventSlug } = useParams<{ eventSlug: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [event, setEvent] = useState<AppEvent | null>(null);
   const [videos, setVideos] = useState<AppVideo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,13 +81,24 @@ export default function GalleryPage() {
 
   const publicUrl = window.location.href;
   const featuredMedia = event.mediaUrls || [];
+  const canEditPage = Boolean(user && (user.uid === event.ownerId || user.role === 'admin'));
+  const primaryColor = event.branding?.primaryColor || '#3b6dff';
+  const secondaryColor = event.branding?.secondaryColor || '#7c3aed';
+  const coverFallbackStyle = {
+    background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+  };
 
   return (
     <div className="min-h-screen bg-surface text-white">
       <div className="mx-auto max-w-5xl border-x border-white/[0.06] min-h-screen bg-surface">
         <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.08] bg-surface/85 px-4 py-3 backdrop-blur-xl">
           <BrandWordmark className="text-xl" />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {canEditPage && (
+              <Button variant="secondary" size="sm" onClick={() => navigate(`/app/events/${event.id}/edit`)} icon={<Pencil className="w-4 h-4" />}>
+                Editar página
+              </Button>
+            )}
             <Button variant="secondary" size="sm" onClick={() => setQrOpen(true)} icon={<QrCode className="w-4 h-4" />}>QR</Button>
             <Button variant="secondary" size="sm" icon={<Share2 className="w-4 h-4" />}
               onClick={() => navigator.share?.({ url: publicUrl, title: event.name }) || navigator.clipboard.writeText(publicUrl)}>
@@ -94,31 +107,41 @@ export default function GalleryPage() {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative z-0 h-52 overflow-hidden sm:h-72">
           {event.coverUrl ? (
-            <img src={event.coverUrl} className="w-full h-48 sm:h-64 object-cover" alt="" />
+            <img src={event.coverUrl} className="h-full w-full object-cover" alt="" />
           ) : (
-            <div className="w-full h-48 sm:h-64 bg-gradient-brand opacity-70" />
+            <div className="h-full w-full opacity-85" style={coverFallbackStyle} />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface via-surface/15 to-transparent" />
         </div>
 
-        <section className="px-4 sm:px-6 pb-6 border-b border-white/[0.08]">
-          <div className="-mt-12 sm:-mt-16 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-end gap-4">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl bg-gradient-brand flex items-center justify-center text-4xl font-black text-white shadow-2xl shrink-0 border-4 border-surface overflow-hidden">
+        <section className="relative z-10 border-b border-white/[0.08] px-4 pb-6 sm:px-6">
+          <div className="-mt-12 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div
+                className="relative z-10 flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-gradient-brand text-4xl font-black text-white shadow-2xl shadow-black/40 ring-1 ring-white/12 sm:h-32 sm:w-32"
+                style={!event.avatarUrl && !event.logoUrl ? coverFallbackStyle : undefined}
+              >
                 {event.avatarUrl || event.logoUrl ? (
-                  <img src={event.avatarUrl || event.logoUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={event.avatarUrl || event.logoUrl} alt="" className="h-full w-full rounded-full object-cover" />
                 ) : (
                   event.name.charAt(0)
                 )}
               </div>
-              <div className="pb-2">
+              <div className="min-w-0 pb-2">
                 <h1 className="text-2xl sm:text-4xl font-black leading-tight">{event.name}</h1>
                 <p className="text-white/50 text-sm sm:text-base">{event.clientName}</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => setQrOpen(true)} icon={<QrCode className="w-4 h-4" />}>QR Code do evento</Button>
+            <div className="flex flex-wrap gap-2">
+              {canEditPage && (
+                <Button variant="secondary" onClick={() => navigate(`/app/events/${event.id}/edit`)} icon={<Pencil className="w-4 h-4" />}>
+                  Editar página
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setQrOpen(true)} icon={<QrCode className="w-4 h-4" />}>QR Code do evento</Button>
+            </div>
           </div>
 
           <p className="mt-5 max-w-2xl text-white/75">{event.profileHeadline || event.description || 'Momentos 360 prontos para assistir, baixar e compartilhar.'}</p>
