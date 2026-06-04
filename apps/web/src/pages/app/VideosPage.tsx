@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckSquare,
@@ -31,6 +32,16 @@ import { toast } from '@/components/ui/Toast';
 import type { AppEvent, AppVideo } from '@/types';
 
 const STANDALONE_EVENT_ID = 'standalone';
+const VIDEO_MENU_WIDTH = 224;
+const VIDEO_MENU_ESTIMATED_HEIGHT = 390;
+const VIDEO_MENU_MARGIN = 8;
+const VIDEO_MENU_GAP = 8;
+
+type VideoMenuPosition = {
+  top: number;
+  left: number;
+  maxHeight: number;
+};
 
 const statusLabel: Record<string, string> = {
   uploaded: 'Enviado',
@@ -55,6 +66,30 @@ const compactNumber = new Intl.NumberFormat('pt-BR', {
 
 function statValue(value: number | undefined) {
   return Number.isFinite(value) ? value || 0 : 0;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function calculateVideoMenuPosition(button: HTMLButtonElement): VideoMenuPosition {
+  const rect = button.getBoundingClientRect();
+  const maxHeight = Math.max(240, window.innerHeight - VIDEO_MENU_MARGIN * 2);
+  const estimatedHeight = Math.min(VIDEO_MENU_ESTIMATED_HEIGHT, maxHeight);
+  const maxLeft = Math.max(VIDEO_MENU_MARGIN, window.innerWidth - VIDEO_MENU_WIDTH - VIDEO_MENU_MARGIN);
+  const left = clamp(rect.right - VIDEO_MENU_WIDTH, VIDEO_MENU_MARGIN, maxLeft);
+  const shouldOpenUp = rect.bottom + VIDEO_MENU_GAP + estimatedHeight > window.innerHeight - VIDEO_MENU_MARGIN
+    && rect.top - VIDEO_MENU_GAP - estimatedHeight >= VIDEO_MENU_MARGIN;
+  const preferredTop = shouldOpenUp
+    ? rect.top - VIDEO_MENU_GAP - estimatedHeight
+    : rect.bottom + VIDEO_MENU_GAP;
+  const maxTop = Math.max(VIDEO_MENU_MARGIN, window.innerHeight - estimatedHeight - VIDEO_MENU_MARGIN);
+
+  return {
+    top: clamp(preferredTop, VIDEO_MENU_MARGIN, maxTop),
+    left,
+    maxHeight,
+  };
 }
 
 function videoShareUrl(video: AppVideo) {
@@ -151,6 +186,7 @@ export default function VideosPage() {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<VideoMenuPosition | null>(null);
   const [inlinePreviewId, setInlinePreviewId] = useState<string | null>(null);
   const [previewVideo, setPreviewVideo] = useState<AppVideo | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -164,6 +200,24 @@ export default function VideosPage() {
   const [savingTitle, setSavingTitle] = useState(false);
 
   const eventMap = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
+
+  function closeVideoMenu() {
+    setOpenMenuId(null);
+    setMenuPosition(null);
+  }
+
+  function toggleVideoMenu(videoId: string, button: HTMLButtonElement) {
+    setInlinePreviewId(null);
+    setOpenMenuId((current) => {
+      if (current === videoId) {
+        setMenuPosition(null);
+        return null;
+      }
+
+      setMenuPosition(calculateVideoMenuPosition(button));
+      return videoId;
+    });
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -201,9 +255,18 @@ export default function VideosPage() {
 
   useEffect(() => {
     if (!openMenuId) return undefined;
-    const closeMenu = () => setOpenMenuId(null);
+    const closeMenu = () => {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    };
     window.addEventListener('click', closeMenu);
-    return () => window.removeEventListener('click', closeMenu);
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
   }, [openMenuId]);
 
   function bumpStat(videoId: string, field: 'downloads' | 'shares') {
@@ -234,13 +297,13 @@ export default function VideosPage() {
 
   function openDeleteConfirmation(ids: string[]) {
     if (ids.length === 0) return;
-    setOpenMenuId(null);
+    closeVideoMenu();
     setDeleteIds(ids);
   }
 
   function openAssignEventModal(ids: string[]) {
     if (ids.length === 0) return;
-    setOpenMenuId(null);
+    closeVideoMenu();
     setInlinePreviewId(null);
 
     if (events.length === 0) {
@@ -263,18 +326,18 @@ export default function VideosPage() {
   }
 
   function openRenameModal(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     setRenameVideo(video);
     setTitleDraft(video.title || '');
   }
 
   function editVideoAgain(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     navigate(`/app/gravar?edit=${encodeURIComponent(video.id)}`);
   }
 
   function openPreview(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     setInlinePreviewId(null);
     setPreviewVideo(video);
   }
@@ -391,7 +454,7 @@ export default function VideosPage() {
   }
 
   async function shareVideo(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     const url = videoShareUrl(video);
     try {
       if (navigator.share) {
@@ -409,20 +472,20 @@ export default function VideosPage() {
   }
 
   function openWhatsApp(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     window.open(whatsappUrl(video), '_blank', 'noopener,noreferrer');
     bumpStat(video.id, 'shares');
   }
 
   function openVideo(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     setInlinePreviewId(null);
     const url = video.status === 'published' ? videoShareUrl(video) : video.videoUrl;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   async function downloadVideo(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     try {
       await downloadUrlAsFile(video.videoUrl, video.title || `six3-video-${video.id}`);
       bumpStat(video.id, 'downloads');
@@ -434,7 +497,7 @@ export default function VideosPage() {
   }
 
   async function copyVideoLinkFromMenu(video: AppVideo) {
-    setOpenMenuId(null);
+    closeVideoMenu();
     await copyLink(video);
   }
 
@@ -659,17 +722,21 @@ export default function VideosPage() {
                       className="grid h-9 w-9 place-items-center rounded-full text-white/58 transition hover:bg-white/[0.08] hover:text-white"
                       onClick={(eventClick) => {
                         eventClick.stopPropagation();
-                        setInlinePreviewId(null);
-                        setOpenMenuId((current) => current === video.id ? null : video.id);
+                        toggleVideoMenu(video.id, eventClick.currentTarget);
                       }}
                       aria-label="Abrir ações do vídeo"
                     >
                       <MoreVertical className="h-5 w-5" />
                     </button>
 
-                    {menuOpen && (
+                    {menuOpen && menuPosition && typeof document !== 'undefined' && createPortal(
                       <div
-                        className="absolute right-0 top-10 z-30 w-56 rounded-2xl border border-white/[0.12] bg-[#14161e] p-2 shadow-2xl shadow-black/60"
+                        className="fixed z-[120] w-56 overflow-y-auto rounded-2xl border border-white/[0.12] bg-[#14161e] p-2 shadow-2xl shadow-black/60"
+                        style={{
+                          left: menuPosition.left,
+                          top: menuPosition.top,
+                          maxHeight: menuPosition.maxHeight,
+                        }}
                         onClick={(eventClick) => eventClick.stopPropagation()}
                       >
                         <MenuAction disabled={!canPlay} onClick={() => openPreview(video)} icon={<PlayCircle className="h-4 w-4" />}>
@@ -704,7 +771,8 @@ export default function VideosPage() {
                         <MenuAction tone="danger" onClick={() => openDeleteConfirmation([video.id])} icon={<Trash2 className="h-4 w-4" />}>
                           Excluir
                         </MenuAction>
-                      </div>
+                      </div>,
+                      document.body,
                     )}
                   </div>
                 </div>
