@@ -8,7 +8,6 @@ import { getEventVideos } from '@/services/videoService';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
 import type { AppEvent, AppVideo } from '@/types';
 
@@ -91,8 +90,16 @@ export default function GalleryPage() {
   return (
     <div className="min-h-screen bg-surface text-white">
       <div className="mx-auto max-w-5xl border-x border-white/[0.06] min-h-screen bg-surface">
-        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.08] bg-surface/85 px-4 py-3 backdrop-blur-xl">
-          <BrandWordmark className="text-xl" />
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/[0.08] bg-surface/85 px-4 py-3 backdrop-blur-xl">
+          <div className="relative h-11 w-32 shrink-0 overflow-hidden sm:h-14 sm:w-44" aria-label="SIX3">
+            <img
+              src="/brand/six3.png"
+              alt=""
+              aria-hidden="true"
+              className="absolute left-1/2 top-[56%] w-[200px] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain sm:w-[260px]"
+              draggable={false}
+            />
+          </div>
           <div className="flex flex-wrap justify-end gap-2">
             {canEditPage && (
               <Button variant="secondary" size="sm" onClick={() => navigate(`/app/events/${event.id}/edit`)} icon={<Pencil className="w-4 h-4" />}>
