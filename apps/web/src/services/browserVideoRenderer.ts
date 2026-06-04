@@ -1,3 +1,5 @@
+import { normalizationFactor, type AudioMixSettings } from '@/features/music';
+
 type RenderEffectSegment = {
   effect: string;
   start: number;
@@ -30,6 +32,11 @@ export type BrowserVideoRenderOptions = {
   overlayOpacity?: number;
   musicUrl?: string;
   musicTheme?: string;
+  /**
+   * Mixagem de áudio (Etapa 2). Quando ausente, o render mantém o comportamento
+   * legado: só a música, volume 0.92, sem fade e sem áudio original.
+   */
+  mixSettings?: AudioMixSettings;
   onProgress?: (pct: number) => void;
 };
 
@@ -616,26 +623,69 @@ function scheduleSyntheticMusic(audioContext: AudioContext, destination: AudioNo
   }
 }
 
+function clampGain(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
 function attachAudioTrack(
   outputStream: MediaStream,
   audioContext: AudioContext | undefined,
   musicBuffer: AudioBuffer | undefined,
   musicTheme: string | undefined,
   duration: number,
+  opts?: { mixSettings?: AudioMixSettings; sourceVideo?: HTMLVideoElement },
 ) {
   if (!audioContext) return undefined;
   const destination = audioContext.createMediaStreamDestination();
   const theme = musicTheme && musicTheme !== 'none' ? musicTheme : undefined;
+  const settings = opts?.mixSettings;
+  const cleanups: Array<() => void> = [];
 
-  if (musicBuffer) {
+  // Volumes (com normalização anti-clipping quando há mistura música + original).
+  const rawMusicVol = settings ? settings.musicVolume : 0.92;
+  const rawOriginalVol = settings ? settings.originalVolume : 0;
+  const norm = settings && settings.normalize ? normalizationFactor(rawMusicVol, rawOriginalVol) : 1;
+  const musicVol = clampGain(rawMusicVol * norm);
+  const originalVol = clampGain(rawOriginalVol * norm);
+
+  const start = audioContext.currentTime + 0.06;
+  const end = start + duration;
+  // Fades nunca passam de metade do vídeo.
+  const fadeIn = settings ? Math.max(0, Math.min(duration / 2, settings.fadeInSeconds)) : 0;
+  const fadeOut = settings ? Math.max(0, Math.min(duration / 2, settings.fadeOutSeconds)) : 0;
+
+  let attached = false;
+
+  // --- Trilha musical ---
+  if (musicBuffer && musicVol > 0) {
     const source = audioContext.createBufferSource();
     const gain = audioContext.createGain();
     source.buffer = musicBuffer;
-    source.loop = true;
-    gain.gain.setValueAtTime(0.92, audioContext.currentTime);
+
+    // Corte: a música nunca passa do fim do vídeo; loop suave se for menor.
+    const bufferDuration = musicBuffer.duration || duration;
+    const needsLoop = bufferDuration < duration - 0.05;
+    // Em cortes curtos pula a introdução e pega a parte marcante (só com mix novo).
+    const offset = settings && !needsLoop && bufferDuration > duration
+      ? Math.min(bufferDuration - duration, bufferDuration * (duration <= 15 ? 0.18 : 0.06))
+      : 0;
+    source.loop = needsLoop;
+
+    if (fadeIn > 0) {
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(musicVol, start + fadeIn);
+    } else {
+      gain.gain.setValueAtTime(musicVol, start);
+    }
+    if (fadeOut > 0) {
+      gain.gain.setValueAtTime(musicVol, Math.max(start + fadeIn, end - fadeOut));
+      gain.gain.linearRampToValueAtTime(0.0001, end);
+    }
+
     source.connect(gain);
     gain.connect(destination);
-    source.start(audioContext.currentTime);
+    source.start(start, offset);
     window.setTimeout(() => {
       try {
         source.stop();
@@ -643,16 +693,54 @@ function attachAudioTrack(
         // The source can already be stopped when rendering finishes early.
       }
     }, Math.max(1, duration + 0.3) * 1000);
-  } else if (theme) {
+    cleanups.push(() => {
+      try {
+        source.stop();
+      } catch {
+        // noop
+      }
+    });
+    attached = true;
+  } else if (!musicBuffer && theme && musicVol > 0) {
     scheduleSyntheticMusic(audioContext, destination, theme, duration);
-  } else {
+    attached = true;
+  }
+
+  // --- Áudio original do vídeo (opcional, controlado pelo mix) ---
+  // Observação: efeitos temporais (boomerang/speed) pausam/saltam o vídeo, então
+  // o áudio original pode ficar entrecortado nesses casos — o usuário controla o volume.
+  if (originalVol > 0 && opts?.sourceVideo) {
+    try {
+      const sourceVideo = opts.sourceVideo;
+      sourceVideo.muted = false;
+      const mediaSource = audioContext.createMediaElementSource(sourceVideo);
+      const originalGain = audioContext.createGain();
+      originalGain.gain.setValueAtTime(originalVol, audioContext.currentTime);
+      mediaSource.connect(originalGain);
+      originalGain.connect(destination);
+      attached = true;
+      cleanups.push(() => {
+        try {
+          mediaSource.disconnect();
+        } catch {
+          // noop
+        }
+      });
+    } catch {
+      // createMediaElementSource pode falhar (já criado / política do navegador):
+      // segue apenas com a música, sem quebrar o render.
+    }
+  }
+
+  if (!attached) {
     return undefined;
   }
 
   destination.stream.getAudioTracks().forEach((track) => outputStream.addTrack(track));
-  return () => {
+  cleanups.push(() => {
     destination.stream.getTracks().forEach((track) => track.stop());
-  };
+  });
+  return () => cleanups.forEach((fn) => fn());
 }
 
 function revokeAssets(assets: Array<LoadedAsset<HTMLImageElement | HTMLVideoElement> | undefined>, inputUrl: string) {
@@ -679,7 +767,11 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
   let overlayImage: LoadedAsset<HTMLImageElement> | undefined;
   let overlayVideo: LoadedAsset<HTMLVideoElement> | undefined;
   let boomerangCache: BoomerangFrameCache | undefined;
-  const needsAudio = Boolean(options.musicUrl || (options.musicTheme && options.musicTheme !== 'none'));
+  const needsAudio = Boolean(
+    options.musicUrl
+    || (options.musicTheme && options.musicTheme !== 'none')
+    || (options.mixSettings && options.mixSettings.originalVolume > 0),
+  );
   const audioContext = needsAudio ? createAudioContext() : undefined;
   let cleanupAudio: (() => void) | undefined;
 
@@ -733,7 +825,10 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
       baseEffect: options.effect || 'clean',
       segments: normalizedSegments,
     }).catch(() => undefined);
-    cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, targetDuration);
+    cleanupAudio = attachAudioTrack(outputStream, audioContext, loadedMusicBuffer, options.musicTheme, targetDuration, {
+      mixSettings: options.mixSettings,
+      sourceVideo,
+    });
 
     const rendered = new Promise<Blob>((resolve, reject) => {
       recorder.ondataavailable = (event) => {

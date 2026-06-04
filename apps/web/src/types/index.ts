@@ -461,6 +461,27 @@ export interface AppMusic {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  // --- Metadados estendidos (sistema de música v2; todos opcionais p/ retrocompatibilidade) ---
+  slug?: string;
+  subcategory?: string;
+  /** Categoria musical normalizada (ver features/music). Mantém `category` legado. */
+  musicCategory?: string;
+  mood?: string[];
+  /** Energia 1..10. */
+  energyLevel?: number;
+  durationOriginal?: number;
+  /** Cortes disponíveis/possíveis (5|15|25|35|45). */
+  availableCuts?: number[];
+  bestForDurations?: number[];
+  previewUrl?: string;
+  waveformUrl?: string;
+  /** URLs de cortes prontos por duração: { "15": url }. */
+  cuts?: Record<string, string>;
+  licenseType?: string;
+  allowedCommercialUse?: boolean;
+  attributionRequired?: boolean;
+  tags?: string[];
+  isPremium?: boolean;
 }
 
 export type MusicLibraryProviderId =

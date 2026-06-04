@@ -36,9 +36,9 @@ export default function PricingPage() {
             <LockKeyhole className="h-4 w-4 shrink-0" />
             <span className="min-w-0 break-words">Recursos bloqueados até o pagamento</span>
           </div>
-          <h1 className="mx-auto max-w-[18rem] text-3xl font-black leading-tight tracking-[-0.03em] text-white sm:max-w-none sm:text-5xl lg:text-6xl">
-            Escolha sua jornada no{' '}
-            <BrandWordmark className="inline-flex text-4xl sm:text-5xl" />
+          <BrandWordmark className="mx-auto mb-3 justify-center text-4xl sm:text-5xl" />
+          <h1 className="mx-auto max-w-[18rem] text-3xl font-black leading-tight text-white sm:max-w-none sm:text-5xl lg:text-6xl">
+            Escolha seu plano
           </h1>
           <p className="mx-auto mt-4 max-w-[18rem] text-sm leading-relaxed text-white/55 sm:max-w-2xl sm:text-lg">
             Escolha um plano, crie sua conta e libere templates, galerias, QR Codes, leads, modo offline e analytics.

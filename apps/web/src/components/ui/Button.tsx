@@ -31,10 +31,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold tracking-normal transition-all duration-300 active:scale-[0.98] hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex max-w-full items-center justify-center gap-2 whitespace-nowrap font-bold leading-tight tracking-normal transition-all duration-300 active:scale-[0.98] hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
-      <span className="inline-flex items-center gap-2">
+      <span className="inline-flex min-w-0 items-center gap-2">
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : icon}
         {children}
       </span>

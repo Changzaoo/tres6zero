@@ -74,6 +74,15 @@ export function publicUrl(bucket: SupabaseBucket, objectPath: string) {
   return data.publicUrl;
 }
 
+export async function objectExists(bucket: SupabaseBucket, objectPath: string) {
+  const slash = objectPath.lastIndexOf('/');
+  const prefix = slash >= 0 ? objectPath.slice(0, slash) : '';
+  const fileName = slash >= 0 ? objectPath.slice(slash + 1) : objectPath;
+  const { data, error } = await getSupabase().storage.from(bucket).list(prefix, { search: fileName, limit: 100 });
+  if (error || !data) return false;
+  return data.some((item) => item.name === fileName);
+}
+
 export async function ensurePublicBucket(bucket: SupabaseBucket) {
   const storage = getSupabase().storage;
   const existing = await storage.getBucket(bucket);

@@ -124,7 +124,7 @@ export default function SupportPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[22rem_1fr]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[22rem_1fr]">
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-white">
             <LifeBuoy className="h-5 w-5 text-brand-400" />
@@ -148,7 +148,7 @@ export default function SupportPage() {
           </form>
         </Card>
 
-        <div className="grid gap-5 lg:grid-cols-[18rem_1fr]">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[18rem_1fr]">
           <Card>
             <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-white">
               <MessageSquare className="h-5 w-5 text-brand-400" />
@@ -204,7 +204,7 @@ export default function SupportPage() {
                     );
                   })}
                 </div>
-                <form onSubmit={handleReply} className="flex gap-2 border-t border-white/10 pt-4">
+                <form onSubmit={handleReply} className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row">
                   <textarea
                     value={reply}
                     onChange={(event) => setReply(event.target.value)}
@@ -212,7 +212,7 @@ export default function SupportPage() {
                     className="min-h-[3rem] flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 focus:border-brand-400/70 focus:outline-none"
                     placeholder="Responder..."
                   />
-                  <Button type="submit" loading={submitting} icon={<Send className="h-4 w-4" />}>
+                  <Button type="submit" loading={submitting} className="justify-center" icon={<Send className="h-4 w-4" />}>
                     Enviar
                   </Button>
                 </form>

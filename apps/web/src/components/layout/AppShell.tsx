@@ -14,12 +14,12 @@ export function AppShell() {
   useNotificationPolling(user);
 
   return (
-    <div className="six3-grid-bg flex h-screen overflow-hidden bg-surface">
+    <div className="six3-grid-bg flex h-[100dvh] min-w-0 overflow-hidden bg-surface">
       <MouseAura />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
-        <main className="relative z-10 flex-1 overflow-y-auto p-4 pb-28 md:p-6 md:pb-28 lg:pb-6">
+        <main className="relative z-10 min-w-0 flex-1 overflow-y-auto p-3 pb-28 sm:p-4 md:p-6 md:pb-28 lg:pb-6">
           <Outlet />
         </main>
         <MobileBottomNav />

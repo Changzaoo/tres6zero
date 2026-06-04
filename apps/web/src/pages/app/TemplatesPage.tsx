@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Star, Upload, Wand2, X } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
-import { getGeneratedMusic, seedCuratedTemplates, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
+import { getGeneratedMusic, seedCuratedTemplates, uploadMusicToServer, uploadTemplateToServer, startGeneratedTemplatesSeedJob, getGeneratedTemplatesSeedJob } from '@/services/serverMediaService';
+import { AdminMusicPanel } from '@/features/music';
 import { buildSunoPrompt, describeSunoStatus, generateSunoMusic, waitForSunoMusic, type SunoMusicMode } from '@/services/sunoMusicService';
 import { checkMusicLibraryLicense, getMusicLibraries, importMusicLibraryTrack } from '@/services/musicLibraryService';
 import { favoriteSet, getMediaFavorites, isMediaFavorite, sortFavoritesFirst, subscribeMediaFavorites, toggleMediaFavorite, type MediaFavorites } from '@/services/mediaFavorites';
@@ -329,6 +330,7 @@ export default function TemplatesPage() {
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedStatus, setSeedStatus] = useState('');
+  const [seedingMusic, setSeedingMusic] = useState(false);
   const [progress, setProgress] = useState(0);
   const [musicProgress, setMusicProgress] = useState(0);
   const [visibleCount, setVisibleCount] = useState(INITIAL_TEMPLATE_COUNT);
@@ -752,6 +754,38 @@ export default function TemplatesPage() {
     }
   }
 
+  async function handleSeedMusic() {
+    if (!isAdmin) return;
+    setSeedingMusic(true);
+    setSeedStatus('Gerando e enviando músicas ao Supabase...');
+    try {
+      // count=0/animatedCount=0 -> só músicas; musicCount>0 dispara o catálogo completo.
+      const job = await startGeneratedTemplatesSeedJob(0, 0, 1);
+      let current = job;
+      const startedAt = Date.now();
+      while (current.status === 'queued' || current.status === 'running') {
+        if (Date.now() - startedAt > 20 * 60 * 1000) throw new Error('A geração está demorando; ela continua no servidor — recarregue em alguns minutos.');
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        current = await getGeneratedTemplatesSeedJob(job.id);
+        setSeedStatus(`Enviando músicas ao Supabase... ${current.musicUploaded} faixas`);
+      }
+      if (current.status === 'failed') {
+        throw new Error(current.error === 'HEAVY_ASSET_JOB_DISABLED'
+          ? 'Geração em massa desativada no servidor (defina SIX3_HEAVY_ASSET_JOBS_ENABLED=true).'
+          : current.error || 'Falha ao gerar músicas.');
+      }
+      const { music: loadedMusic } = await loadCatalog(user?.uid);
+      setMusic(loadedMusic);
+      setSeedStatus(`${current.musicUploaded} músicas geradas e salvas no Supabase.`);
+      toast.success('Músicas geradas e enviadas ao Supabase.');
+    } catch (error) {
+      setSeedStatus('');
+      toast.error(error instanceof Error ? error.message : 'Erro ao gerar músicas.');
+    } finally {
+      setSeedingMusic(false);
+    }
+  }
+
   function sunoInput() {
     return {
       prompt: sunoPrompt,
@@ -866,12 +900,24 @@ export default function TemplatesPage() {
                 Salvar biblioteca 360
               </Button>
             )}
-            <label className={`hidden min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={seedingMusic}
+                onClick={handleSeedMusic}
+                icon={<Music2 className="h-4 w-4" />}
+                className="col-span-2 sm:col-span-1"
+              >
+                Gerar músicas
+              </Button>
+            )}
+            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
               <span className="truncate">{uploading ? `${progress}%` : 'Template'}</span>
               <input type="file" accept="image/png,image/svg+xml,image/webp,image/gif,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
             </label>
-            <label className={`hidden min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
               <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Música'}</span>
               <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
@@ -1050,6 +1096,16 @@ export default function TemplatesPage() {
       {seedStatus && (
         <div className="rounded-2xl border border-brand-300/20 bg-brand-500/10 p-4 text-sm text-brand-100">
           {seedStatus}
+        </div>
+      )}
+
+      {activeSection === 'music' && isAdmin && (
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Music2 className="h-4 w-4 text-brand-300" />
+            <h2 className="text-sm font-bold text-white">Gerenciar biblioteca (admin)</h2>
+          </div>
+          <AdminMusicPanel ownerId={user?.uid} />
         </div>
       )}
 

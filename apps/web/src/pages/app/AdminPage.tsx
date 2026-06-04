@@ -540,7 +540,67 @@ export default function AdminPage() {
     }
 
     return (
-      <div className="overflow-x-auto">
+      <div className="space-y-3">
+        <div className="space-y-3 md:hidden">
+          {overview.users.map((user) => {
+            const mainDevice = user.devices[0];
+            return (
+              <div key={user.uid} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <button type="button" onClick={() => void openUserDetails(user.uid)} className="min-w-0 text-left">
+                    <p className="truncate text-sm font-semibold text-white">{user.name || user.email || 'Usuário'}</p>
+                    <p className="mt-0.5 truncate text-xs text-white/42">{user.email || 'Sem e-mail'}</p>
+                    <p className="mt-1 text-[11px] text-white/28">UID {shortId(user.uid, 12)}</p>
+                  </button>
+                  <StatusBadge user={user} />
+                </div>
+
+                <div className="mt-3 grid gap-2 text-xs text-white/45">
+                  <p>Acesso: <span className="text-white/70">{accessLabel(user.role)}</span></p>
+                  <p>Plano: <span className="text-white/70">{user.planId || user.subscriptionStatus || 'Sem plano'}</span></p>
+                  <p>Último login: <span className="text-white/70">{formatDateTime(user.lastSignInAt)}</span></p>
+                  <p>Dispositivo: <span className="text-white/70">{mainDevice ? `${mainDevice.name} - ${mainDevice.ip || 'sem IP'}` : 'Sem dispositivo registrado'}</span></p>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void openUserDetails(user.uid)}
+                    className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-bold text-white/65"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Detalhes
+                  </button>
+                  {user.role !== 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => void updateSupportRole(user)}
+                      disabled={roleUpdatingUid === user.uid}
+                      className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 text-xs font-bold text-cyan-100 disabled:opacity-50"
+                    >
+                      <UserCog className="h-3.5 w-3.5" />
+                      {user.role === 'support' ? 'Remover suporte' : 'Suporte'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => user.banned ? void submitUnban(user) : openBanDialog(user)}
+                    disabled={banSubmitting}
+                    className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-bold disabled:opacity-50 ${
+                      user.banned
+                        ? 'border-green-400/25 bg-green-500/10 text-green-100'
+                        : 'border-red-400/20 bg-red-500/10 text-red-100'
+                    }`}
+                  >
+                    {user.banned ? <Unlock className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                    {user.banned ? 'Desbanir' : 'Banir'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="min-w-[86rem] w-full text-left">
           <thead className="border-b border-white/10 text-xs uppercase text-white/35">
             <tr>
@@ -662,6 +722,7 @@ export default function AdminPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     );
   };
@@ -671,7 +732,30 @@ export default function AdminPage() {
     if (!overview || overview.events.length === 0) return <EmptyState>Nenhum evento encontrado.</EmptyState>;
 
     return (
-      <div className="overflow-x-auto">
+      <div className="space-y-3">
+        <div className="space-y-3 md:hidden">
+          {overview.events.map((event) => (
+            <div key={event.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{event.name}</p>
+                  <p className="truncate text-xs text-white/42">{event.clientName}</p>
+                  <p className="mt-1 text-[11px] text-white/28">ID {shortId(event.id, 12)}</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold uppercase text-white/60">
+                  {event.status}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-white/45">
+                <p>Dono: <span className="text-white/70">{ownerName(event.ownerId)}</span></p>
+                <p>Data: <span className="text-white/70">{formatDate(event.date)}</span></p>
+                <p>Local: <span className="text-white/70">{event.location || 'Sem local'}</span></p>
+                <p>Mídias: <span className="text-white/70">{eventMediaCount(event)} arquivo(s), {videosByEvent.get(event.id) || 0} vídeo(s)</span></p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="min-w-[68rem] w-full text-left">
           <thead className="border-b border-white/10 text-xs uppercase text-white/35">
             <tr>
@@ -711,6 +795,7 @@ export default function AdminPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     );
   };
@@ -720,7 +805,27 @@ export default function AdminPage() {
     if (!overview || overview.media.length === 0) return <EmptyState>Nenhuma mídia enviada encontrada.</EmptyState>;
 
     return (
-      <div className="overflow-x-auto">
+      <div className="space-y-3">
+        <div className="space-y-3 md:hidden">
+          {overview.media.map((item: AdminMediaItem) => (
+            <div key={item.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{item.fileName || 'Mídia'}</p>
+                  <p className="mt-1 truncate text-xs text-white/35">{item.storagePath || item.url}</p>
+                </div>
+                <OpenMediaLink url={item.url} />
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-white/45">
+                <p>Tipo: <span className="text-white/70">{mediaKindLabels[item.kind] || item.kind}</span></p>
+                <p>Usuário: <span className="text-white/70">{ownerName(item.ownerId)}</span></p>
+                <p>Origem: <span className="text-white/70">{item.sourceTitle}</span></p>
+                <p>Criado: <span className="text-white/70">{formatDateTime(item.createdAt)}</span></p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="min-w-[76rem] w-full text-left">
           <thead className="border-b border-white/10 text-xs uppercase text-white/35">
             <tr>
@@ -757,6 +862,7 @@ export default function AdminPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     );
   };
@@ -766,7 +872,35 @@ export default function AdminPage() {
     if (!overview || overview.loginLogs.length === 0) return <EmptyState>Nenhum log de autenticacao registrado ainda.</EmptyState>;
 
     return (
-      <div className="overflow-x-auto">
+      <div className="space-y-3">
+        <div className="space-y-3 md:hidden">
+          {overview.loginLogs.map((log) => {
+            const user = logUser(log);
+            const location = log.location || [log.city, log.region, log.country].filter(Boolean).join(', ') || 'Sem localização';
+            return (
+              <div key={log.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{formatDateTime(log.createdAt)}</p>
+                    <p className="truncate text-xs text-white/42">{user?.name || log.email || 'Conta não identificada'}</p>
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${log.success ? 'bg-green-500/12 text-green-200' : 'bg-red-500/14 text-red-200'}`}>
+                    {log.success ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                    {log.success ? 'Sucesso' : 'Falha'}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-white/45">
+                  <p>IP: <span className="text-white/70">{log.ip || 'Sem IP'}</span></p>
+                  <p>Local: <span className="text-white/70">{location}</span></p>
+                  <p>Dispositivo: <span className="text-white/70">{log.deviceName || 'Não informado'}</span></p>
+                  <p>Hash: <span className="font-mono text-white/60">{shortId(log.deviceHash, 12)}</span></p>
+                </div>
+                {log.userAgent && <p className="mt-2 break-all font-mono text-[11px] text-white/30">{log.userAgent}</p>}
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
         <table className="min-w-[84rem] w-full text-left">
           <thead className="border-b border-white/10 text-xs uppercase text-white/35">
             <tr>
@@ -816,6 +950,7 @@ export default function AdminPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     );
   };
@@ -1241,8 +1376,8 @@ export default function AdminPage() {
     const isSelfBan = banTarget.uid === adminUser?.uid;
 
     return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/72 p-4 backdrop-blur-sm">
-        <form onSubmit={submitBan} className="w-full max-w-lg rounded-2xl border border-red-400/20 bg-[#0b0c12] p-5 shadow-2xl shadow-black/60">
+      <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/72 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+        <form onSubmit={submitBan} className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-red-400/20 bg-[#0b0c12] p-5 shadow-2xl shadow-black/60 sm:rounded-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200/70">Confirmar banimento</p>
@@ -1347,8 +1482,8 @@ export default function AdminPage() {
     if (!supportFormOpen) return null;
 
     return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/72 p-4 backdrop-blur-sm">
-        <form onSubmit={submitCreateSupportUser} className="w-full max-w-lg rounded-2xl border border-cyan-300/20 bg-[#0b0c12] p-5 shadow-2xl shadow-black/60">
+      <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/72 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+        <form onSubmit={submitCreateSupportUser} className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-cyan-300/20 bg-[#0b0c12] p-5 shadow-2xl shadow-black/60 sm:rounded-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/70">Nova conta</p>

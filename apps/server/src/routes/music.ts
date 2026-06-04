@@ -7,12 +7,19 @@ import { createNotification } from '../services/notifications';
 import { SUPABASE_BUCKETS, ensurePublicBucket, uploadBufferToSupabase } from '../services/supabaseStorage';
 import {
   MUSIC_LIBRARY_PROVIDER_IDS,
+  assertRemoteAudioUrlIsSafe,
   downloadLicensedAudio,
   evaluateMusicLicense,
   isMusicLicenseTestMode,
   listMusicLibraryProviders,
   type MusicLibraryProviderId,
 } from '../services/musicLibraries';
+import {
+  computeWaveformFromBuffer,
+  ffmpegAvailable,
+  generateCutsFromBuffer,
+  type CutDuration,
+} from '../services/audioProcessing';
 import {
   buildSunoGeneratePayload,
   buildSunoMusicPrompt,
@@ -478,6 +485,91 @@ musicRouter.get('/suno/:taskId', requirePlanFeature('ai_auto_edit'), async (req,
       status,
       music,
     });
+  } catch (e) { next(e); }
+});
+
+function cutFades(duration: number): { fadeIn: number; fadeOut: number } {
+  switch (duration) {
+    case 5: return { fadeIn: 0, fadeOut: 0.4 };
+    case 15: return { fadeIn: 0.2, fadeOut: 0.6 };
+    case 25: return { fadeIn: 0.4, fadeOut: 0.8 };
+    case 35: return { fadeIn: 0.6, fadeOut: 1.0 };
+    default: return { fadeIn: 0.8, fadeOut: 1.2 };
+  }
+}
+
+const CUT_DURATIONS: CutDuration[] = [5, 15, 25, 35, 45];
+
+// Gera cortes (5/15/25/35/45s) + waveform de uma faixa salva no Firestore.
+musicRouter.post('/cuts/:id', requireActiveSubscription, async (req, res, next) => {
+  try {
+    const user = res.locals.user as UserProfile;
+    const ref = getDb().collection('music').doc(req.params.id);
+    const snap = await ref.get();
+    if (!snap.exists) { res.status(404).json({ error: 'MUSIC_NOT_FOUND' }); return; }
+
+    const data = snap.data() as Record<string, unknown>;
+    if (user.role !== 'admin' && data.ownerId !== user.uid) {
+      res.status(404).json({ error: 'MUSIC_NOT_FOUND' });
+      return;
+    }
+
+    const sourceUrl = String(data.musicUrl || '');
+    if (!sourceUrl) { res.status(400).json({ error: 'MUSIC_FILE_MISSING' }); return; }
+    if (!ffmpegAvailable()) { res.status(503).json({ error: 'AUDIO_PROCESSING_UNAVAILABLE' }); return; }
+
+    await assertRemoteAudioUrlIsSafe(sourceUrl);
+    const response = await fetch(sourceUrl);
+    if (!response.ok) { res.status(502).json({ error: 'MUSIC_DOWNLOAD_FAILED' }); return; }
+    const sourceBuffer = Buffer.from(await response.arrayBuffer());
+
+    const requested = Array.isArray(data.availableCuts) && data.availableCuts.length
+      ? (data.availableCuts as number[]).filter((d): d is CutDuration => (CUT_DURATIONS as number[]).includes(d))
+      : CUT_DURATIONS;
+    const durations = requested.length ? requested : CUT_DURATIONS;
+
+    await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
+    const specs = durations.map((duration) => ({ duration, sourceStart: 0, ...cutFades(duration) }));
+    const cutBuffers = await generateCutsFromBuffer(sourceBuffer, specs);
+
+    const cuts: Record<string, string> = {};
+    for (const [duration, buffer] of cutBuffers) {
+      const objectPath = `cuts/${user.uid}/${req.params.id}/${duration}s.mp3`;
+      const uploadedCut = await uploadBufferToSupabase({
+        bucket: SUPABASE_BUCKETS.userMusic,
+        prefix: `cuts/${user.uid}/${req.params.id}`,
+        fileName: `${duration}s.mp3`,
+        fallbackExt: '.mp3',
+        buffer,
+        contentType: 'audio/mpeg',
+        objectPath,
+        upsert: true,
+      });
+      cuts[String(duration)] = uploadedCut.publicUrl;
+    }
+
+    const peaks = await computeWaveformFromBuffer(sourceBuffer);
+    const wavePath = `waveforms/${user.uid}/${req.params.id}.json`;
+    const uploadedWave = await uploadBufferToSupabase({
+      bucket: SUPABASE_BUCKETS.userMusic,
+      prefix: `waveforms/${user.uid}`,
+      fileName: `${req.params.id}.json`,
+      fallbackExt: '.json',
+      buffer: Buffer.from(JSON.stringify({ peaks })),
+      contentType: 'application/json',
+      objectPath: wavePath,
+      upsert: true,
+    });
+
+    await ref.update({
+      cuts,
+      waveformUrl: uploadedWave.publicUrl,
+      availableCuts: durations,
+      updatedAt: new Date().toISOString(),
+      _ts: FieldValue.serverTimestamp(),
+    });
+
+    res.json({ cuts, waveformUrl: uploadedWave.publicUrl, durations });
   } catch (e) { next(e); }
 });
 

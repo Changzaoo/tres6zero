@@ -225,7 +225,7 @@ export default function BillingPage() {
           {payment && (
             <>
               <div className={`rounded-xl border p-3 ${paymentStatusTone(payment.status)}`}>
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 gap-2.5">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
                       {payment.status === 'completed' ? (
@@ -246,7 +246,7 @@ export default function BillingPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="shrink-0 rounded-lg border border-white/10 bg-[#171a22] px-3 py-2 text-right">
+                  <div className="w-full shrink-0 rounded-lg border border-white/10 bg-[#171a22] px-3 py-2 text-left sm:w-auto sm:text-right">
                     <p className="text-xs text-white/55">Valor</p>
                     <p className="text-lg font-black text-white">{currencyFormatter.format(payment.amount)}</p>
                   </div>
@@ -276,12 +276,12 @@ export default function BillingPage() {
                 </div>
 
                 <div className="min-w-0 rounded-xl border border-white/[0.08] bg-[#171a22] p-3">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Pix copia e cola</p>
                       <p className="text-xs text-white/45">Abra o app do banco, escolha Pix e cole este código.</p>
                     </div>
-                    <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-white/55">
+                    <span className="w-fit rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-white/55">
                       {checkingPayment ? 'Verificando...' : paymentStatusLabel(payment.status)}
                     </span>
                   </div>

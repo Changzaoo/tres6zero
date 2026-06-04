@@ -184,12 +184,12 @@ function buildDashboardChartData(videos: AppVideo[] = [], leads: Lead[] = []): D
 
 function ChartFallback() {
   return (
-    <div className="grid lg:grid-cols-2 gap-4">
-      <div className="six3-glass p-6">
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div className="six3-glass p-4 sm:p-6">
         <div className="six3-shimmer mb-4 h-5 w-48 rounded-lg bg-white/10" />
         <div className="six3-shimmer h-[200px] rounded-2xl bg-white/10" />
       </div>
-      <div className="six3-glass p-6">
+      <div className="six3-glass p-4 sm:p-6">
         <div className="six3-shimmer mb-4 h-5 w-40 rounded-lg bg-white/10" />
         <div className="six3-shimmer h-[200px] rounded-2xl bg-white/10" />
       </div>
@@ -266,7 +266,7 @@ export default function DashboardPage() {
         <p className="mt-1 text-sm text-white/40">Aqui está um resumo da sua plataforma SIX3°</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard title="Eventos" value={stats?.totalEvents ?? '-'} icon={<Calendar className="w-5 h-5" />} loading={loading} />
         <StatCard title="Vídeos" value={stats?.totalVideos ?? '-'} icon={<Video className="w-5 h-5" />} loading={loading} color="text-green-400" />
         <StatCard title="Leads" value={stats?.totalLeads ?? '-'} icon={<Users className="w-5 h-5" />} loading={loading} color="text-yellow-400" />
@@ -292,14 +292,14 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           <StatCard title="Pessoas" value={resultsSnapshot?.people ?? '-'} icon={<Users className="w-5 h-5" />} loading={loading} color="text-cyan-300" />
           <StatCard title="Contatos" value={resultsSnapshot?.contacts ?? '-'} icon={<Mail className="w-5 h-5" />} loading={loading} color="text-green-300" />
           <StatCard title="Feedbacks" value={resultsSnapshot?.feedbacks ?? '-'} icon={<MessageSquareText className="w-5 h-5" />} loading={loading} color="text-yellow-300" />
           <StatCard title="Cliques" value={resultsSnapshot?.clicks ?? '-'} icon={<Share2 className="w-5 h-5" />} loading={loading} color="text-blue-300" />
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-5">
+        <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:p-5">
           <div className="mb-4 flex items-center gap-2">
             <Activity className="h-5 w-5 text-brand-300" />
             <h3 className="text-base font-semibold text-white">Últimas interações</h3>

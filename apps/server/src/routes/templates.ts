@@ -8,7 +8,8 @@ import { requireAdmin, requireActiveSubscription, requirePlanFeature } from './a
 import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplatePng } from '../services/generatedTemplates';
 import { GENERATED_ANIMATED_TEMPLATE_CATALOG_SIZE, buildGeneratedAnimatedTemplates, renderAnimatedTemplateWebm } from '../services/generatedAnimatedTemplates';
 import { buildCuratedTemplates, getCuratedTemplate, renderCuratedTemplateSvg } from '../services/curatedTemplates';
-import { buildGeneratedMusic, buildPublicLibraryMusic, renderMusicWav } from '../services/generatedMusic';
+import { buildMusicCatalog, catalogCutPath, catalogTrackToPublic, catalogWaveformPath, renderCatalogTrackWav } from '../services/musicCatalog';
+import { computeWaveformFromBuffer, ffmpegAvailable, generateCutsFromBuffer, type CutDuration } from '../services/audioProcessing';
 import { ensurePublicBucket, getSupabase, publicUrl, SUPABASE_BUCKETS, uploadBufferToSupabase } from '../services/supabaseStorage';
 import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification } from '../services/notifications';
@@ -82,6 +83,23 @@ const musicSchema = z.object({
   licenseUrl: z.string().optional(),
   attribution: z.string().optional(),
   isActive: z.boolean().default(true),
+  // --- Metadados estendidos (sistema de música v2; opcionais) ---
+  slug: z.string().optional(),
+  subcategory: z.string().optional(),
+  musicCategory: z.string().optional(),
+  mood: z.array(z.string()).optional(),
+  energyLevel: z.number().min(1).max(10).optional(),
+  durationOriginal: z.number().optional(),
+  availableCuts: z.array(z.number()).optional(),
+  bestForDurations: z.array(z.number()).optional(),
+  previewUrl: z.string().optional(),
+  waveformUrl: z.string().optional(),
+  cuts: z.record(z.string()).optional(),
+  licenseType: z.string().optional(),
+  allowedCommercialUse: z.boolean().optional(),
+  attributionRequired: z.boolean().optional(),
+  tags: z.array(z.string()).optional(),
+  isPremium: z.boolean().optional(),
 });
 
 const templateUpdateSchema = templateSchema.partial();
@@ -286,16 +304,17 @@ templatesRouter.get('/generated', requireActiveSubscription, (req, res) => {
 });
 
 templatesRouter.get('/generated-music', requireActiveSubscription, (_req, res) => {
-  const generatedMusic = buildGeneratedMusic().map(({ baseFrequency, ...item }) => ({
-    ...item,
-    musicUrl: publicUrl(SUPABASE_BUCKETS.projectMusic, item.storagePath),
-  }));
-  const publicLibraryMusic = buildPublicLibraryMusic().map(({ sourceUrl, ...item }) => ({
-    ...item,
-    musicUrl: publicUrl(SUPABASE_BUCKETS.projectMusic, item.storagePath),
-  }));
-
-  res.json({ music: [...publicLibraryMusic, ...generatedMusic] });
+  const music = buildMusicCatalog().map((track) => {
+    const cuts: Record<string, string> = {};
+    track.availableCuts.forEach((d) => {
+      cuts[String(d)] = publicUrl(SUPABASE_BUCKETS.projectMusic, catalogCutPath(track, d));
+    });
+    return catalogTrackToPublic(track, publicUrl(SUPABASE_BUCKETS.projectMusic, track.storagePath), {
+      cuts,
+      waveformUrl: publicUrl(SUPABASE_BUCKETS.projectMusic, catalogWaveformPath(track)),
+    });
+  });
+  res.json({ music });
 });
 
 templatesRouter.get('/custom', requireActiveSubscription, async (_req, res, next) => {
@@ -636,56 +655,84 @@ async function cleanupCuratedTemplates() {
   return { storageDeleted, metadataDeleted };
 }
 
-async function uploadProjectMusic(count: number) {
+// Fades recomendados por duração do corte.
+function cutFades(duration: number): { fadeIn: number; fadeOut: number } {
+  switch (duration) {
+    case 5: return { fadeIn: 0, fadeOut: 0.4 };
+    case 15: return { fadeIn: 0.2, fadeOut: 0.6 };
+    case 25: return { fadeIn: 0.4, fadeOut: 0.8 };
+    case 35: return { fadeIn: 0.6, fadeOut: 1.0 };
+    default: return { fadeIn: 0.8, fadeOut: 1.2 };
+  }
+}
+
+// Gera e envia o catálogo novo por categoria ao Supabase (original + cortes 5/15/25/35/45s
+// + waveform). O parâmetro `count` é mantido por compatibilidade; o catálogo define as faixas.
+async function uploadProjectMusic(_count: number) {
   await ensurePublicBucket(SUPABASE_BUCKETS.projectMusic);
-  const tracks = buildGeneratedMusic(count);
+  const tracks = buildMusicCatalog();
+  const canCut = ffmpegAvailable();
   const uploaded = [];
 
   for (const track of tracks) {
+    const originalBuffer = renderCatalogTrackWav(track);
     const result = await uploadBufferToSupabase({
       bucket: SUPABASE_BUCKETS.projectMusic,
-      prefix: `generated/${track.category}`,
-      fileName: `${track.id}.wav`,
+      prefix: `originals/${track.musicCategory}`,
+      fileName: `${track.slug}.wav`,
       fallbackExt: '.wav',
-      buffer: renderMusicWav(track),
+      buffer: originalBuffer,
       contentType: 'audio/wav',
       objectPath: track.storagePath,
       upsert: true,
     });
 
-    const { baseFrequency, ...publicTrack } = track;
-    uploaded.push({
-      ...publicTrack,
-      musicUrl: result.publicUrl,
-      storagePath: result.path,
-    });
-  }
+    const cuts: Record<string, string> = {};
+    let waveformUrl: string | undefined;
 
-  for (const track of buildPublicLibraryMusic()) {
-    try {
-      const response = await fetch(track.sourceUrl);
-      if (!response.ok) throw new Error(`PUBLIC_MUSIC_DOWNLOAD_FAILED_${response.status}`);
+    if (canCut) {
+      try {
+        const specs = track.availableCuts.map((duration) => ({
+          duration: duration as CutDuration,
+          sourceStart: 0,
+          ...cutFades(duration),
+        }));
+        const cutBuffers = await generateCutsFromBuffer(originalBuffer, specs);
+        for (const [duration, buffer] of cutBuffers) {
+          const cutPath = catalogCutPath(track, duration);
+          await uploadBufferToSupabase({
+            bucket: SUPABASE_BUCKETS.projectMusic,
+            prefix: `cuts/${track.musicCategory}/${track.slug}`,
+            fileName: `${duration}s.mp3`,
+            fallbackExt: '.mp3',
+            buffer,
+            contentType: 'audio/mpeg',
+            objectPath: cutPath,
+            upsert: true,
+          });
+          cuts[String(duration)] = publicUrl(SUPABASE_BUCKETS.projectMusic, cutPath);
+        }
 
-      const result = await uploadBufferToSupabase({
-        bucket: SUPABASE_BUCKETS.projectMusic,
-        prefix: `public-library/${track.theme}`,
-        fileName: `${track.id}.mp3`,
-        fallbackExt: '.mp3',
-        buffer: Buffer.from(await response.arrayBuffer()),
-        contentType: 'audio/mpeg',
-        objectPath: track.storagePath,
-        upsert: true,
-      });
-
-      const { sourceUrl, ...publicTrack } = track;
-      uploaded.push({
-        ...publicTrack,
-        musicUrl: result.publicUrl,
-        storagePath: result.path,
-      });
-    } catch (error) {
-      console.warn('[templates] Public music skipped:', track.id, error instanceof Error ? error.message : error);
+        const peaks = await computeWaveformFromBuffer(originalBuffer);
+        const wavePath = catalogWaveformPath(track);
+        await uploadBufferToSupabase({
+          bucket: SUPABASE_BUCKETS.projectMusic,
+          prefix: `waveforms/${track.musicCategory}`,
+          fileName: `${track.slug}.json`,
+          fallbackExt: '.json',
+          buffer: Buffer.from(JSON.stringify({ peaks })),
+          contentType: 'application/json',
+          objectPath: wavePath,
+          upsert: true,
+        });
+        waveformUrl = publicUrl(SUPABASE_BUCKETS.projectMusic, wavePath);
+      } catch (error) {
+        // Sem ffmpeg ou falha pontual: segue só com o original (o player corta em tempo real).
+        console.warn('[music] cut/waveform skipped:', track.id, error instanceof Error ? error.message : error);
+      }
     }
+
+    uploaded.push(catalogTrackToPublic(track, result.publicUrl, { cuts, waveformUrl }));
   }
 
   return uploaded;

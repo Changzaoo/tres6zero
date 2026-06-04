@@ -179,16 +179,16 @@ function ActivityChart({ events, leads }: { events: EngagementEvent[]; leads: Le
   const max = Math.max(1, ...points.map((point) => point.actions + point.feedbacks));
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-5">
+    <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2">
         <BarChart2 className="h-5 w-5 text-brand-300" />
         <h2 className="text-base font-semibold text-white">Atividade real dos ultimos 7 dias</h2>
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
         {points.map((point) => {
           const total = point.actions + point.feedbacks;
           return (
-            <div key={point.label} className="flex min-h-[11rem] flex-col justify-end rounded-2xl border border-white/[0.07] bg-white/[0.03] p-2">
+            <div key={point.label} className="flex min-h-[8.5rem] flex-col justify-end rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1.5 sm:min-h-[11rem] sm:p-2">
               <div className="flex flex-1 items-end justify-center">
                 <div
                   className="w-full rounded-t-xl bg-gradient-brand"
@@ -289,7 +289,7 @@ export default function LeadsPage() {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-20 rounded-2xl bg-white/5" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           {[...Array(4)].map((_, index) => <div key={index} className="h-28 rounded-2xl bg-white/5" />)}
         </div>
         <div className="h-80 rounded-2xl bg-white/5" />
@@ -299,17 +299,17 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Resultados</h1>
           <p className="text-sm text-white/40">Leads, feedbacks, downloads e cliques reais dos seus links públicos.</p>
         </div>
-        <Button variant="secondary" onClick={handleExport} icon={<Download className="h-4 w-4" />} size="sm">
+        <Button className="w-full justify-center sm:w-auto" variant="secondary" onClick={handleExport} icon={<Download className="h-4 w-4" />} size="sm">
           Exportar CSV
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-6">
         <StatCard title="Pessoas" value={visitorRows.length} icon={<Users className="h-5 w-5" />} color="text-cyan-300" />
         <StatCard title="Contatos" value={contacts} icon={<Mail className="h-5 w-5" />} color="text-green-300" />
         <StatCard title="Feedbacks" value={feedbacks.length} icon={<MessageSquareText className="h-5 w-5" />} color="text-yellow-300" />

@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { downloadToTempFile, publicUrl, SUPABASE_BUCKETS, uploadFileToSupabase } from './supabaseStorage';
 import { BASIC_EFFECTS, POPULAR_EFFECTS, AI_EFFECTS } from './planEntitlements';
 import { getAIVideoDirection, getFallbackAIVideoDirection } from './openaiVideoDirector';
-import { buildPublicLibraryMusic } from './generatedMusic';
+import { buildMusicCatalog } from './musicCatalog';
 
 export type ProcessingConfig = {
   videoId: string;
@@ -187,9 +187,12 @@ async function extractAnalysisFrame(inputPath: string, dir: string) {
 
 function publicLibraryMusicUrlForTheme(theme?: string) {
   if (!theme || theme === 'none') return undefined;
-  const tracks = buildPublicLibraryMusic();
-  const track = tracks.find((item) => item.theme === theme)
-    || tracks.find((item) => item.category === theme);
+  const tracks = buildMusicCatalog();
+  const normalized = theme.toLowerCase();
+  const track = tracks.find((item) => item.musicCategory === normalized)
+    || tracks.find((item) => item.tags.includes(normalized))
+    || tracks.find((item) => item.subcategory.toLowerCase().includes(normalized))
+    || tracks.find((item) => item.musicCategory === 'universal');
   return track ? publicUrl(SUPABASE_BUCKETS.projectMusic, track.storagePath) : undefined;
 }
 

@@ -6,7 +6,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'sm' | 'md' | 'lg' | 'none';
 }
 
-const paddings = { sm: 'p-4', md: 'p-6', lg: 'p-8', none: '' };
+const paddings = { sm: 'p-4', md: 'p-4 sm:p-6', lg: 'p-5 sm:p-8', none: '' };
 
 export function Card({ glass = true, hover = false, padding = 'md', className = '', children, ...props }: CardProps) {
   return (

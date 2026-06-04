@@ -60,12 +60,12 @@ export default function EventsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Eventos</h1>
           <p className="text-white/40 text-sm">{events.length} evento(s) cadastrado(s)</p>
         </div>
-        <Button onClick={() => navigate('/app/events/new')} icon={<Plus className="w-4 h-4" />}>Novo evento</Button>
+        <Button className="w-full justify-center sm:w-auto" onClick={() => navigate('/app/events/new')} icon={<Plus className="w-4 h-4" />}>Novo evento</Button>
       </div>
 
       {events.length === 0 ? (
@@ -76,30 +76,30 @@ export default function EventsPage() {
         <div className="space-y-3">
           {events.map(event => (
             <motion.div key={event.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-glass border border-white/[0.08] rounded-2xl p-5 flex items-center gap-4 hover:border-brand-500/20 transition-all">
+              className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 transition-all hover:border-brand-500/20 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
               <div className="w-12 h-12 rounded-xl bg-gradient-brand flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-lg shadow-brand-600/20">
                 {event.name.charAt(0)}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold text-white">{event.name}</h3>
                   <Badge variant={statusVariant[event.status]}>{statusLabel[event.status]}</Badge>
                 </div>
-                <div className="flex items-center gap-4 mt-1.5 text-xs text-white/40">
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-white/40">
                   <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{event.date ? format(new Date(event.date), "dd/MM/yyyy", { locale: ptBR }) : '—'}</span>
                   <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{event.location || '—'}</span>
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" />{event.clientName}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => window.open(`/g/${event.slug}`, '_blank')} icon={<ExternalLink className="w-4 h-4" />}>Página</Button>
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                <Button className="flex-1 justify-center sm:flex-none" variant="secondary" size="sm" onClick={() => window.open(`/g/${event.slug}`, '_blank')} icon={<ExternalLink className="w-4 h-4" />}>Página</Button>
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === event.id ? null : event.id)}
                     className="p-2 rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-white transition-colors">
                     <MoreVertical className="w-4 h-4" />
                   </button>
                   {menuId === event.id && (
-                    <div className="absolute right-0 top-full mt-1 w-44 bg-surface-50 border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
+                    <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#14161e] shadow-2xl">
                       <button onClick={() => { navigate(`/app/events/${event.id}/edit`); setMenuId(null); }}
                         className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-white/70 hover:bg-white/[0.08] hover:text-white">
                         <Edit2 className="w-4 h-4" /> Editar
@@ -127,7 +127,7 @@ export default function EventsPage() {
 
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Excluir evento">
         <p className="text-white/70 mb-6">Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita.</p>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <Button variant="secondary" className="flex-1 justify-center" onClick={() => setDeleteId(null)}>Cancelar</Button>
           <Button variant="danger" className="flex-1 justify-center" onClick={handleDelete}>Excluir</Button>
         </div>

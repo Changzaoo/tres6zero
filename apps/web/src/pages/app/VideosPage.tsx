@@ -621,10 +621,10 @@ export default function VideosPage() {
           <p className="text-sm text-white/40">{videos.length} vídeo(s)</p>
         </div>
         {videos.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-semibold text-white/62 transition hover:bg-white/[0.08] hover:text-white"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 text-xs font-semibold text-white/62 transition hover:bg-white/[0.08] hover:text-white sm:flex-none"
               onClick={allSelected ? clearSelection : selectAllVideos}
             >
               {allSelected ? <CheckSquare className="h-4 w-4 text-brand-200" /> : <Square className="h-4 w-4" />}
@@ -638,6 +638,7 @@ export default function VideosPage() {
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="w-full justify-center sm:w-auto"
                   icon={<FolderPlus className="h-4 w-4" />}
                   onClick={() => openAssignEventModal([...selectedIds])}
                 >
@@ -646,6 +647,7 @@ export default function VideosPage() {
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="flex-1 justify-center sm:flex-none"
                   disabled={updatingVisibility || selectedAllPublic}
                   icon={<Eye className="h-4 w-4" />}
                   onClick={() => updateVideosVisibility([...selectedIds], 'public')}
@@ -655,6 +657,7 @@ export default function VideosPage() {
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="flex-1 justify-center sm:flex-none"
                   disabled={updatingVisibility || selectedAllPrivate}
                   icon={<EyeOff className="h-4 w-4" />}
                   onClick={() => updateVideosVisibility([...selectedIds], 'private')}
@@ -664,6 +667,7 @@ export default function VideosPage() {
                 <Button
                   size="sm"
                   variant="danger"
+                  className="w-full justify-center sm:w-auto"
                   icon={<Trash2 className="h-4 w-4" />}
                   onClick={() => openDeleteConfirmation([...selectedIds])}
                 >

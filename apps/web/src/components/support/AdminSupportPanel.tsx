@@ -102,13 +102,13 @@ export function AdminSupportPanel() {
   }
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-5">
+    <div className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2">
         <LifeBuoy className="h-5 w-5 text-brand-400" />
         <h2 className="text-base font-semibold text-white">Mensagens de suporte</h2>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[19rem_1fr]">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[19rem_1fr]">
         <div className="space-y-2">
           {loading ? (
             [...Array(3)].map((_, index) => <div key={index} className="h-16 animate-pulse rounded-2xl bg-white/5" />)
@@ -144,7 +144,7 @@ export function AdminSupportPanel() {
           ))}
         </div>
 
-        <div className="min-h-[26rem] rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:min-h-[26rem] sm:p-4">
           {selected ? (
             <div className="flex h-full min-h-[26rem] flex-col">
               <div className="border-b border-white/10 pb-3">
@@ -205,7 +205,7 @@ export function AdminSupportPanel() {
                 </div>
               )}
 
-              <form onSubmit={handleReply} className="flex gap-2 border-t border-white/10 pt-4">
+              <form onSubmit={handleReply} className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row">
                 <textarea
                   value={reply}
                   onChange={(event) => setReply(event.target.value)}
@@ -213,7 +213,7 @@ export function AdminSupportPanel() {
                   className="min-h-[3rem] flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 focus:border-brand-400/70 focus:outline-none"
                   placeholder="Responder ao usuário..."
                 />
-                <Button type="submit" loading={sending} icon={<Send className="h-4 w-4" />}>
+                <Button type="submit" loading={sending} className="justify-center" icon={<Send className="h-4 w-4" />}>
                   Enviar
                 </Button>
               </form>
@@ -227,8 +227,8 @@ export function AdminSupportPanel() {
       </div>
 
       {operationalOpen && selected && isAnonymous && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-[28px] border border-white/10 bg-[#101218] p-5 shadow-2xl shadow-black/60">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#101218] p-4 shadow-2xl shadow-black/60 sm:rounded-[28px] sm:p-5">
             <div className="mb-4 flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/12 text-yellow-100 ring-1 ring-yellow-300/20">
                 <ClipboardList className="h-5 w-5" />

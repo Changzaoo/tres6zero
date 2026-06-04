@@ -19,6 +19,7 @@ import { canRenderVideoInBrowser, canUseTransparentMotionOverlay, renderVideoInB
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import { EffectSelector } from '@/features/effects/EffectSelector';
+import { useAudioMixSettings, MusicVolumeControls } from '@/features/music';
 import { getVideoEffect, videoEffects } from '@/features/effects/effects.config';
 import { API_URL } from '@/config/api';
 import { isTemplateAnimated } from '@/services/templateStorage';
@@ -1271,6 +1272,7 @@ export default function OperatorPage() {
   const [templateOpacity, setTemplateOpacity] = useState(1);
   const [effect, setEffect] = useState('clean');
   const [musicTheme, setMusicTheme] = useState<string>(operatorPreferences.defaultMusicTheme);
+  const mix = useAudioMixSettings();
   const [step, setStep] = useState<Step>('select');
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [videoUrl, setVideoUrl] = useState('');
@@ -2087,6 +2089,7 @@ export default function OperatorPage() {
         })) : undefined,
         musicUrl: processingMusicUrl,
         musicTheme: rendererMusicTheme,
+        mixSettings: mix.settings,
         onProgress: (pct) => setProgress(Math.min(70, 2 + Math.round(pct * 0.68))),
       });
 
@@ -2390,6 +2393,8 @@ export default function OperatorPage() {
                     </p>
                   )}
                 </div>
+
+                <MusicVolumeControls mix={mix} />
               </div>
             </div>
           </div>
