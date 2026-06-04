@@ -1,17 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { useAuthStore } from '@/store/authStore';
-import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseError, updateUserProfile } from '@/services/authService';
-import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
-import { mergeNotificationPreferences, notificationCategories, updateNotificationPreferences } from '@/services/notificationService';
-import { uploadAvatarToServer } from '@/services/serverMediaService';
-import { DEFAULT_MENU_ORDER, getStoredMenuOrder, resetMenuOrder, saveMenuOrder, type MenuItemId } from '@/services/menuOrderService';
-import { useNotificationStore } from '@/store/notificationStore';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { toast } from '@/components/ui/Toast';
 import {
   ArrowDown,
   ArrowUp,
@@ -39,6 +28,17 @@ import {
   Volume2,
   Wifi,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/authStore';
+import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseError, updateUserProfile } from '@/services/authService';
+import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
+import { mergeNotificationPreferences, notificationCategories, updateNotificationPreferences } from '@/services/notificationService';
+import { uploadAvatarToServer } from '@/services/serverMediaService';
+import { DEFAULT_MENU_ORDER, getStoredMenuOrder, resetMenuOrder, saveMenuOrder, type MenuItemId } from '@/services/menuOrderService';
+import { useNotificationStore } from '@/store/notificationStore';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { toast } from '@/components/ui/Toast';
 import type { NotificationPreferences, TrustedDevice } from '@/types';
 
 interface ProfileFormData {
@@ -50,6 +50,13 @@ interface ProfileFormData {
 interface PasswordFormData {
   newPassword: string;
 }
+
+const menuItemMeta: Record<MenuItemId, { label: string; description: string; icon: ReactNode }> = {
+  events: { label: 'Eventos', description: 'Páginas e links criados.', icon: <Calendar className="h-4 w-4" /> },
+  videos: { label: 'Vídeos', description: 'Biblioteca de vídeos prontos.', icon: <Video className="h-4 w-4" /> },
+  gravar: { label: 'Gravar', description: 'Atalho para criar vídeo.', icon: <Camera className="h-4 w-4" /> },
+  templates: { label: 'Templates', description: 'Molduras e músicas.', icon: <Layers className="h-4 w-4" /> },
+};
 
 function formatDate(value?: string) {
   if (!value) return 'Sem registro';
@@ -66,10 +73,10 @@ function DeviceRow({
   onDisconnect: (device: TrustedDevice) => void;
 }) {
   return (
-    <div className="grid gap-3 rounded-[18px] border border-white/10 bg-white/[0.04] p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+    <div className="grid gap-3 border-b border-white/[0.08] bg-white/[0.02] p-4 last:border-b-0 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="min-w-0 space-y-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/55">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white/55">
             <MonitorSmartphone className="h-4 w-4" />
           </span>
           <div className="min-w-0">
@@ -124,10 +131,10 @@ function SegmentedButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-10 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold transition-all ${
+      className={`flex min-h-11 items-center justify-center gap-2 rounded-full border px-3 text-sm font-bold transition-all ${
         active
           ? 'border-brand-300/65 bg-brand-500/20 text-white shadow-glow'
-          : 'border-white/10 bg-white/[0.045] text-white/58 hover:border-white/18 hover:text-white'
+          : 'border-white/10 bg-white/[0.035] text-white/58 hover:border-white/18 hover:text-white'
       }`}
     >
       {icon}
@@ -154,7 +161,7 @@ function ToggleRow({
       type="button"
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition-all hover:bg-white/[0.065] disabled:cursor-not-allowed disabled:opacity-55"
+      className="flex w-full items-center justify-between gap-3 border-b border-white/[0.08] bg-white/[0.02] p-4 text-left transition hover:bg-white/[0.045] disabled:cursor-not-allowed disabled:opacity-55 last:border-b-0"
     >
       <span className="min-w-0">
         <span className="block text-sm font-bold text-white">{title}</span>
@@ -170,13 +177,6 @@ function ToggleRow({
     </button>
   );
 }
-
-const menuItemMeta: Record<MenuItemId, { label: string; description: string; icon: ReactNode }> = {
-  events: { label: 'Eventos', description: 'Páginas e links criados.', icon: <Calendar className="h-4 w-4" /> },
-  videos: { label: 'Vídeos', description: 'Biblioteca de vídeos prontos.', icon: <Video className="h-4 w-4" /> },
-  gravar: { label: 'Gravar', description: 'Atalho para criar vídeo.', icon: <Camera className="h-4 w-4" /> },
-  templates: { label: 'Templates', description: 'Molduras e músicas.', icon: <Layers className="h-4 w-4" /> },
-};
 
 function SettingsNavLink({ href, icon, title, description }: { href: string; icon: ReactNode; title: string; description: string }) {
   return (
@@ -195,7 +195,7 @@ function SettingsNavLink({ href, icon, title, description }: { href: string; ico
 
 function SettingsSection({ id, title, description, children }: { id: string; title: string; description: string; children: ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-4 border-b border-white/[0.08] px-4 py-5 sm:px-6">
+    <section id={id} className="scroll-mt-4 border-b border-white/[0.08] px-4 py-5 last:border-b-0 sm:px-6">
       <div className="mb-4">
         <h2 className="text-xl font-black leading-tight text-white">{title}</h2>
         <p className="mt-1 text-sm text-white/42">{description}</p>
@@ -220,6 +220,7 @@ export default function SettingsPage() {
   const [menuOrder, setMenuOrder] = useState<MenuItemId[]>(() => getStoredMenuOrder());
   const setGlobalNotificationPrefs = useNotificationStore((state) => state.setPreferences);
   const devices = user?.trustedDevices || [];
+  const menuIsDefault = DEFAULT_MENU_ORDER.every((item, index) => menuOrder[index] === item);
 
   useEffect(() => {
     if (user) profileForm.reset({ name: user.name, companyName: user.companyName || '', avatarUrl: user.avatarUrl || '' });
@@ -378,143 +379,167 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Configurações</h1>
-          <p className="text-sm text-white/40">Perfil, senha e dispositivos conectados.</p>
-        </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-white/60">
-          <Globe2 className="h-3.5 w-3.5" />
-          {devices.length} dispositivo(s)
-        </span>
-      </div>
+    <div className="mx-auto max-w-6xl">
+      <div className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#050608] shadow-2xl shadow-black/35">
+        <div className="grid min-h-[calc(100dvh-8rem)] lg:grid-cols-[21rem_minmax(0,1fr)]">
+          <aside className="border-b border-white/[0.08] lg:border-b-0 lg:border-r">
+            <div className="border-b border-white/[0.08] px-4 py-4">
+              <h1 className="text-2xl font-black leading-tight text-white">Configurações</h1>
+              <p className="mt-1 truncate text-sm text-white/42">{user?.email}</p>
+            </div>
+            <nav className="divide-y divide-white/[0.08]">
+              <SettingsNavLink href="#conta" icon={<User className="h-5 w-5" />} title="Sua conta" description="Perfil, foto e senha" />
+              <SettingsNavLink href="#aparencia" icon={<Palette className="h-5 w-5" />} title="Aparência" description="Tema do aplicativo" />
+              <SettingsNavLink href="#menu" icon={<GripVertical className="h-5 w-5" />} title="Menu" description="Ordem dos atalhos" />
+              <SettingsNavLink href="#notificacoes" icon={<BellRing className="h-5 w-5" />} title="Notificações" description="Avisos, som e horário" />
+              <SettingsNavLink href="#seguranca" icon={<ShieldCheck className="h-5 w-5" />} title="Segurança" description={`${devices.length} dispositivo(s)`} />
+            </nav>
+          </aside>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
-        <div className="space-y-4">
-          <Card padding="sm">
-            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
-              <User className="h-5 w-5 text-brand-400" />
-              Perfil
-            </h2>
-            <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-3">
-              <input type="hidden" {...profileForm.register('avatarUrl')} />
-              <div className="grid gap-3 sm:grid-cols-[72px_1fr] sm:items-center">
-                <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-gradient-brand text-2xl font-black text-white shadow-glow">
-                  {profileForm.watch('avatarUrl') ? (
-                    <img src={profileForm.watch('avatarUrl')} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    user?.name?.charAt(0).toUpperCase() || 'U'
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-white/70">Foto de perfil</p>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <label className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.065] px-4 text-sm font-bold text-white transition-all hover:border-white/16 hover:bg-white/[0.1] ${avatarUploading ? 'pointer-events-none opacity-60' : ''}`}>
-                      <Camera className="h-4 w-4" />
-                      {avatarUploading ? `Enviando ${avatarProgress}%` : 'Escolher foto'}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="hidden"
-                        disabled={avatarUploading}
-                        onChange={handleAvatarUpload}
-                      />
-                    </label>
-                    <span className="text-xs leading-relaxed text-white/38">
-                      PNG, JPG ou WebP. A foto fica salva no Supabase.
-                    </span>
+          <div className="min-w-0 bg-[#07080c]">
+            <SettingsSection id="conta" title="Sua conta" description="Atualize os dados principais e a senha de acesso.">
+              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                <input type="hidden" {...profileForm.register('avatarUrl')} />
+                <div className="flex flex-col gap-3 border-b border-white/[0.08] pb-4 sm:flex-row sm:items-center">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-gradient-brand text-2xl font-black text-white shadow-glow">
+                    {profileForm.watch('avatarUrl') ? (
+                      <img src={profileForm.watch('avatarUrl')} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      user?.name?.charAt(0).toUpperCase() || 'U'
+                    )}
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-white">Foto de perfil</p>
+                    <p className="mt-0.5 text-xs text-white/38">PNG, JPG ou WebP.</p>
+                  </div>
+                  <label className={`inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/12 px-4 text-sm font-bold text-white transition hover:bg-white/[0.06] ${avatarUploading ? 'pointer-events-none opacity-60' : ''}`}>
+                    <Camera className="h-4 w-4" />
+                    {avatarUploading ? `${avatarProgress}%` : 'Editar'}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={avatarUploading} onChange={handleAvatarUpload} />
+                  </label>
                 </div>
-              </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input label="Nome" placeholder="Seu nome" {...profileForm.register('name')} />
-                <Input
-                  label="Empresa"
-                  placeholder="Nome da empresa"
-                  icon={<Building className="h-4 w-4" />}
-                  {...profileForm.register('companyName')}
-                />
-              </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input label="Nome" placeholder="Seu nome" {...profileForm.register('name')} />
+                  <Input label="Empresa" placeholder="Nome da empresa" icon={<Building className="h-4 w-4" />} {...profileForm.register('companyName')} />
+                </div>
 
-              <div className="grid gap-3">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-white/70">E-mail</label>
-                  <p className="truncate rounded-[18px] border border-white/[0.08] bg-white/5 px-4 py-3 text-sm text-white/42">{user?.email}</p>
+                  <p className="truncate rounded-[18px] border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-sm text-white/42">{user?.email}</p>
                 </div>
+
+                <Button type="submit" size="sm" loading={profileForm.formState.isSubmitting}>Salvar perfil</Button>
+              </form>
+
+              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="mt-5 border-t border-white/[0.08] pt-5">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <Input
+                    label="Nova senha"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Digite a nova senha"
+                    icon={<KeyRound className="h-4 w-4" />}
+                    error={passwordForm.formState.errors.newPassword?.message}
+                    {...passwordForm.register('newPassword', {
+                      required: 'Digite a nova senha.',
+                      minLength: { value: 8, message: 'Use pelo menos 8 caracteres.' },
+                    })}
+                  />
+                  <Button type="submit" size="sm" loading={passwordForm.formState.isSubmitting}>Alterar senha</Button>
+                </div>
+              </form>
+            </SettingsSection>
+
+            <SettingsSection id="aparencia" title="Aparência" description="Escolha como a interface aparece neste dispositivo.">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <SegmentedButton active={theme === 'dark'} label="Escuro" icon={<Moon className="h-4 w-4" />} onClick={() => handleThemeChange('dark')} />
+                <SegmentedButton active={theme === 'light'} label="Claro" icon={<Sun className="h-4 w-4" />} onClick={() => handleThemeChange('light')} />
+                <SegmentedButton active={theme === 'system'} label="Sistema" icon={<Monitor className="h-4 w-4" />} onClick={() => handleThemeChange('system')} />
               </div>
+            </SettingsSection>
 
-              <Button type="submit" size="sm" loading={profileForm.formState.isSubmitting}>Salvar perfil</Button>
-            </form>
+            <SettingsSection id="menu" title="Menu" description="Organize os atalhos principais do app.">
+              <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
+                {menuOrder.map((itemId, index) => {
+                  const item = menuItemMeta[itemId];
+                  return (
+                    <div key={itemId} className="flex min-w-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.025] px-3 py-3 last:border-b-0">
+                      <GripVertical className="h-4 w-4 shrink-0 text-white/24" />
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white/65">
+                        {item.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-white">{item.label}</p>
+                        <p className="truncate text-xs text-white/36">{item.description}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          title="Subir"
+                          aria-label={`Subir ${item.label}`}
+                          disabled={index === 0}
+                          onClick={() => moveMenuItem(itemId, -1)}
+                          className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-white/55 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Descer"
+                          aria-label={`Descer ${item.label}`}
+                          disabled={index === menuOrder.length - 1}
+                          onClick={() => moveMenuItem(itemId, 1)}
+                          className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-white/55 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                disabled={menuIsDefault}
+                onClick={handleResetMenuOrder}
+                className="mt-3 inline-flex h-10 items-center gap-2 rounded-full border border-white/10 px-4 text-sm font-bold text-white/62 transition hover:bg-white/[0.055] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restaurar ordem
+              </button>
+            </SettingsSection>
 
-            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="mt-4 border-t border-white/10 pt-4">
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                <Input
-                  label="Nova senha"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Digite a nova senha"
-                  icon={<KeyRound className="h-4 w-4" />}
-                  error={passwordForm.formState.errors.newPassword?.message}
-                  {...passwordForm.register('newPassword', {
-                    required: 'Digite a nova senha.',
-                    minLength: { value: 8, message: 'Use pelo menos 8 caracteres.' },
-                  })}
+            <SettingsSection id="notificacoes" title="Notificações" description="Controle onde e quando os avisos aparecem.">
+              <div className="mb-3 flex justify-end">
+                {notificationSaving && <span className="text-xs font-bold text-white/35">Salvando...</span>}
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
+                <ToggleRow
+                  title="Central de notificações"
+                  description="Mantém avisos dentro do app, no sino da plataforma."
+                  checked={notificationPrefs.inApp}
+                  onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, inApp: checked, browser: checked ? notificationPrefs.browser : false })}
                 />
-                <Button type="submit" size="sm" loading={passwordForm.formState.isSubmitting}>
-                  Alterar senha
-                </Button>
+                <ToggleRow
+                  title="Notificações do navegador"
+                  description="Push local quando o app estiver aberto ou instalado."
+                  checked={notificationPrefs.browser}
+                  onChange={handleBrowserToggle}
+                  disabled={!notificationPrefs.inApp || (typeof window !== 'undefined' && !('Notification' in window))}
+                />
+                <ToggleRow
+                  title="Som discreto"
+                  description="Toca um alerta curto para novas notificações."
+                  checked={notificationPrefs.sound}
+                  onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, sound: checked })}
+                />
               </div>
-            </form>
-          </Card>
 
-          <Card padding="sm">
-            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
-              <Palette className="h-5 w-5 text-brand-400" />
-              Aparencia
-            </h2>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <SegmentedButton active={theme === 'dark'} label="Escuro" icon={<Moon className="h-4 w-4" />} onClick={() => handleThemeChange('dark')} />
-              <SegmentedButton active={theme === 'light'} label="Claro" icon={<Sun className="h-4 w-4" />} onClick={() => handleThemeChange('light')} />
-              <SegmentedButton active={theme === 'system'} label="Sistema" icon={<Monitor className="h-4 w-4" />} onClick={() => handleThemeChange('system')} />
-            </div>
-          </Card>
-
-          <Card padding="sm">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-                <BellRing className="h-5 w-5 text-brand-400" />
-                Notificações
-              </h2>
-              {notificationSaving && <span className="text-xs font-bold text-white/35">Salvando...</span>}
-            </div>
-
-            <div className="space-y-3">
-              <ToggleRow
-                title="Central de notificações"
-                description="Mantem avisos dentro do app, no sino da plataforma."
-                checked={notificationPrefs.inApp}
-                onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, inApp: checked, browser: checked ? notificationPrefs.browser : false })}
-              />
-              <ToggleRow
-                title="Notificações do navegador"
-                description="'Push' local quando o app estiver aberto ou instalado."
-                checked={notificationPrefs.browser}
-                onChange={handleBrowserToggle}
-                disabled={!notificationPrefs.inApp || (typeof window !== 'undefined' && !('Notification' in window))}
-              />
-              <ToggleRow
-                title="Som discreto"
-                description="Toca um alerta curto para novas notificações."
-                checked={notificationPrefs.sound}
-                onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, sound: checked })}
-              />
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+              <div className="mt-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3">
                 <ToggleRow
                   title="Horário silencioso"
-                  description="Pausa som e notificações do navegador nesse periodo."
+                  description="Pausa som e notificações do navegador nesse período."
                   checked={notificationPrefs.quietHours.enabled}
                   onChange={(checked) => saveNotificationPrefs({
                     ...notificationPrefs,
@@ -555,7 +580,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {notificationCategories.map((category) => (
                   <ToggleRow
                     key={category.value}
@@ -569,39 +594,26 @@ export default function SettingsPage() {
                   />
                 ))}
               </div>
-            </div>
-          </Card>
+            </SettingsSection>
 
-        </div>
-
-        <Card padding="sm" className="lg:max-h-[calc(100vh-150px)] lg:overflow-y-auto">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-              <ShieldCheck className="h-5 w-5 text-brand-400" />
-              Dispositivos conectados
-            </h2>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={devices.length === 0}
-              onClick={handleDisconnectAll}
-              icon={<Trash2 className="h-4 w-4" />}
-            >
-              Desconectar todos
-            </Button>
-          </div>
-
-          <div className="space-y-2.5">
-            {devices.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-5 text-sm text-white/45">
-                Nenhum dispositivo registrado ainda.
+            <SettingsSection id="seguranca" title="Segurança" description="Veja e remova dispositivos conectados à conta.">
+              <div className="mb-3 flex justify-end">
+                <Button type="button" variant="secondary" size="sm" disabled={devices.length === 0} onClick={handleDisconnectAll} icon={<Trash2 className="h-4 w-4" />}>
+                  Desconectar todos
+                </Button>
               </div>
-            ) : devices.map((device) => (
-              <DeviceRow key={device.id} device={device} onDisconnect={handleDisconnectDevice} />
-            ))}
+              <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
+                {devices.length === 0 ? (
+                  <div className="px-4 py-5 text-sm text-white/45">
+                    Nenhum dispositivo registrado ainda.
+                  </div>
+                ) : devices.map((device) => (
+                  <DeviceRow key={device.id} device={device} onDisconnect={handleDisconnectDevice} />
+                ))}
+              </div>
+            </SettingsSection>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

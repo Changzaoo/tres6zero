@@ -7,7 +7,12 @@ const MENU_ORDER_EVENT = 'six3:menu-order-changed';
 
 function normalizeMenuOrder(order?: string[] | null): MenuItemId[] {
   const allowed = new Set<MenuItemId>(DEFAULT_MENU_ORDER);
-  const unique = (order || []).filter((item): item is MenuItemId => allowed.has(item as MenuItemId));
+  const seen = new Set<MenuItemId>();
+  const unique = (order || []).filter((item): item is MenuItemId => {
+    if (!allowed.has(item as MenuItemId) || seen.has(item as MenuItemId)) return false;
+    seen.add(item as MenuItemId);
+    return true;
+  });
   return [...unique, ...DEFAULT_MENU_ORDER.filter((item) => !unique.includes(item))];
 }
 

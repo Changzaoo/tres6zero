@@ -26,14 +26,14 @@ interface SidebarProps {
 }
 
 const fixedNavStart = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard, unlocked: false },
 ];
 
 const orderedNavItems = [
-  { id: 'events' as const, to: '/app/events', label: 'Eventos', icon: Calendar },
+  { id: 'events' as const, to: '/app/events', label: 'Eventos', icon: Calendar, unlocked: false },
   { id: 'videos' as const, to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
-  { id: 'gravar' as const, to: '/app/gravar', label: 'Gravar', icon: Camera },
-  { id: 'templates' as const, to: '/app/templates', label: 'Templates', icon: Layers },
+  { id: 'gravar' as const, to: '/app/gravar', label: 'Gravar', icon: Camera, unlocked: false },
+  { id: 'templates' as const, to: '/app/templates', label: 'Templates', icon: Layers, unlocked: false },
 ];
 
 const fixedNavEnd = [
