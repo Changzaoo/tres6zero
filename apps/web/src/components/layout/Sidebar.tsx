@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { planExpirationLabel } from '@/utils/subscriptionDisplay';
+import { currentPlanLabel, planExpirationLabel } from '@/utils/subscriptionDisplay';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -43,7 +43,9 @@ export function Sidebar({ onClose }: SidebarProps) {
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
   const visibleNavItems = isSupport ? supportNavItems : navItems;
-  const statusLabel = planExpirationLabel(user);
+  const planLabel = currentPlanLabel(user);
+  const expirationLabel = planExpirationLabel(user);
+  const statusLabel = planLabel === expirationLabel ? expirationLabel : `${planLabel} - ${expirationLabel}`;
   const statusClass = isSupport || hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35';
 
   async function handleLogout() {
