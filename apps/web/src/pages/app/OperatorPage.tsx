@@ -1256,6 +1256,8 @@ export default function OperatorPage() {
   const { user, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const editVideoId = searchParams.get('edit');
+  const requestedTemplateId = searchParams.get('template') || '';
+  const requestedMusicId = searchParams.get('music') || '';
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
   const [musicCatalog, setMusicCatalog] = useState<AppMusic[]>([]);
@@ -1316,16 +1318,25 @@ export default function OperatorPage() {
       const activeItems = items.filter((item) => item.isActive);
       setTemplates(activeItems);
       if (editVideoId) return;
+      const requestedTemplate = requestedTemplateId
+        ? activeItems.find((item) => item.id === requestedTemplateId && canUseTemplateForPlan(item, user.planId, isAdmin))
+        : undefined;
       const firstAvailable = activeItems.find((item) => canUseTemplateForPlan(item, user.planId, isAdmin));
-      setSelectedTemplateId(firstAvailable?.id || '');
+      setSelectedTemplateId(requestedTemplate?.id || firstAvailable?.id || '');
     }).catch(() => undefined);
     Promise.all([
       getGeneratedMusic().catch(() => []),
       getUserMusic(user.uid).catch(() => []),
     ]).then(([generated, custom]) => {
-      setMusicCatalog([...generated, ...custom].filter((item) => item.musicUrl));
+      const catalog = [...generated, ...custom].filter((item) => item.musicUrl);
+      setMusicCatalog(catalog);
+      if (editVideoId || !requestedMusicId) return;
+      const requestedTrack = catalog.find((item) => item.id === requestedMusicId);
+      if (requestedTrack?.musicUrl) {
+        setMusicTheme(`url:${requestedTrack.musicUrl}`);
+      }
     });
-  }, [editVideoId, isAdmin, user]);
+  }, [editVideoId, isAdmin, requestedMusicId, requestedTemplateId, user]);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const isStandaloneVideo = !selectedEventId;

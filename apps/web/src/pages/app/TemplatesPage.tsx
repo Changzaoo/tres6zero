@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Star, Upload, Wand2, X, Zap } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
@@ -214,18 +215,26 @@ async function loadCatalog(userId?: string) {
   };
 }
 
+function runOnUseKey(event: KeyboardEvent<HTMLElement>, action: () => void) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  action();
+}
+
 function TemplateCard({
   template,
   activeMotionId,
   setActiveMotionId,
   isFavorite,
   onToggleFavorite,
+  onUse,
 }: {
   template: AppTemplate;
   activeMotionId: string | null;
   setActiveMotionId: Dispatch<SetStateAction<string | null>>;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  onUse: (template: AppTemplate) => void;
 }) {
   const primary = template.colors?.primary || '#7c3aed';
   const secondary = template.colors?.secondary || '#00d4ff';
@@ -236,6 +245,11 @@ function TemplateCard({
   return (
     <div
       className="group cursor-pointer animate-fade-in"
+      role="button"
+      tabIndex={0}
+      aria-label={`Usar moldura ${template.name} na gravação`}
+      onClick={() => onUse(template)}
+      onKeyDown={(event) => runOnUseKey(event, () => onUse(template))}
       onMouseEnter={() => template.animationUrl && setActiveMotionId(template.id)}
       onMouseLeave={() => template.animationUrl && setActiveMotionId(null)}
       onTouchStart={() => template.animationUrl && setActiveMotionId((current) => current === template.id ? null : template.id)}
@@ -311,6 +325,7 @@ function TemplateCard({
 
 export default function TemplatesPage() {
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
   const [music, setMusic] = useState<AppMusic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -534,6 +549,14 @@ export default function TemplatesPage() {
     const next = toggleMediaFavorite('music', id, user?.uid);
     setFavorites(next);
     toast.success(isMediaFavorite('music', id, next) ? 'Música favoritada.' : 'Música removida dos favoritos.');
+  }
+
+  function openRecorderWithTemplate(template: AppTemplate) {
+    navigate(`/app/gravar?template=${encodeURIComponent(template.id)}`);
+  }
+
+  function openRecorderWithMusic(track: AppMusic) {
+    navigate(`/app/gravar?music=${encodeURIComponent(track.id)}`);
   }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -1054,12 +1077,25 @@ export default function TemplatesPage() {
             {filteredMusic.map((track) => {
               const trackFavorite = favoriteMusicIds.has(track.id);
               return (
-              <div key={track.id} className={`rounded-xl border p-3 transition-all ${trackFavorite ? 'border-amber-300/20 bg-amber-400/[0.07]' : 'border-white/[0.08] bg-black/20'}`}>
+              <div
+                key={track.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Usar música ${track.name} na gravação`}
+                onClick={() => openRecorderWithMusic(track)}
+                onKeyDown={(event) => runOnUseKey(event, () => openRecorderWithMusic(track))}
+                className={`cursor-pointer rounded-xl border p-3 transition-all focus:border-brand-300/70 focus:outline-none focus:ring-2 focus:ring-brand-500/35 ${
+                  trackFavorite ? 'border-amber-300/20 bg-amber-400/[0.07]' : 'border-white/[0.08] bg-black/20 hover:border-brand-300/35 hover:bg-white/[0.045]'
+                }`}
+              >
                 <div className="mb-1 flex items-start gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{track.name}</p>
                   <button
                     type="button"
-                    onClick={() => handleToggleMusicFavorite(track.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleMusicFavorite(track.id);
+                    }}
                     title={trackFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                     aria-label={trackFavorite ? 'Remover música dos favoritos' : 'Favoritar música'}
                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-all ${
@@ -1083,13 +1119,22 @@ export default function TemplatesPage() {
                 {track.licenseName && (
                   <p className="mb-2 line-clamp-2 text-[11px] leading-relaxed text-white/30">
                     {track.licenseUrl ? (
-                      <a href={track.licenseUrl} target="_blank" rel="noreferrer" className="text-brand-200 hover:text-white">
+                      <a href={track.licenseUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="text-brand-200 hover:text-white">
                         {track.licenseName}
                       </a>
                     ) : track.licenseName}
                   </p>
                 )}
-                {track.musicUrl && <audio src={track.musicUrl} controls preload="none" className="h-9 w-full" />}
+                {track.musicUrl && (
+                  <audio
+                    src={track.musicUrl}
+                    controls
+                    preload="none"
+                    onClick={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    className="h-9 w-full"
+                  />
+                )}
               </div>
             );
             })}
@@ -1274,6 +1319,7 @@ export default function TemplatesPage() {
                 setActiveMotionId={setActiveMotionId}
                 isFavorite={favoriteTemplateIds.has(template.id)}
                 onToggleFavorite={handleToggleTemplateFavorite}
+                onUse={openRecorderWithTemplate}
               />
             ))}
           </div>
