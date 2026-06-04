@@ -164,7 +164,7 @@ function categoryFromInput(input: SunoPromptInput): typeof musicCategories[numbe
 }
 
 function trackTitle(track: SunoTrack, generation: MusicGenerationRecord, index: number) {
-  return (track.title || generation.title || `Musica IA SIX3 ${index + 1}`)
+  return (track.title || generation.title || `Música IA SIX3 ${index + 1}`)
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 90);
@@ -230,7 +230,7 @@ async function saveSunoTracks(params: {
       storagePath: uploaded.path,
       source: 'custom',
       library: 'Suno API',
-      licenseName: 'Musica original gerada por IA via prompt no SIX3',
+      licenseName: 'Música original gerada por IA via prompt no SIX3',
       attribution: 'Gerada no SIX3 com Suno API',
       isGlobal: false,
       isActive: true,
@@ -257,7 +257,7 @@ async function saveSunoTracks(params: {
     await createNotification({
       recipientUid: params.user.uid,
       category: 'template',
-      title: 'Musica IA pronta',
+      title: 'Música IA pronta',
       body: `${createdMusic[0].name} foi salva nas suas trilhas.`,
       link: '/app/templates',
       priority: 'normal',
@@ -275,9 +275,9 @@ musicRouter.get('/libraries', requireActiveSubscription, (_req, res) => {
     acceptedLicenses: [
       'Pixabay Content License',
       'Public Domain / CC0',
-      'Creative Commons Attribution (CC BY) com credito',
-      'YouTube Audio Library Standard ou Creative Commons com atribuicao',
-      'Licencas pagas com assinatura/comprovante valido por projeto',
+      'Creative Commons Attribution (CC BY) com crédito',
+      'YouTube Áudio Library Standard ou Creative Commons com atribuição',
+      'Licenças pagas com assinatura/comprovante válido por projeto',
       'Modo teste server-side para rascunhos internos, quando MUSIC_LICENSE_TEST_MODE=true',
     ],
   });
@@ -371,8 +371,8 @@ musicRouter.post('/libraries/import', requirePlanFeature('custom_template_upload
     await createNotification({
       recipientUid: user.uid,
       category: 'template',
-      title: 'Musica licenciada importada',
-      body: `${input.name} foi salva nas suas trilhas com licenca conferida.`,
+      title: 'Música licenciada importada',
+      body: `${input.name} foi salva nas suas trilhas com licença conferida.`,
       link: '/app/templates',
       priority: 'normal',
       metadata: { musicId: ref.id, providerId: input.providerId, licenseStatus: evaluation.status },

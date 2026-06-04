@@ -38,7 +38,7 @@ export default function EventsPage() {
     await deleteEvent(deleteId);
     setEvents(e => e.filter(ev => ev.id !== deleteId));
     setDeleteId(null);
-    toast.success(navigator.onLine ? 'Evento excluido.' : 'Evento removido deste dispositivo. A exclusao sera enviada depois.');
+    toast.success(navigator.onLine ? 'Evento excluído.' : 'Evento removido deste dispositivo. A exclusão será enviada depois.');
   }
 
   async function handleDuplicate(id: string) {
@@ -52,7 +52,7 @@ export default function EventsPage() {
   async function handleArchive(id: string) {
     await updateEvent(id, { status: 'archived' });
     setEvents(e => e.map(ev => ev.id === id ? { ...ev, status: 'archived' } : ev));
-    toast.success(navigator.onLine ? 'Evento arquivado.' : 'Evento arquivado neste dispositivo. A alteracao sera enviada depois.');
+    toast.success(navigator.onLine ? 'Evento arquivado.' : 'Evento arquivado neste dispositivo. A alteração será enviada depois.');
     setMenuId(null);
   }
 
@@ -92,7 +92,7 @@ export default function EventsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => window.open(`/g/${event.slug}`, '_blank')} icon={<ExternalLink className="w-4 h-4" />}>Pagina</Button>
+                <Button variant="secondary" size="sm" onClick={() => window.open(`/g/${event.slug}`, '_blank')} icon={<ExternalLink className="w-4 h-4" />}>Página</Button>
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === event.id ? null : event.id)}
                     className="p-2 rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-white transition-colors">

@@ -296,14 +296,14 @@ videoRouter.post('/process', requireActiveSubscription, async (req, res, next) =
     await createNotification({
       recipientUid: profile?.uid || '',
       category: 'video',
-      title: result.status === 'processed' ? 'Video pronto' : 'Processamento falhou',
+      title: result.status === 'processed' ? 'Vídeo pronto' : 'Processamento falhou',
       body: result.status === 'processed'
-        ? 'Seu video foi processado e publicado com sucesso.'
-        : result.error || 'Nao foi possivel processar o video agora.',
+        ? 'Seu vídeo foi processado e publicado com sucesso.'
+        : result.error || 'Não foi possível processar o vídeo agora.',
       link: result.status === 'processed' ? `/v/${config.videoId}` : '/app/gravar',
       priority: result.status === 'processed' ? 'normal' : 'high',
       metadata: { videoId: config.videoId, status: result.status },
-    }).catch((error) => console.warn('[notifications] video skipped:', error instanceof Error ? error.message : error));
+    }).catch((error) => console.warn('[notifications] vídeo skipped:', error instanceof Error ? error.message : error));
 
     res.status(result.status === 'failed' ? 500 : 200).json(result);
   } catch (e) { next(e); }
@@ -407,7 +407,7 @@ videoRouter.delete('/:id', requireActiveSubscription, async (req, res, next) => 
         .storage
         .from(SUPABASE_BUCKETS.videos)
         .remove([storagePath])
-        .catch((error) => console.warn('[videos] storage delete skipped:', error instanceof Error ? error.message : error));
+        .catch((error) => console.warn('[vídeos] storage delete skipped:', error instanceof Error ? error.message : error));
     }
 
     res.json({ ok: true });

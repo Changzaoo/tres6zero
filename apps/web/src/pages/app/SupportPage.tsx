@@ -75,7 +75,7 @@ export default function SupportPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     if (!accountEmail) {
-      toast.error('Nao foi possivel identificar o e-mail da conta.');
+      toast.error('Não foi possível identificar o e-mail da conta.');
       return;
     }
     if (!subject || !newMessage) {

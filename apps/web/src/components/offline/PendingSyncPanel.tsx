@@ -53,7 +53,7 @@ export function PendingSyncPanel() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-white">Itens salvos neste dispositivo</p>
-              <p className="text-xs text-white/45">Eles serao enviados quando houver conexao.</p>
+              <p className="text-xs text-white/45">Eles serão enviados quando houver conexão.</p>
             </div>
             <button type="button" onClick={() => setOpen(false)} className="rounded-full p-2 text-white/45 hover:bg-white/8 hover:text-white">
               <X className="h-4 w-4" />

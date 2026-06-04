@@ -11,7 +11,7 @@ export const neonGlowEffect: VideoEffectConfig = {
   visualBehavior: [
     'Saturacao alta',
     'Glow colorido',
-    'Realce em areas claras',
+    'Realce em áreas claras',
   ],
   parameters: {
     saturation: 25,

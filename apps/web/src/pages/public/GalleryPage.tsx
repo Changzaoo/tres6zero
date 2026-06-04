@@ -57,8 +57,8 @@ export default function GalleryPage() {
   if (!event) return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center gap-4 text-center p-4">
       <Video className="w-16 h-16 text-white/20" />
-      <h1 className="text-xl font-bold text-white">Galeria nao encontrada</h1>
-      <p className="text-white/40">Este evento nao existe ou foi removido.</p>
+      <h1 className="text-xl font-bold text-white">Galeria não encontrada</h1>
+      <p className="text-white/40">Este evento não existe ou foi removido.</p>
     </div>
   );
 
@@ -130,7 +130,7 @@ export default function GalleryPage() {
           <div className="mt-5 grid grid-cols-3 gap-2 max-w-lg">
             <div className="rounded-2xl bg-white/[0.05] p-3">
               <p className="text-lg font-black">{stats.videos}</p>
-              <p className="text-xs text-white/40">videos</p>
+              <p className="text-xs text-white/40">vídeos</p>
             </div>
             <div className="rounded-2xl bg-white/[0.05] p-3">
               <p className="text-lg font-black">{stats.views}</p>
@@ -145,7 +145,7 @@ export default function GalleryPage() {
 
         {featuredMedia.length > 0 && (
           <section className="px-4 sm:px-6 py-5 border-b border-white/[0.08]">
-            <h2 className="text-sm font-bold text-white/70 mb-3">Midias em destaque</h2>
+            <h2 className="text-sm font-bold text-white/70 mb-3">Mídias em destaque</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {featuredMedia.map((url, index) => (
                 <div key={`${url}-${index}`} className="aspect-square rounded-2xl overflow-hidden bg-black/40 border border-white/[0.08]">
@@ -161,11 +161,11 @@ export default function GalleryPage() {
         )}
 
         <section className="px-4 sm:px-6 py-5">
-          <h2 className="text-sm font-bold text-white/70 mb-3">Videos publicados</h2>
+          <h2 className="text-sm font-bold text-white/70 mb-3">Vídeos publicados</h2>
           {videos.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <Video className="w-12 h-12 text-white/20" />
-              <p className="text-white/40">Nenhum video publicado ainda</p>
+              <p className="text-white/40">Nenhum vídeo publicado ainda</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -181,7 +181,7 @@ export default function GalleryPage() {
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-white/20">
                         <Video className="w-10 h-10" />
-                        <span className="text-xs">Video 360</span>
+                        <span className="text-xs">Vídeo 360</span>
                       </div>
                     )}
                   </div>

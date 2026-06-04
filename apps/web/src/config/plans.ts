@@ -84,7 +84,7 @@ export const PLANS = [
     highlight: false,
     features: [
       {
-        label: 'Templates essenciais estaticos',
+        label: 'Templates essenciais estáticos',
         description: 'Modelos prontos sem animacoes ou movimento para montar paginas, galerias e experiencias basicas.',
       },
       {
@@ -143,7 +143,7 @@ export const PLANS = [
     features: [
       {
         label: 'Todos os templates liberados',
-        description: 'Acesso completo a biblioteca de modelos, incluindo molduras estaticas, animadas e novos templates publicados.',
+        description: 'Acesso completo a biblioteca de modelos, incluindo molduras estáticas, animadas e novos templates publicados.',
       },
       {
         label: 'Salvar offline sem restrições',

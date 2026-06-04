@@ -448,7 +448,7 @@ async function recoveryFactsForUser(user: FirebaseUserRecord) {
   }
 
   if (name) {
-    facts.push({ kind: 'name', label: 'Nome de usuario', value: maskText(name) });
+    facts.push({ kind: 'name', label: 'Nome de usuário', value: maskText(name) });
   }
 
   const customPlan = planFromUser(user);
@@ -464,7 +464,7 @@ async function recoveryFactsForUser(user: FirebaseUserRecord) {
   const planName = activePlanId && Object.prototype.hasOwnProperty.call(BILLING_PLANS, activePlanId)
     ? BILLING_PLANS[activePlanId as keyof typeof BILLING_PLANS].name
     : 'Sem assinatura ativa';
-  facts.push({ kind: 'plan', label: 'Plano do ultimo mes', value: maskText(planName) });
+  facts.push({ kind: 'plan', label: 'Plano do último mes', value: maskText(planName) });
 
   const devices = await publicTrustedDevices(user).catch(() => []);
   const recentDevice = devices[0];
@@ -537,8 +537,8 @@ function recoveryDecoys(kind: string, realValue: string) {
 function fakeRecoveryFacts() {
   return [
     { kind: 'email', label: 'E-mail cadastrado', value: 'a*****5@******.com' },
-    { kind: 'name', label: 'Nome de usuario', value: 'V******s' },
-    { kind: 'plan', label: 'Plano do ultimo mes', value: maskText(BILLING_PLANS.starter.name) },
+    { kind: 'name', label: 'Nome de usuário', value: 'V******s' },
+    { kind: 'plan', label: 'Plano do último mes', value: maskText(BILLING_PLANS.starter.name) },
     { kind: 'device', label: 'Dispositivo reconhecido', value: 'W******s - C****e' },
     { kind: 'created', label: 'Mes de criacao da conta', value: maskText('junho de 2026') },
   ];

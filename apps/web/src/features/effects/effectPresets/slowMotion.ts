@@ -4,7 +4,7 @@ export const slowMotionEffect: VideoEffectConfig = {
   id: 'slow_motion',
   name: 'Slow motion',
   shortDescription: 'Movimento suave para momentos de destaque.',
-  longDescription: 'Reduz a velocidade do video e adiciona uma sensacao mais dramatica para giros e entradas importantes.',
+  longDescription: 'Reduz a velocidade do vídeo e adiciona uma sensacao mais dramatica para giros e entradas importantes.',
   category: 'motion',
   intensity: 'medium',
   recommendedFor: ['casamentos', 'eventos premium', 'momentos especiais'],

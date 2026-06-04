@@ -14,10 +14,10 @@ import { uploadImageToServer, uploadVideoToServer } from '@/services/serverMedia
 import { useAuth } from '@/hooks/useAuth';
 
 const schema = z.object({
-  name: z.string().min(2, 'Nome obrigatorio'),
-  clientName: z.string().min(2, 'Cliente obrigatorio'),
+  name: z.string().min(2, 'Nome obrigatório'),
+  clientName: z.string().min(2, 'Cliente obrigatório'),
   date: z.string().min(1, 'Data obrigatoria'),
-  location: z.string().min(2, 'Local obrigatorio'),
+  location: z.string().min(2, 'Local obrigatório'),
   type: z.enum(['wedding', 'birthday', 'graduation', 'corporate', 'club', 'inauguration', 'church', 'store', 'other']),
   status: z.enum(['draft', 'active', 'closed', 'archived']),
   description: z.string().optional(),
@@ -115,14 +115,14 @@ export default function EventFormPage() {
       if (isEdit) {
         const updated = await updateEvent(id!, payload);
         if (!navigator.onLine || updated?.id?.startsWith('local_')) {
-          toast.info('Evento salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+          toast.info('Evento salvo neste dispositivo. Ele será enviado quando a internet voltar.');
         } else {
           toast.success('Evento atualizado!');
         }
       } else {
         const created = await createEvent(user.uid, payload);
         if (!navigator.onLine || created.id.startsWith('local_')) {
-          toast.info('Evento salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+          toast.info('Evento salvo neste dispositivo. Ele será enviado quando a internet voltar.');
         } else {
           toast.success('Evento criado!');
         }
@@ -164,17 +164,17 @@ export default function EventFormPage() {
 
           <div className="grid lg:grid-cols-[1.25fr_0.75fr] gap-4">
             <div className="space-y-3">
-              <Input label="Headline da pagina publica" placeholder="Ex: melhores momentos do evento" {...register('profileHeadline')} />
+              <Input label="Headline da página pública" placeholder="Ex: melhores momentos do evento" {...register('profileHeadline')} />
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-white/70">Descricao</label>
-                <textarea placeholder="Descricao do evento..."
+                <label className="text-sm font-medium text-white/70">Descrição</label>
+                <textarea placeholder="Descrição do evento..."
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-brand-500/60 resize-none h-24"
                   {...register('description')} />
               </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-              <p className="text-sm font-semibold text-white">Perfil publico</p>
+              <p className="text-sm font-semibold text-white">Perfil público</p>
               <div className="relative h-24 rounded-xl overflow-hidden bg-white/5">
                 {coverUrl ? <img src={coverUrl} alt="" className="w-full h-full object-cover" /> : <div className="h-full bg-gradient-brand opacity-50" />}
                 {avatarUrl && <img src={avatarUrl} alt="" className="absolute left-3 -bottom-5 w-16 h-16 rounded-2xl object-cover border-2 border-surface bg-surface" />}
@@ -195,11 +195,11 @@ export default function EventFormPage() {
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-white">Fotos e videos da pagina</p>
-                <p className="text-xs text-white/40">Escolha midias de destaque para a pagina publica do cliente.</p>
+                <p className="text-sm font-semibold text-white">Fotos e vídeos da página</p>
+                <p className="text-xs text-white/40">Escolha mídias de destaque para a página pública do cliente.</p>
               </div>
               <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-sm font-bold text-white hover:bg-white/[0.1]">
-                <Film className="w-4 h-4" /> Adicionar midias
+                <Film className="w-4 h-4" /> Adicionar mídias
                 <input type="file" multiple accept="image/*,video/*" className="hidden" disabled={assetLoading === 'media'} onChange={handleMediaUpload} />
               </label>
             </div>
@@ -232,10 +232,10 @@ export default function EventFormPage() {
               <span className="text-sm text-white/70">Captura de lead obrigatoria para download</span>
             </label>
           </div>
-          <Input label="Mensagem de compartilhamento" placeholder="Ex: Olha meu video 360!" {...register('shareMessage')} />
+          <Input label="Mensagem de compartilhamento" placeholder="Ex: Olha meu vídeo 360!" {...register('shareMessage')} />
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" type="button" onClick={() => navigate('/app/events')} className="flex-1 justify-center">Cancelar</Button>
-            <Button type="submit" loading={isSubmitting || Boolean(assetLoading)} className="flex-1 justify-center">{isEdit ? 'Salvar alteracoes' : 'Criar evento'}</Button>
+            <Button type="submit" loading={isSubmitting || Boolean(assetLoading)} className="flex-1 justify-center">{isEdit ? 'Salvar alterações' : 'Criar evento'}</Button>
           </div>
         </form>
       </Card>

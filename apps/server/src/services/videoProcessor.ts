@@ -67,7 +67,7 @@ function resolvePythonScript() {
   const candidates = [
     path.resolve(process.cwd(), 'apps/server/src/python/video_editor.py'),
     path.resolve(process.cwd(), 'src/python/video_editor.py'),
-    path.resolve(__dirname, '..', 'python', 'video_editor.py'),
+    path.resolve(__dirname, '..', 'python', 'vídeo_editor.py'),
   ];
 
   const found = candidates.find((candidate) => existsSync(candidate));

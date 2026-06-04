@@ -22,7 +22,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
-  { to: '/app/videos', label: 'Videos', icon: Video, unlocked: true },
+  { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
   { to: '/app/gravar', label: 'Gravar', icon: Camera, primary: true },
   { to: '/app/templates', label: 'Templates', icon: Layers },
 ];
@@ -35,7 +35,7 @@ const accountItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
   { to: '/app/leads', label: 'Resultados', icon: BarChart2 },
-  { to: '/app/settings', label: 'Configuracoes', icon: Settings, unlocked: true },
+  { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
   { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
@@ -88,7 +88,7 @@ export function MobileBottomNav() {
     resetAuth();
     setAccountOpen(false);
     navigate('/login');
-    toast.success('Ate logo!');
+    toast.success('Até logo!');
   }
 
   return (
@@ -97,7 +97,7 @@ export function MobileBottomNav() {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="Fechar opcoes da conta"
+            aria-label="Fechar opções da conta"
             className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
             onClick={() => setAccountOpen(false)}
           />

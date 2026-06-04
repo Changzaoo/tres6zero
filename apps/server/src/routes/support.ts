@@ -61,7 +61,7 @@ function conversationFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
     visitorId: data.visitorId || '',
     accessLevel: data.accessLevel || 'authenticated',
     source: data.source || 'app',
-    userName: data.userName || 'Usuario',
+    userName: data.userName || 'Usuário',
     userEmail: data.userEmail || '',
     contactEmail: data.contactEmail || data.userEmail || '',
     subject: data.subject || '',
@@ -82,7 +82,7 @@ function messageFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
     conversationId: data.conversationId || '',
     senderUid: data.senderUid || '',
     senderRole: data.senderRole || 'user',
-    senderName: data.senderName || 'Usuario',
+    senderName: data.senderName || 'Usuário',
     body: data.body || '',
     createdAt: data.createdAt || nowIso(),
   };
@@ -136,11 +136,11 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
     const data = anonymousConversationSchema.parse(req.body);
     const db = getDb();
     const createdAt = nowIso();
-    const userName = data.name || 'Anonimo';
+    const userName = data.name || 'Anônimo';
     const contactEmail = data.email || '';
     const conversationRef = db.collection('supportConversations').doc();
     const contextLines = [
-      data.pageUrl ? `Pagina: ${data.pageUrl}` : '',
+      data.pageUrl ? `Página: ${data.pageUrl}` : '',
       data.userAgent ? `Dispositivo: ${data.userAgent}` : '',
     ].filter(Boolean);
     const body = contextLines.length ? `${data.message}\n\n---\n${contextLines.join('\n')}` : data.message;
@@ -151,7 +151,7 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
       accessLevel: 'anonymous',
       source: 'login',
       userName,
-      userEmail: contactEmail || 'anonimo',
+      userEmail: contactEmail || 'anônimo',
       contactEmail,
       subject: data.subject,
       status: 'open',
@@ -175,7 +175,7 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
 
     await createSupportStaffNotification({
       category: 'support',
-      title: 'Novo suporte anonimo',
+      title: 'Novo suporte anônimo',
       body: `${userName}: ${preview(data.message)}`,
       link: '/app/support-dashboard',
       priority: 'high',
@@ -214,7 +214,7 @@ supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, nex
       conversationId: req.params.id,
       senderUid: data.visitorId,
       senderRole: 'anonymous',
-      senderName: conversation.userName || 'Anonimo',
+      senderName: conversation.userName || 'Anônimo',
       body: data.message,
       createdAt,
     });
@@ -230,7 +230,7 @@ supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, nex
     await createSupportStaffNotification({
       category: 'support',
       title: 'Nova mensagem de suporte',
-      body: `${conversation.userName || 'Anonimo'}: ${preview(data.message)}`,
+      body: `${conversation.userName || 'Anônimo'}: ${preview(data.message)}`,
       link: '/app/support-dashboard',
       priority: 'high',
       metadata: { conversationId: req.params.id, source: 'login' },
@@ -266,7 +266,7 @@ supportRouter.post('/conversations', async (req, res, next) => {
     const db = getDb();
     const createdAt = nowIso();
     const userEmail = data.email || user.email || '';
-    const userName = user.displayName || user.email || 'Usuario';
+    const userName = user.displayName || user.email || 'Usuário';
     const conversationRef = db.collection('supportConversations').doc();
 
     const conversation = {
@@ -334,7 +334,7 @@ supportRouter.post('/conversations/:id/messages', async (req, res, next) => {
     if (conversation.ownerUid !== user.localId) supportError('FORBIDDEN', 403);
 
     const createdAt = nowIso();
-    const userName = user.displayName || user.email || 'Usuario';
+    const userName = user.displayName || user.email || 'Usuário';
     const messageRef = await ref.collection('messages').add({
       conversationId: req.params.id,
       senderUid: user.localId,
@@ -354,7 +354,7 @@ supportRouter.post('/conversations/:id/messages', async (req, res, next) => {
 
     await createSupportStaffNotification({
       category: 'support',
-      title: 'Resposta do usuario no suporte',
+      title: 'Resposta do usuário no suporte',
       body: `${userName}: ${preview(data.message)}`,
       link: '/app/support-dashboard',
       priority: 'normal',

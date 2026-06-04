@@ -53,7 +53,7 @@ function DeviceRow({
                 <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-[11px] font-bold text-brand-200">Atual</span>
               )}
             </div>
-            <p className="text-xs text-white/35">Ultimo acesso: {formatDate(device.lastSeenAt)}</p>
+            <p className="text-xs text-white/35">Último acesso: {formatDate(device.lastSeenAt)}</p>
           </div>
         </div>
 
@@ -64,7 +64,7 @@ function DeviceRow({
           </span>
           <span className="flex min-w-0 items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-white/30" />
-            <span className="truncate">{device.location || 'Localizacao nao identificada'}</span>
+            <span className="truncate">{device.location || 'Localização não identificada'}</span>
           </span>
         </div>
       </div>
@@ -220,7 +220,7 @@ export default function SettingsPage() {
       const session = await changePassword(data.newPassword);
       setUser(session.user);
       passwordForm.reset({ newPassword: '' });
-      toast.success('Senha alterada com seguranca.');
+      toast.success('Senha alterada com segurança.');
     } catch (error) {
       toast.error(parseFirebaseError((error as { code?: string }).code));
     }
@@ -247,7 +247,7 @@ export default function SettingsPage() {
 
   async function handleDisconnectAll() {
     if (!devices.length) return;
-    if (!window.confirm('Desconectar todos os dispositivos desta conta? Voce precisara entrar novamente.')) return;
+    if (!window.confirm('Desconectar todos os dispositivos desta conta? Você precisará entrar novamente.')) return;
 
     try {
       await disconnectAllDevices();
@@ -276,9 +276,9 @@ export default function SettingsPage() {
       setNotificationPrefs(preferences);
       setGlobalNotificationPrefs(preferences);
       if (user) setUser({ ...user, notificationPreferences: preferences });
-      toast.success('Notificacoes salvas.');
+      toast.success('Notificações salvas.');
     } catch {
-      toast.error('Erro ao salvar notificacoes.');
+      toast.error('Erro ao salvar notificações.');
     } finally {
       setNotificationSaving(false);
     }
@@ -288,7 +288,7 @@ export default function SettingsPage() {
     if (checked && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        toast.error('Permissao de notificacao negada pelo navegador.');
+        toast.error('Permissão de notificação negada pelo navegador.');
         checked = false;
       }
     }
@@ -300,7 +300,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Configuracoes</h1>
+          <h1 className="text-2xl font-bold text-white">Configurações</h1>
           <p className="text-sm text-white/40">Perfil, senha e dispositivos conectados.</p>
         </div>
         <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-white/60">
@@ -404,20 +404,20 @@ export default function SettingsPage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-base font-semibold text-white">
                 <BellRing className="h-5 w-5 text-brand-400" />
-                Notificacoes
+                Notificações
               </h2>
               {notificationSaving && <span className="text-xs font-bold text-white/35">Salvando...</span>}
             </div>
 
             <div className="space-y-3">
               <ToggleRow
-                title="Central de notificacoes"
+                title="Central de notificações"
                 description="Mantem avisos dentro do app, no sino da plataforma."
                 checked={notificationPrefs.inApp}
                 onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, inApp: checked, browser: checked ? notificationPrefs.browser : false })}
               />
               <ToggleRow
-                title="Notificacoes do navegador"
+                title="Notificações do navegador"
                 description="'Push' local quando o app estiver aberto ou instalado."
                 checked={notificationPrefs.browser}
                 onChange={handleBrowserToggle}
@@ -425,15 +425,15 @@ export default function SettingsPage() {
               />
               <ToggleRow
                 title="Som discreto"
-                description="Toca um alerta curto para novas notificacoes."
+                description="Toca um alerta curto para novas notificações."
                 checked={notificationPrefs.sound}
                 onChange={(checked) => saveNotificationPrefs({ ...notificationPrefs, sound: checked })}
               />
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                 <ToggleRow
-                  title="Horario silencioso"
-                  description="Pausa som e notificacoes do navegador nesse periodo."
+                  title="Horário silencioso"
+                  description="Pausa som e notificações do navegador nesse periodo."
                   checked={notificationPrefs.quietHours.enabled}
                   onChange={(checked) => saveNotificationPrefs({
                     ...notificationPrefs,
@@ -444,7 +444,7 @@ export default function SettingsPage() {
                   <label className="space-y-1.5">
                     <span className="flex items-center gap-1.5 text-xs font-bold text-white/55">
                       <Clock3 className="h-3.5 w-3.5" />
-                      Inicio
+                      Início
                     </span>
                     <input
                       type="time"

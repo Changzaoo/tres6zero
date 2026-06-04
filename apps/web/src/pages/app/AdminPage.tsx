@@ -75,11 +75,11 @@ const mediaKindLabels: Record<string, string> = {
   event_cover: 'Capa do evento',
   event_avatar: 'Avatar',
   event_logo: 'Logo',
-  event_media: 'Midia do evento',
-  video: 'Video final',
-  raw_video: 'Video original',
+  event_media: 'Mídia do evento',
+  video: 'Vídeo final',
+  raw_video: 'Vídeo original',
   thumbnail: 'Miniatura',
-  music: 'Musica',
+  music: 'Música',
 };
 
 const authTypeLabels: Record<string, string> = {
@@ -134,7 +134,7 @@ function banBadgeClass(user: Pick<AdminUserOverview, 'banned' | 'disabled' | 'ba
 }
 
 function formatLoginLocation(login: UserLoginEvent) {
-  return login.location || [login.city, login.region, login.country].filter(Boolean).join(', ') || 'Sem localizacao';
+  return login.location || [login.city, login.region, login.country].filter(Boolean).join(', ') || 'Sem localização';
 }
 
 function filterLoginEvents(events: UserLoginEvent[], filter: LoginFilter) {
@@ -159,8 +159,8 @@ function filterLoginEvents(events: UserLoginEvent[], filter: LoginFilter) {
 }
 
 function auditActionLabel(action: string) {
-  if (action === 'USER_BANNED') return 'Usuario banido';
-  if (action === 'USER_UNBANNED') return 'Usuario desbanido';
+  if (action === 'USER_BANNED') return 'Usuário banido';
+  if (action === 'USER_UNBANNED') return 'Usuário desbanido';
   if (action === 'USER_ROLE_UPDATED') return 'Cargo alterado';
   if (action === 'SUPPORT_USER_CREATED') return 'Conta de suporte criada';
   return action || 'Acao administrativa';
@@ -169,7 +169,7 @@ function auditActionLabel(action: string) {
 function accessLabel(role?: AdminUserOverview['role']) {
   if (role === 'admin') return 'Admin';
   if (role === 'support') return 'Suporte';
-  return 'Usuario';
+  return 'Usuário';
 }
 
 function accessBadgeClass(role?: AdminUserOverview['role']) {
@@ -286,13 +286,13 @@ export default function AdminPage() {
         if (customersResult.status === 'fulfilled') {
           setCustomers(customersResult.value.customers);
         } else {
-          toast.error('Nao foi possivel carregar clientes pagos.');
+          toast.error('Não foi possível carregar clientes pagos.');
         }
 
         if (overviewResult.status === 'fulfilled') {
           setOverview(overviewResult.value);
         } else {
-          toast.error('Nao foi possivel carregar auditoria administrativa.');
+          toast.error('Não foi possível carregar auditoria administrativa.');
         }
       })
       .catch(() => {
@@ -377,7 +377,7 @@ export default function AdminPage() {
       mergeUserDetails(details);
       if (notify) toast.success('Dados atualizados.');
     } catch {
-      toast.error('Nao foi possivel carregar detalhes do usuario.');
+      toast.error('Não foi possível carregar detalhes do usuário.');
     } finally {
       setDetailsLoading(false);
     }
@@ -399,7 +399,7 @@ export default function AdminPage() {
       await navigator.clipboard.writeText(value);
       toast.success(`${label} copiado.`);
     } catch {
-      toast.error(`Nao foi possivel copiar ${label.toLowerCase()}.`);
+      toast.error(`Não foi possível copiar ${label.toLowerCase()}.`);
     }
   }
 
@@ -424,7 +424,7 @@ export default function AdminPage() {
     }
 
     if (banTarget.uid === adminUser?.uid && !confirmSelfBan) {
-      toast.error('Confirme explicitamente para banir sua propria conta.');
+      toast.error('Confirme explicitamente para banir sua própria conta.');
       return;
     }
 
@@ -438,9 +438,9 @@ export default function AdminPage() {
       });
       mergeUserDetails(details);
       setBanTarget(null);
-      toast.success('Usuario banido com sucesso.');
+      toast.success('Usuário banido com sucesso.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel banir usuario.';
+      const message = error instanceof Error ? error.message : 'Não foi possível banir usuário.';
       toast.error(message);
     } finally {
       setBanSubmitting(false);
@@ -453,9 +453,9 @@ export default function AdminPage() {
     try {
       const details = await unbanAdminUser(user.uid);
       mergeUserDetails(details);
-      toast.success('Usuario desbanido com sucesso.');
+      toast.success('Usuário desbanido com sucesso.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel desbanir usuario.';
+      const message = error instanceof Error ? error.message : 'Não foi possível desbanir usuário.';
       toast.error(message);
     } finally {
       setBanSubmitting(false);
@@ -469,7 +469,7 @@ export default function AdminPage() {
 
   async function updateSupportRole(user: AdminUserOverview) {
     if (user.role === 'admin') {
-      toast.error('O cargo de administrador nao pode ser alterado por aqui.');
+      toast.error('O cargo de administrador não pode ser alterado por aqui.');
       return;
     }
 
@@ -484,7 +484,7 @@ export default function AdminPage() {
       mergeUserDetails(details);
       toast.success(nextRole === 'support' ? 'Cargo de suporte aplicado.' : 'Cargo de suporte removido.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel alterar o cargo.';
+      const message = error instanceof Error ? error.message : 'Não foi possível alterar o cargo.';
       toast.error(message);
     } finally {
       setRoleUpdatingUid(null);
@@ -511,7 +511,7 @@ export default function AdminPage() {
       setDrawerTab('summary');
       toast.success('Conta de suporte criada.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nao foi possivel criar a conta de suporte.';
+      const message = error instanceof Error ? error.message : 'Não foi possível criar a conta de suporte.';
       toast.error(message);
     } finally {
       setSupportSubmitting(false);
@@ -519,9 +519,9 @@ export default function AdminPage() {
   }
 
   const sections: { id: AdminSection; label: string; icon: ReactNode; count: string | number }[] = [
-    { id: 'users', label: 'Usuarios', icon: <Users className="h-4 w-4" />, count: overview?.summary.totalUsers ?? '-' },
+    { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" />, count: overview?.summary.totalUsers ?? '-' },
     { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" />, count: overview?.summary.totalEvents ?? '-' },
-    { id: 'media', label: 'Midias', icon: <FileImage className="h-4 w-4" />, count: overview?.summary.totalMedia ?? '-' },
+    { id: 'media', label: 'Mídias', icon: <FileImage className="h-4 w-4" />, count: overview?.summary.totalMedia ?? '-' },
     { id: 'logins', label: 'Logins', icon: <KeyRound className="h-4 w-4" />, count: overview?.loginLogs.length ?? '-' },
     { id: 'customers', label: 'Clientes', icon: <UserCheck className="h-4 w-4" />, count: customers.length },
   ];
@@ -532,11 +532,11 @@ export default function AdminPage() {
 
   const renderUsers = () => {
     if (loadingOverview) {
-      return <EmptyState>Carregando usuarios e dispositivos...</EmptyState>;
+      return <EmptyState>Carregando usuários e dispositivos...</EmptyState>;
     }
 
     if (!overview || overview.users.length === 0) {
-      return <EmptyState>Nenhum usuario encontrado.</EmptyState>;
+      return <EmptyState>Nenhum usuário encontrado.</EmptyState>;
     }
 
     return (
@@ -544,12 +544,12 @@ export default function AdminPage() {
         <table className="min-w-[86rem] w-full text-left">
           <thead className="border-b border-white/10 text-xs uppercase text-white/35">
             <tr>
-              <th className="pb-3 pr-4 font-semibold">Usuario</th>
+              <th className="pb-3 pr-4 font-semibold">Usuário</th>
               <th className="pb-3 pr-4 font-semibold">Acesso</th>
-              <th className="pb-3 pr-4 font-semibold">Ultimo login</th>
+              <th className="pb-3 pr-4 font-semibold">Último login</th>
               <th className="pb-3 pr-4 font-semibold">Dispositivos recentes</th>
               <th className="pb-3 pr-4 font-semibold">Status</th>
-              <th className="pb-3 font-semibold">Acoes</th>
+              <th className="pb-3 font-semibold">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.06]">
@@ -564,7 +564,7 @@ export default function AdminPage() {
                       className="group block max-w-[16rem] text-left"
                     >
                       <span className="block truncate text-sm font-semibold text-white transition group-hover:text-brand-200">
-                        {user.name || user.email || 'Usuario'}
+                        {user.name || user.email || 'Usuário'}
                       </span>
                       <span className="mt-0.5 block text-[11px] font-medium text-brand-300/60 opacity-0 transition group-hover:opacity-100">
                         Ver detalhes
@@ -586,10 +586,10 @@ export default function AdminPage() {
                       <div className="space-y-1">
                         <p className="max-w-[20rem] truncate text-sm text-white/76">{mainDevice.name}</p>
                         <p className="max-w-[20rem] truncate text-xs text-white/42">
-                          {mainDevice.ip} - {mainDevice.location || 'Sem localizacao'}
+                          {mainDevice.ip} - {mainDevice.location || 'Sem localização'}
                         </p>
                         <p className="text-[11px] text-white/30">
-                          {user.devices.length} dispositivo(s), ultimo em {formatDateTime(mainDevice.lastSeenAt)}
+                          {user.devices.length} dispositivo(s), último em {formatDateTime(mainDevice.lastSeenAt)}
                         </p>
                       </div>
                     ) : (
@@ -678,7 +678,7 @@ export default function AdminPage() {
               <th className="pb-3 pr-4 font-semibold">Evento</th>
               <th className="pb-3 pr-4 font-semibold">Dono</th>
               <th className="pb-3 pr-4 font-semibold">Data e local</th>
-              <th className="pb-3 pr-4 font-semibold">Midias</th>
+              <th className="pb-3 pr-4 font-semibold">Mídias</th>
               <th className="pb-3 font-semibold">Status</th>
             </tr>
           </thead>
@@ -700,7 +700,7 @@ export default function AdminPage() {
                 </td>
                 <td className="py-4 pr-4">
                   <p className="text-sm text-white/72">{eventMediaCount(event)} arquivo(s)</p>
-                  <p className="text-xs text-white/40">{videosByEvent.get(event.id) || 0} video(s)</p>
+                  <p className="text-xs text-white/40">{videosByEvent.get(event.id) || 0} vídeo(s)</p>
                 </td>
                 <td className="py-4">
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold uppercase text-white/60">
@@ -716,8 +716,8 @@ export default function AdminPage() {
   };
 
   const renderMedia = () => {
-    if (loadingOverview) return <EmptyState>Carregando midias...</EmptyState>;
-    if (!overview || overview.media.length === 0) return <EmptyState>Nenhuma midia enviada encontrada.</EmptyState>;
+    if (loadingOverview) return <EmptyState>Carregando mídias...</EmptyState>;
+    if (!overview || overview.media.length === 0) return <EmptyState>Nenhuma mídia enviada encontrada.</EmptyState>;
 
     return (
       <div className="overflow-x-auto">
@@ -726,7 +726,7 @@ export default function AdminPage() {
             <tr>
               <th className="pb-3 pr-4 font-semibold">Arquivo</th>
               <th className="pb-3 pr-4 font-semibold">Tipo</th>
-              <th className="pb-3 pr-4 font-semibold">Usuario</th>
+              <th className="pb-3 pr-4 font-semibold">Usuário</th>
               <th className="pb-3 pr-4 font-semibold">Origem</th>
               <th className="pb-3 pr-4 font-semibold">Criado</th>
               <th className="pb-3 font-semibold">Link</th>
@@ -741,7 +741,7 @@ export default function AdminPage() {
                 </td>
                 <td className="py-4 pr-4">
                   <p className="text-sm text-white/72">{mediaKindLabels[item.kind] || item.kind}</p>
-                  <p className="text-xs text-white/38">{item.source === 'event' ? 'Evento' : 'Video'}</p>
+                  <p className="text-xs text-white/38">{item.source === 'event' ? 'Evento' : 'Vídeo'}</p>
                 </td>
                 <td className="py-4 pr-4">
                   <p className="max-w-[16rem] truncate text-sm text-white/72">{ownerName(item.ownerId)}</p>
@@ -749,7 +749,7 @@ export default function AdminPage() {
                 </td>
                 <td className="py-4 pr-4">
                   <p className="max-w-[16rem] truncate text-sm text-white/72">{item.sourceTitle}</p>
-                  <p className="text-xs text-white/35">{item.eventId ? `Evento ${shortId(item.eventId, 10)}` : `Video ${shortId(item.videoId, 10)}`}</p>
+                  <p className="text-xs text-white/35">{item.eventId ? `Evento ${shortId(item.eventId, 10)}` : `Vídeo ${shortId(item.videoId, 10)}`}</p>
                 </td>
                 <td className="py-4 pr-4 text-sm text-white/65">{formatDateTime(item.createdAt)}</td>
                 <td className="py-4"><OpenMediaLink url={item.url} /></td>
@@ -770,7 +770,7 @@ export default function AdminPage() {
         <table className="min-w-[84rem] w-full text-left">
           <thead className="border-b border-white/10 text-xs uppercase text-white/35">
             <tr>
-              <th className="pb-3 pr-4 font-semibold">Horario</th>
+              <th className="pb-3 pr-4 font-semibold">Horário</th>
               <th className="pb-3 pr-4 font-semibold">Conta</th>
               <th className="pb-3 pr-4 font-semibold">Resultado</th>
               <th className="pb-3 pr-4 font-semibold">IP e local</th>
@@ -781,7 +781,7 @@ export default function AdminPage() {
           <tbody className="divide-y divide-white/[0.06]">
             {overview.loginLogs.map((log) => {
               const user = logUser(log);
-              const location = log.location || [log.city, log.region, log.country].filter(Boolean).join(', ') || 'Sem localizacao';
+              const location = log.location || [log.city, log.region, log.country].filter(Boolean).join(', ') || 'Sem localização';
               return (
                 <tr key={log.id} className="align-top">
                   <td className="py-4 pr-4">
@@ -789,7 +789,7 @@ export default function AdminPage() {
                     <p className="text-xs text-white/35">{authTypeLabels[log.type] || log.type}</p>
                   </td>
                   <td className="py-4 pr-4">
-                    <p className="max-w-[16rem] truncate text-sm font-semibold text-white">{user?.name || log.email || 'Conta nao identificada'}</p>
+                    <p className="max-w-[16rem] truncate text-sm font-semibold text-white">{user?.name || log.email || 'Conta não identificada'}</p>
                     <p className="max-w-[16rem] truncate text-xs text-white/42">{user?.email || log.email || shortId(log.uid, 12)}</p>
                   </td>
                   <td className="py-4 pr-4">
@@ -804,7 +804,7 @@ export default function AdminPage() {
                     <p className="max-w-[14rem] truncate text-xs text-white/40">{location}</p>
                   </td>
                   <td className="py-4 pr-4">
-                    <p className="max-w-[18rem] truncate text-sm text-white/72">{log.deviceName || 'Dispositivo nao informado'}</p>
+                    <p className="max-w-[18rem] truncate text-sm text-white/72">{log.deviceName || 'Dispositivo não informado'}</p>
                     <p className="text-xs text-white/35">Hash {shortId(log.deviceHash, 12)}</p>
                   </td>
                   <td className="py-4">
@@ -834,7 +834,7 @@ export default function AdminPage() {
               </div>
               <div className="text-left text-xs text-white/45 sm:text-right">
                 <p className="capitalize">{customer.planId || 'plano'}</p>
-                <p>Ate {formatDate(customer.currentPeriodEnd)}</p>
+                <p>Até {formatDate(customer.currentPeriodEnd)}</p>
               </div>
             </div>
           </div>
@@ -866,9 +866,9 @@ export default function AdminPage() {
     ];
     const drawerTabs: { id: AdminDrawerTab; label: string; icon: ReactNode }[] = [
       { id: 'summary', label: 'Resumo', icon: <FileText className="h-4 w-4" /> },
-      { id: 'logins', label: 'Historico', icon: <Clock className="h-4 w-4" /> },
+      { id: 'logins', label: 'Histórico', icon: <Clock className="h-4 w-4" /> },
       { id: 'devices', label: 'Dispositivos', icon: <Smartphone className="h-4 w-4" /> },
-      { id: 'security', label: 'Seguranca', icon: <ShieldAlert className="h-4 w-4" /> },
+      { id: 'security', label: 'Segurança', icon: <ShieldAlert className="h-4 w-4" /> },
       { id: 'audit', label: 'Auditoria', icon: <Database className="h-4 w-4" /> },
     ];
 
@@ -884,9 +884,9 @@ export default function AdminPage() {
           <div className="border-b border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-300/70">Detalhes do usuario</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-300/70">Detalhes do usuário</p>
                 <h2 className="mt-1 truncate text-xl font-bold text-white">
-                  {drawerUser?.name || drawerUser?.email || 'Carregando usuario...'}
+                  {drawerUser?.name || drawerUser?.email || 'Carregando usuário...'}
                 </h2>
                 <p className="truncate text-sm text-white/42">{drawerUser?.email || drawerUid}</p>
               </div>
@@ -1008,23 +1008,23 @@ export default function AdminPage() {
             {drawerUser && drawerTab === 'summary' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <DetailField label="Nome" value={drawerUser.name || 'Usuario'} />
+                  <DetailField label="Nome" value={drawerUser.name || 'Usuário'} />
                   <DetailField label="E-mail" value={drawerUser.email || 'Sem e-mail'} />
                   <DetailField label="UID completo" value={drawerUser.uid} mono wide />
                   <DetailField label="Tipo de acesso" value={accessLabel(drawerUser.role)} />
                   <DetailField label="Plano atual" value={drawerUser.planId || drawerUser.subscriptionStatus || 'Sem plano'} />
                   <DetailField label="Status" value={banLabel(drawerUser)} />
                   <DetailField label="Criado em" value={formatDateTime(drawerUser.createdAt)} />
-                  <DetailField label="Ultimo login" value={formatDateTime(details?.user.lastLoginAt || drawerUser.lastSignInAt)} />
-                  <DetailField label="Ultimo IP conhecido" value={details?.user.lastIp || devices[0]?.ip || 'Sem IP'} />
+                  <DetailField label="Último login" value={formatDateTime(details?.user.lastLoginAt || drawerUser.lastSignInAt)} />
+                  <DetailField label="Último IP conhecido" value={details?.user.lastIp || devices[0]?.ip || 'Sem IP'} />
                   <DetailField label="Total de logins" value={details?.user.loginCount ?? successfulLogins.length} />
                   <DetailField label="Total de dispositivos" value={details?.user.deviceCount ?? devices.length} />
                   <DetailField label="Primeiro login registrado" value={formatDateTime(details?.user.firstLoginAt)} />
-                  <DetailField label="Ultimo login registrado" value={formatDateTime(details?.user.lastLoginAt || drawerUser.lastSignInAt)} />
-                  <DetailField label="Origem do cadastro" value={details?.user.signupSource || 'Nao informada'} />
+                  <DetailField label="Último login registrado" value={formatDateTime(details?.user.lastLoginAt || drawerUser.lastSignInAt)} />
+                  <DetailField label="Origem do cadastro" value={details?.user.signupSource || 'Não informada'} />
                   <DetailField label="Provedor de login" value={details?.user.loginMethod || drawerUser.provider || 'password'} />
-                  <DetailField label="Verificacao de e-mail" value={drawerUser.emailVerified ? 'Verificado' : 'Nao verificado'} />
-                  <DetailField label="Ultimo user-agent" value={details?.user.lastUserAgent || devices[0]?.userAgent || 'Sem user-agent'} mono wide />
+                  <DetailField label="Verificacao de e-mail" value={drawerUser.emailVerified ? 'Verificado' : 'Não verificado'} />
+                  <DetailField label="Último user-agent" value={details?.user.lastUserAgent || devices[0]?.userAgent || 'Sem user-agent'} mono wide />
                 </div>
               </div>
             )}
@@ -1055,9 +1055,9 @@ export default function AdminPage() {
                 </div>
 
                 {detailsLoading && loginEvents.length === 0 ? (
-                  <LoadingState message="Carregando historico..." />
+                  <LoadingState message="Carregando histórico..." />
                 ) : filteredLogins.length === 0 ? (
-                  <EmptyState>Nenhum historico registrado para este filtro.</EmptyState>
+                  <EmptyState>Nenhum histórico registrado para este filtro.</EmptyState>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-white/35">Mostrando {Math.min(filteredLogins.length, 120)} de {filteredLogins.length} evento(s).</p>
@@ -1084,7 +1084,7 @@ export default function AdminPage() {
                         <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-white/45 sm:grid-cols-2">
                           <p>IP: <span className="text-white/70">{login.ip || 'Sem IP'}</span></p>
                           <p>Local: <span className="text-white/70">{formatLoginLocation(login)}</span></p>
-                          <p>Metodo: <span className="text-white/70">{login.loginMethod || 'unknown'}</span></p>
+                          <p>Método: <span className="text-white/70">{login.loginMethod || 'unknown'}</span></p>
                           <p>Sessao: <span className="font-mono text-white/60">{shortId(login.sessionId || login.deviceHash, 16)}</span></p>
                         </div>
                         {login.failureReason && <p className="mt-2 text-xs text-red-100/75">Motivo: {login.failureReason}</p>}
@@ -1118,7 +1118,7 @@ export default function AdminPage() {
                       </div>
                       <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-white/45 sm:grid-cols-2">
                         <p>Primeiro acesso: <span className="text-white/70">{formatDateTime(device.createdAt)}</span></p>
-                        <p>Ultimo acesso: <span className="text-white/70">{formatDateTime(device.lastSeenAt)}</span></p>
+                        <p>Último acesso: <span className="text-white/70">{formatDateTime(device.lastSeenAt)}</span></p>
                         <p>Logins: <span className="text-white/70">{device.loginCount ?? 0}</span></p>
                         <p>IP atual: <span className="text-white/70">{device.ip || 'Sem IP'}</span></p>
                         <p className="sm:col-span-2">IPs recentes: <span className="text-white/70">{(device.recentIps || []).join(', ') || device.ip || 'Sem IP'}</span></p>
@@ -1144,7 +1144,7 @@ export default function AdminPage() {
                       <p className="font-semibold text-white">
                         {suspicious7d > 0 ? `${suspicious7d} evento(s) suspeito(s) nos ultimos 7 dias` : 'Nenhuma atividade suspeita recente'}
                       </p>
-                      <p className="mt-1 text-sm text-white/50">Eventos suspeitos sao apenas sinalizados para revisao. O sistema nao bloqueia automaticamente por suspeita.</p>
+                      <p className="mt-1 text-sm text-white/50">Eventos suspeitos são apenas sinalizados para revisão. O sistema não bloqueia automaticamente por suspeita.</p>
                     </div>
                   </div>
                 </div>
@@ -1152,7 +1152,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <DetailField label="Status da conta" value={banLabel(drawerUser)} />
                   <DetailField label="Falhas de login" value={failedLogins.length} />
-                  <DetailField label="Ultimo IP" value={details?.user.lastIp || devices[0]?.ip || 'Sem IP'} />
+                  <DetailField label="Último IP" value={details?.user.lastIp || devices[0]?.ip || 'Sem IP'} />
                   <DetailField label="Dispositivos suspeitos" value={devices.filter((device) => device.suspicious).length} />
                 </div>
 
@@ -1162,7 +1162,7 @@ export default function AdminPage() {
                       <p className="text-sm font-semibold text-white">Banimento</p>
                       <p className="mt-1 text-xs text-white/45">
                         {drawerUser.banned
-                          ? `Ativo${drawerUser.banExpiresAt ? ` ate ${formatDateTime(drawerUser.banExpiresAt)}` : ' permanentemente'}`
+                          ? `Ativo${drawerUser.banExpiresAt ? ` até ${formatDateTime(drawerUser.banExpiresAt)}` : ' permanentemente'}`
                           : 'Conta sem banimento ativo'}
                       </p>
                     </div>
@@ -1174,7 +1174,7 @@ export default function AdminPage() {
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-green-400/25 bg-green-500/10 px-4 text-xs font-bold text-green-100 transition hover:bg-green-500/15 disabled:opacity-50"
                       >
                         <Unlock className="h-4 w-4" />
-                        Desbanir usuario
+                        Desbanir usuário
                       </button>
                     ) : (
                       <button
@@ -1184,7 +1184,7 @@ export default function AdminPage() {
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-4 text-xs font-bold text-red-100 transition hover:bg-red-500/15 disabled:opacity-50"
                       >
                         <Ban className="h-4 w-4" />
-                        Banir usuario
+                        Banir usuário
                       </button>
                     )}
                   </div>
@@ -1199,7 +1199,7 @@ export default function AdminPage() {
                 {detailsLoading && auditLogs.length === 0 ? (
                   <LoadingState message="Carregando auditoria..." />
                 ) : auditLogs.length === 0 ? (
-                  <EmptyState>Nenhum registro administrativo para este usuario.</EmptyState>
+                  <EmptyState>Nenhum registro administrativo para este usuário.</EmptyState>
                 ) : (
                   auditLogs.map((log: AdminAuditLog) => {
                     const expiresAt = typeof log.metadata?.banExpiresAt === 'string' ? log.metadata.banExpiresAt : null;
@@ -1246,7 +1246,7 @@ export default function AdminPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-200/70">Confirmar banimento</p>
-              <h2 className="mt-1 text-xl font-bold text-white">{banTarget.name || banTarget.email || 'Usuario'}</h2>
+              <h2 className="mt-1 text-xl font-bold text-white">{banTarget.name || banTarget.email || 'Usuário'}</h2>
               <p className="mt-1 text-sm text-white/42">{banTarget.email || banTarget.uid}</p>
             </div>
             <button
@@ -1273,7 +1273,7 @@ export default function AdminPage() {
             </label>
 
             <label className="block">
-              <span className="text-xs font-semibold uppercase text-white/40">Duracao</span>
+              <span className="text-xs font-semibold uppercase text-white/40">Duração</span>
               <select
                 value={banDuration}
                 onChange={(event) => {
@@ -1315,7 +1315,7 @@ export default function AdminPage() {
                   className="mt-1 h-4 w-4 accent-yellow-300"
                 />
                 <span className="text-sm text-yellow-50/80">
-                  Confirmo que estou tentando banir minha propria conta administrativa.
+                  Confirmo que estou tentando banir minha própria conta administrativa.
                 </span>
               </label>
             )}
@@ -1335,7 +1335,7 @@ export default function AdminPage() {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-red-500 px-5 text-sm font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-55"
             >
               <Ban className="h-4 w-4" />
-              {banSubmitting ? 'Banindo...' : 'Banir usuario'}
+              {banSubmitting ? 'Banindo...' : 'Banir usuário'}
             </button>
           </div>
         </form>
@@ -1396,7 +1396,7 @@ export default function AdminPage() {
                 value={supportForm.password}
                 onChange={(event) => setSupportForm((current) => ({ ...current, password: event.target.value }))}
                 className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-cyan-300/40"
-                placeholder="Minimo de 8 caracteres"
+                placeholder="Mínimo de 8 caracteres"
                 autoComplete="new-password"
               />
             </label>
@@ -1440,16 +1440,16 @@ export default function AdminPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Usuarios" value={overview?.summary.totalUsers ?? '-'} icon={<Users className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
+        <StatCard title="Usuários" value={overview?.summary.totalUsers ?? '-'} icon={<Users className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
         <StatCard title="Eventos" value={overview?.summary.totalEvents ?? '-'} icon={<CalendarDays className="h-5 w-5" />} color="text-brand-300" loading={loadingOverview} />
-        <StatCard title="Midias" value={overview?.summary.totalMedia ?? '-'} icon={<Database className="h-5 w-5" />} color="text-green-300" loading={loadingOverview} />
+        <StatCard title="Mídias" value={overview?.summary.totalMedia ?? '-'} icon={<Database className="h-5 w-5" />} color="text-green-300" loading={loadingOverview} />
         <StatCard title="Falhas 24h" value={overview?.summary.failedLoginAttempts24h ?? '-'} icon={<ShieldAlert className="h-5 w-5" />} color="text-red-300" loading={loadingOverview} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Suporte" value={overview?.summary.supportUsers ?? '-'} icon={<LifeBuoy className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
         <StatCard title="Clientes ativos" value={customers.length} icon={<UserCheck className="h-5 w-5" />} color="text-green-400" />
-        <StatCard title="Videos" value={overview?.summary.totalVideos ?? '-'} icon={<Video className="h-5 w-5" />} color="text-blue-300" loading={loadingOverview} />
+        <StatCard title="Vídeos" value={overview?.summary.totalVideos ?? '-'} icon={<Video className="h-5 w-5" />} color="text-blue-300" loading={loadingOverview} />
         <StatCard title="Logins 24h" value={overview?.summary.loginAttempts24h ?? '-'} icon={<Activity className="h-5 w-5" />} color="text-pink-300" loading={loadingOverview} />
       </div>
 
@@ -1461,8 +1461,8 @@ export default function AdminPage() {
               Administrador logado: <span className="font-medium text-white">{adminUser.name}</span>
             </p>
             <p className="mt-1 text-xs leading-relaxed text-white/38">
-              MAC address nao e exposto por navegadores. Para rastreio operacional, o painel usa IP, user-agent,
-              hash do dispositivo, nome/plataforma informados pelo client, horario e vinculo com UID/e-mail quando disponivel.
+              MAC address não é exposto por navegadores. Para rastreio operacional, o painel usa IP, user-agent,
+              hash do dispositivo, nome/plataforma informados pelo client, horário e vínculo com UID/e-mail quando disponível.
             </p>
           </div>
         </div>
@@ -1489,7 +1489,7 @@ export default function AdminPage() {
 
       {activeSection === 'users' && (
         <Panel
-          title="Usuarios e dispositivos"
+          title="Usuários e dispositivos"
           icon={<MonitorSmartphone className="h-5 w-5" />}
           action={(
             <button
@@ -1507,13 +1507,13 @@ export default function AdminPage() {
       )}
 
       {activeSection === 'events' && (
-        <Panel title="Eventos dos usuarios" icon={<CalendarDays className="h-5 w-5" />}>
+        <Panel title="Eventos dos usuários" icon={<CalendarDays className="h-5 w-5" />}>
           {renderEvents()}
         </Panel>
       )}
 
       {activeSection === 'media' && (
-        <Panel title="Midias enviadas" icon={<FileImage className="h-5 w-5" />}>
+        <Panel title="Mídias enviadas" icon={<FileImage className="h-5 w-5" />}>
           {renderMedia()}
         </Panel>
       )}

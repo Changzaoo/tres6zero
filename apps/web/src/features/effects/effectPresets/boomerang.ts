@@ -4,14 +4,14 @@ export const boomerangEffect: VideoEffectConfig = {
   id: 'boomerang',
   name: 'Boomerang',
   shortDescription: 'Loop curto, divertido, indo e voltando.',
-  longDescription: 'Reproduz o video para frente e depois em reverso para criar um clipe dinamico de cabine 360.',
+  longDescription: 'Reproduz o vídeo para frente e depois em reverso para criar um clipe dinâmico de cabine 360.',
   category: 'motion',
   intensity: 'medium',
   recommendedFor: ['festas', 'aniversarios', 'poses rapidas'],
   visualBehavior: [
     'Trecho curto para frente',
-    'Reverso automatico',
-    'Loop com ritmo rapido',
+    'Reverso automático',
+    'Loop com ritmo rápido',
   ],
   parameters: {
     forwardDuration: 3,

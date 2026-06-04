@@ -17,7 +17,7 @@ const schema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
   username: z.string()
     .min(3, 'Use pelo menos 3 caracteres')
-    .max(32, 'Use ate 32 caracteres')
+    .max(32, 'Use até 32 caracteres')
     .regex(/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/, 'Use letras, numeros, ponto, hifen ou underline'),
   password: z.string().min(6, 'Mínimo 6 caracteres'),
   confirmPassword: z.string(),
@@ -71,7 +71,7 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input label="Nome" placeholder="Seu nome" icon={<User className="h-4 w-4" />} error={errors.name?.message} {...register('name')} />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-white/70">Nome de usuario</label>
+              <label className="text-sm font-medium text-white/70">Nome de usuário</label>
               <div className={`flex items-center rounded-[18px] border bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md transition-all focus-within:border-brand-400/70 focus-within:ring-2 focus-within:ring-brand-500/20 ${
                 errors.username ? 'border-red-500/60' : 'border-white/10'
               }`}>

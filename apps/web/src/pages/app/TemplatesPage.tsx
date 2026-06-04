@@ -68,7 +68,7 @@ const sourceOptions = [
   { value: 'all', label: 'Todas origens' },
   { value: 'generated', label: 'SIX3' },
   { value: 'custom', label: 'Enviados' },
-  { value: 'default', label: 'Padrao' },
+  { value: 'default', label: 'Padrão' },
 ];
 
 const musicCategoryOptions: { value: AppMusic['category']; label: string }[] = [
@@ -86,10 +86,10 @@ const musicCategoryOptions: { value: AppMusic['category']; label: string }[] = [
 
 const licenseStatusLabels: Record<MusicLicenseStatus, string> = {
   allowed: 'Liberada',
-  requires_attribution: 'Credito obrigatorio',
+  requires_attribution: 'Crédito obrigatório',
   requires_subscription: 'Assinatura comprovada',
   test_only: 'Somente teste',
-  manual_review: 'Revisao manual',
+  manual_review: 'Revisão manual',
   blocked: 'Bloqueada',
 };
 
@@ -254,7 +254,7 @@ function TemplateCard({
           )}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md ${animated ? 'border-cyan-300/25 bg-cyan-500/16 text-cyan-100' : 'border-white/15 bg-black/35 text-white/75'}`}>
-              {animated ? 'Animado' : 'Estatico'}
+              {animated ? 'Animado' : 'Estático'}
             </span>
           </div>
           <button
@@ -416,7 +416,7 @@ export default function TemplatesPage() {
         if (!active) return;
         if (templateError) {
           console.warn('[templates] Catalog load failed:', templateError);
-          toast.error('Nao foi possivel carregar o catalogo de templates.');
+          toast.error('Não foi possível carregar o catálogo de templates.');
         }
         if (musicError) {
           console.warn('[templates] Custom music unavailable:', musicError);
@@ -467,7 +467,7 @@ export default function TemplatesPage() {
       })
       .catch((error) => {
         console.warn('[music libraries] load failed:', error);
-        toast.error('Nao foi possivel carregar as bibliotecas musicais.');
+        toast.error('Não foi possível carregar as bibliotecas musicais.');
       })
       .finally(() => {
         if (active) setLibrariesLoading(false);
@@ -514,7 +514,7 @@ export default function TemplatesPage() {
   function handleToggleMusicFavorite(id: string) {
     const next = toggleMediaFavorite('music', id, user?.uid);
     setFavorites(next);
-    toast.success(isMediaFavorite('music', id, next) ? 'Musica favoritada.' : 'Musica removida dos favoritos.');
+    toast.success(isMediaFavorite('music', id, next) ? 'Música favoritada.' : 'Música removida dos favoritos.');
   }
 
   async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -522,7 +522,7 @@ export default function TemplatesPage() {
     e.target.value = '';
     if (!file || !user) return;
     if (!canUpload) {
-      toast.error('Seu plano nao libera upload de template personalizado.');
+      toast.error('Seu plano não libera upload de template personalizado.');
       return;
     }
 
@@ -578,7 +578,7 @@ export default function TemplatesPage() {
     e.target.value = '';
     if (!file || !user) return;
     if (!canUpload) {
-      toast.error('Seu plano nao libera upload de musica personalizada.');
+      toast.error('Seu plano não libera upload de música personalizada.');
       return;
     }
 
@@ -587,7 +587,7 @@ export default function TemplatesPage() {
     try {
       const uploaded = await uploadMusicToServer(file, setMusicProgress);
       const track = await createMusic({
-        name: file.name.replace(/\.[^.]+$/, '') || 'Musica personalizada',
+        name: file.name.replace(/\.[^.]+$/, '') || 'Música personalizada',
         category: 'ambient',
         musicUrl: uploaded.publicUrl || uploaded.musicUrl,
         storagePath: uploaded.storagePath,
@@ -597,9 +597,9 @@ export default function TemplatesPage() {
         isActive: true,
       });
       setMusic((current) => [track, ...current]);
-      toast.success('Musica enviada com sucesso.');
+      toast.success('Música enviada com sucesso.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao enviar musica.');
+      toast.error(error instanceof Error ? error.message : 'Erro ao enviar música.');
     } finally {
       setUploadingMusic(false);
     }
@@ -629,14 +629,14 @@ export default function TemplatesPage() {
       if (evaluation.status === 'test_only') {
         toast.success('Modo teste ativo: a trilha pode ser importada como rascunho interno.');
       } else if (evaluation.status === 'blocked') {
-        toast.error('Licenca bloqueada para uso seguro no SIX3.');
+        toast.error('Licença bloqueada para uso seguro no SIX3.');
       } else if (evaluation.status === 'manual_review') {
-        toast.error('Essa licenca precisa de revisao manual antes de importar.');
+        toast.error('Essa licença precisa de revisão manual antes de importar.');
       } else {
-        toast.success('Licenca conferida.');
+        toast.success('Licença conferida.');
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Nao foi possivel conferir a licenca.');
+      toast.error(error instanceof Error ? error.message : 'Não foi possível conferir a licença.');
     } finally {
       setCheckingLicense(false);
     }
@@ -652,7 +652,7 @@ export default function TemplatesPage() {
       return;
     }
     if (!libraryForm.audioUrl.trim()) {
-      toast.error('Informe uma URL direta do arquivo de audio.');
+      toast.error('Informe uma URL direta do arquivo de áudio.');
       return;
     }
 
@@ -673,9 +673,9 @@ export default function TemplatesPage() {
       setLicenseEvaluation(evaluation);
       setMusic((current) => [track, ...current.filter((item) => item.id !== track.id)]);
       setLibraryForm(initialLibraryMusicForm(selectedProvider));
-      toast.success('Musica licenciada importada.');
+      toast.success('Música licenciada importada.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao importar musica licenciada.');
+      toast.error(error instanceof Error ? error.message : 'Erro ao importar música licenciada.');
     } finally {
       setImportingLibraryMusic(false);
     }
@@ -716,11 +716,11 @@ export default function TemplatesPage() {
 
   async function handlePreviewSunoPrompt() {
     if (!canGenerateSuno) {
-      toast.error('Geracao de musica IA fica liberada no plano Ilimitado.');
+      toast.error('Geração de música IA fica liberada no plano Ilimitado.');
       return;
     }
     if (sunoPrompt.trim().length < 3) {
-      toast.error('Descreva a musica que voce quer gerar.');
+      toast.error('Descreva a música que você quer gerar.');
       return;
     }
 
@@ -728,17 +728,17 @@ export default function TemplatesPage() {
       const preview = await buildSunoPrompt(sunoInput());
       setSunoPreviewPrompt(preview.sunoPrompt);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Nao foi possivel criar o prompt.');
+      toast.error(error instanceof Error ? error.message : 'Não foi possível criar o prompt.');
     }
   }
 
   async function handleGenerateSunoMusic() {
     if (!canGenerateSuno) {
-      toast.error('Geracao de musica IA fica liberada no plano Ilimitado.');
+      toast.error('Geração de música IA fica liberada no plano Ilimitado.');
       return;
     }
     if (sunoPrompt.trim().length < 3) {
-      toast.error('Descreva a musica que voce quer gerar.');
+      toast.error('Descreva a música que você quer gerar.');
       return;
     }
 
@@ -754,7 +754,7 @@ export default function TemplatesPage() {
       const taskId = started.taskId || started.generation.taskId;
       setSunoTaskId(taskId);
 
-      setSunoStatus('Gerando musica original...');
+      setSunoStatus('Gerando música original...');
       const result = await waitForSunoMusic(taskId, (status) => {
         setSunoStatus(describeSunoStatus(status));
       });
@@ -765,16 +765,16 @@ export default function TemplatesPage() {
         ...newTracks,
         ...current.filter((track) => !newTracks.some((created) => created.id === track.id)),
       ]);
-      setSunoStatus('Musica salva na biblioteca.');
-      toast.success('Musica IA gerada e salva nas suas trilhas.');
+      setSunoStatus('Música salva na biblioteca.');
+      toast.success('Música IA gerada e salva nas suas trilhas.');
       setSunoOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao gerar musica IA.';
+      const message = error instanceof Error ? error.message : 'Erro ao gerar música IA.';
       setSunoStatus(message === 'SUNO_GENERATION_STILL_PROCESSING'
-        ? 'A Suno ainda esta processando. Tente novamente em alguns minutos.'
+        ? 'A Suno ainda está processando. Tente novamente em alguns minutos.'
         : message);
       toast.error(message === 'SUNO_GENERATION_STILL_PROCESSING'
-        ? 'A Suno ainda esta processando. A tarefa ficou salva para consulta.'
+        ? 'A Suno ainda está processando. A tarefa ficou salva para consulta.'
         : message);
     } finally {
       setSunoGenerating(false);
@@ -819,7 +819,7 @@ export default function TemplatesPage() {
             </label>
             <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Musica'}</span>
+              <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Música'}</span>
               <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
             </label>
             <Button
@@ -840,7 +840,7 @@ export default function TemplatesPage() {
               onClick={() => setSunoOpen(true)}
               icon={canGenerateSuno ? <Wand2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
               className="col-span-2 sm:col-span-1"
-              title={canGenerateSuno ? 'Gerar musica original pela Suno' : 'Liberado no plano Ilimitado'}
+              title={canGenerateSuno ? 'Gerar música original pela Suno' : 'Liberado no plano Ilimitado'}
             >
               Gerar IA
             </Button>
@@ -912,8 +912,8 @@ export default function TemplatesPage() {
               }}
               className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
             >
-              <option value="all">{canUseAnimatedTemplates ? 'Estaticos e animados' : 'Estaticos'}</option>
-              <option value="static">Estaticos</option>
+              <option value="all">{canUseAnimatedTemplates ? 'Estáticos e animados' : 'Estáticos'}</option>
+              <option value="static">Estáticos</option>
               {canUseAnimatedTemplates && <option value="animated">Animados</option>}
             </select>
             <button
@@ -961,7 +961,7 @@ export default function TemplatesPage() {
 
       {!canUseAnimatedTemplates && (
         <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.06] p-4 text-sm text-cyan-50/72">
-          O plano Essencial exibe apenas molduras estaticas. Molduras animadas e com movimento ficam liberadas nos planos Profissional e Ilimitado.
+          O plano Essencial exibe apenas molduras estáticas. Molduras animadas e com movimento ficam liberadas nos planos Profissional e Ilimitado.
         </div>
       )}
 
@@ -976,7 +976,7 @@ export default function TemplatesPage() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Music2 className="h-4 w-4 text-brand-300" />
-              <h2 className="text-sm font-bold text-white">Musicas e trilhas</h2>
+              <h2 className="text-sm font-bold text-white">Músicas e trilhas</h2>
             </div>
             {favorites.music.length > 0 && (
               <span className="rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-100">
@@ -995,7 +995,7 @@ export default function TemplatesPage() {
                     type="button"
                     onClick={() => handleToggleMusicFavorite(track.id)}
                     title={trackFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                    aria-label={trackFavorite ? 'Remover musica dos favoritos' : 'Favoritar musica'}
+                    aria-label={trackFavorite ? 'Remover música dos favoritos' : 'Favoritar música'}
                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-all ${
                       trackFavorite
                         ? 'border-amber-200/45 bg-amber-400/18 text-amber-100'
@@ -1032,7 +1032,7 @@ export default function TemplatesPage() {
       )}
 
       {templates.length === 0 ? (
-        <EmptyState icon={<Layers className="h-8 w-8" />} title="Nenhum template" description="Os templates do catalogo serao exibidos assim que o backend responder." />
+        <EmptyState icon={<Layers className="h-8 w-8" />} title="Nenhum template" description="Os templates do catálogo serão exibidos assim que o backend responder." />
       ) : filteredTemplates.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
@@ -1070,19 +1070,19 @@ export default function TemplatesPage() {
         </>
       )}
 
-      <Modal open={librariesOpen} onClose={() => !importingLibraryMusic && setLibrariesOpen(false)} title="Bibliotecas de musicas" size="xl">
+      <Modal open={librariesOpen} onClose={() => !importingLibraryMusic && setLibrariesOpen(false)} title="Bibliotecas de músicas" size="xl">
         <div className="max-h-[74vh] space-y-4 overflow-y-auto pr-1">
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
             <div className="mb-3 flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-200" />
               <p className="text-sm font-bold text-white">
-                {libraryTestMode ? 'Modo teste de importacao musical' : 'Importacao com licenca conferida'}
+                {libraryTestMode ? 'Modo teste de importação musical' : 'Importação com licença conferida'}
               </p>
             </div>
             <p className="text-sm leading-relaxed text-white/55">
               {libraryTestMode
-                ? 'O backend esta aceitando trilhas como rascunho interno de teste e marcando tudo como somente teste.'
-                : 'O SIX3 salva a trilha somente quando a licenca e aceita pelo backend. Bibliotecas pagas exigem comprovante de assinatura/licenca do projeto.'}
+                ? 'O backend está aceitando trilhas como rascunho interno de teste e marcando tudo como somente teste.'
+                : 'O SIX3 salva a trilha somente quando a licença é aceita pelo backend. Bibliotecas pagas exigem comprovante de assinatura/licença do projeto.'}
             </p>
             {acceptedLicenses.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1118,7 +1118,7 @@ export default function TemplatesPage() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-white">{provider.name}</p>
                       <p className="mt-1 text-xs text-white/38">
-                        {provider.type === 'subscription_catalog' ? 'Assinatura/licenca' : 'Biblioteca aberta/manual'}
+                        {provider.type === 'subscription_catalog' ? 'Assinatura/licença' : 'Biblioteca aberta/manual'}
                       </p>
                     </div>
                     {provider.requiresLicenseProof ? (
@@ -1142,11 +1142,11 @@ export default function TemplatesPage() {
                 <div className="flex flex-wrap gap-2">
                   {selectedProvider.browseUrl && (
                     <a href={selectedProvider.browseUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 text-xs font-bold text-white/70 hover:text-white">
-                      Abrir catalogo <ExternalLink className="h-3.5 w-3.5" />
+                      Abrir catálogo <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}
                   <a href={selectedProvider.licenseUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 text-xs font-bold text-white/70 hover:text-white">
-                    Licenca <ExternalLink className="h-3.5 w-3.5" />
+                    Licença <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
               </div>
@@ -1195,12 +1195,12 @@ export default function TemplatesPage() {
               <input
                 value={libraryForm.theme}
                 onChange={(event) => updateLibraryForm('theme', event.target.value)}
-                placeholder="Ex: aniversario, casamento, luxo"
+                placeholder="Ex: aniversário, casamento, luxo"
                 className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
               />
             </label>
             <label className="block space-y-2 sm:col-span-2">
-              <span className="text-sm font-semibold text-white/70">URL direta do arquivo de audio</span>
+              <span className="text-sm font-semibold text-white/70">URL direta do arquivo de áudio</span>
               <input
                 value={libraryForm.audioUrl}
                 onChange={(event) => updateLibraryForm('audioUrl', event.target.value)}
@@ -1209,16 +1209,16 @@ export default function TemplatesPage() {
               />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-semibold text-white/70">Pagina da faixa</span>
+              <span className="text-sm font-semibold text-white/70">Página da faixa</span>
               <input
                 value={libraryForm.pageUrl}
                 onChange={(event) => updateLibraryForm('pageUrl', event.target.value)}
-                placeholder="URL publica da faixa"
+                placeholder="URL pública da faixa"
                 className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
               />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-semibold text-white/70">ID/codigo da faixa</span>
+              <span className="text-sm font-semibold text-white/70">ID/código da faixa</span>
               <input
                 value={libraryForm.providerTrackId}
                 onChange={(event) => updateLibraryForm('providerTrackId', event.target.value)}
@@ -1227,7 +1227,7 @@ export default function TemplatesPage() {
               />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-semibold text-white/70">Licenca</span>
+              <span className="text-sm font-semibold text-white/70">Licença</span>
               <input
                 value={libraryForm.licenseName}
                 onChange={(event) => updateLibraryForm('licenseName', event.target.value)}
@@ -1236,30 +1236,30 @@ export default function TemplatesPage() {
               />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-semibold text-white/70">URL da licenca</span>
+              <span className="text-sm font-semibold text-white/70">URL da licença</span>
               <input
                 value={libraryForm.licenseUrl}
                 onChange={(event) => updateLibraryForm('licenseUrl', event.target.value)}
-                placeholder="Link da licenca"
+                placeholder="Link da licença"
                 className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
               />
             </label>
             <label className="block space-y-2 sm:col-span-2">
-              <span className="text-sm font-semibold text-white/70">Comprovante de licenca/assinatura</span>
+              <span className="text-sm font-semibold text-white/70">Comprovante de licença/assinatura</span>
               <input
                 value={libraryForm.licenseProofUrl}
                 onChange={(event) => updateLibraryForm('licenseProofUrl', event.target.value)}
-                placeholder="Link, numero de licenca, invoice ou identificador do projeto"
+                placeholder="Link, número de licença, invoice ou identificador do projeto"
                 className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] px-4 text-sm text-white placeholder-white/30 outline-none"
               />
             </label>
             <label className="block space-y-2 sm:col-span-2">
-              <span className="text-sm font-semibold text-white/70">Atribuicao/credito</span>
+              <span className="text-sm font-semibold text-white/70">Atribuição/crédito</span>
               <textarea
                 value={libraryForm.attribution}
                 onChange={(event) => updateLibraryForm('attribution', event.target.value)}
                 rows={3}
-                placeholder="Preencha quando a licenca pedir credito do artista."
+                placeholder="Preencha quando a licença pedir crédito do artista."
                 className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 outline-none"
               />
             </label>
@@ -1271,7 +1271,7 @@ export default function TemplatesPage() {
                   onChange={(event) => updateLibraryForm('subscriptionConfirmed', event.target.checked)}
                   className="h-4 w-4 accent-brand-500"
                 />
-                Assinatura/licenca ativa para esta faixa e projeto
+                Assinatura/licença ativa para esta faixa e projeto
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block space-y-1">
@@ -1285,7 +1285,7 @@ export default function TemplatesPage() {
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-xs font-semibold text-white/45">Duracao (s)</span>
+                  <span className="text-xs font-semibold text-white/45">Duração (s)</span>
                   <input
                     value={libraryForm.duration}
                     onChange={(event) => updateLibraryForm('duration', event.target.value)}
@@ -1324,7 +1324,7 @@ export default function TemplatesPage() {
               onClick={handleCheckLibraryLicense}
               icon={<ShieldCheck className="h-4 w-4" />}
             >
-              Conferir licenca
+              Conferir licença
             </Button>
             <Button
               loading={importingLibraryMusic}
@@ -1338,7 +1338,7 @@ export default function TemplatesPage() {
         </div>
       </Modal>
 
-      <Modal open={sunoOpen} onClose={() => !sunoGenerating && setSunoOpen(false)} title="Gerar musica com IA" size="xl">
+      <Modal open={sunoOpen} onClose={() => !sunoGenerating && setSunoOpen(false)} title="Gerar música com IA" size="xl">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -1361,19 +1361,19 @@ export default function TemplatesPage() {
           </div>
 
           <label className="block space-y-2">
-            <span className="text-sm font-semibold text-white/70">Ideia da musica</span>
+            <span className="text-sm font-semibold text-white/70">Ideia da música</span>
             <textarea
               value={sunoPrompt}
               onChange={(event) => setSunoPrompt(event.target.value)}
               rows={4}
-              placeholder="Ex: trilha animada para aniversario neon, com batida moderna, energia de festa e final suave para video 360..."
+              placeholder="Ex: trilha animada para aniversario neon, com batida moderna, energia de festa e final suave para vídeo 360..."
               className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:border-brand-400/70 focus:ring-2 focus:ring-brand-500/20"
             />
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-2">
-              <span className="text-sm font-semibold text-white/70">Titulo opcional</span>
+              <span className="text-sm font-semibold text-white/70">Título opcional</span>
               <input
                 value={sunoTitle}
                 onChange={(event) => setSunoTitle(event.target.value)}

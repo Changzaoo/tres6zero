@@ -488,7 +488,7 @@ export default function LandingPage() {
             {styles.map(([title, description, gradient], index) => (
               <RevealOnScroll key={title} delay={index * 0.04} className="w-[78vw] max-w-[18rem] shrink-0 snap-start lg:w-auto lg:flex-1">
                 <GlassCard className="h-full overflow-hidden">
-                  <div className={`aspect-video bg-gradient-to-br ${gradient} relative`}>
+                  <div className={`aspect-vídeo bg-gradient-to-br ${gradient} relative`}>
                     <div className="absolute inset-0 opacity-40 [background:repeating-linear-gradient(125deg,rgba(255,255,255,.08)_0_2px,transparent_2px_10px)]" />
                     <span className="absolute left-3 top-3 rounded-lg border border-white/20 bg-black/35 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-white backdrop-blur">
                       {title}

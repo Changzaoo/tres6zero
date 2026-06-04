@@ -153,7 +153,7 @@ async function locationFromIp(ip: string): Promise<GeoLocation | null> {
 async function resolveLocation(req: Request, ip: string) {
   return locationFromHeaders(req)
     || await locationFromIp(ip)
-    || { location: isPublicIp(ip) ? 'Localizacao nao identificada' : 'Rede local' };
+    || { location: isPublicIp(ip) ? 'Localização não identificada' : 'Rede local' };
 }
 
 function shouldRefreshLastSeen(device: DeviceRecord | undefined, now: Date, ip: string, name: string) {
@@ -260,7 +260,7 @@ export async function publicTrustedDevices(user: ClaimSource, currentDeviceHash?
       id: device.id,
       name: device.name,
       ip: device.ip || 'desconhecido',
-      location: device.location || 'Localizacao nao identificada',
+      location: device.location || 'Localização não identificada',
       city: device.city || null,
       region: device.region || null,
       country: device.country || null,

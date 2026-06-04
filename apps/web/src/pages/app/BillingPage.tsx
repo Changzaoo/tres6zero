@@ -66,7 +66,7 @@ export default function BillingPage() {
     : hasActiveSubscription && periodEnd
       ? `Expira em: ${periodEnd}`
       : hasActiveSubscription
-        ? 'Sua plataforma esta liberada para operar.'
+        ? 'Sua plataforma está liberada para operar.'
         : null;
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function BillingPage() {
     window.history.replaceState({}, '', '/app/billing');
 
     if (checkout === 'success') {
-      toast.info('Pagamento recebido. Assim que o PixGo confirmar, seu acesso sera liberado.');
+      toast.info('Pagamento recebido. Assim que o PixGo confirmar, seu acesso será liberado.');
       getCurrentUser().then((freshUser) => {
         if (freshUser) setUser(freshUser);
       });
@@ -103,7 +103,7 @@ export default function BillingPage() {
 
         if (nextPayment.status === 'completed' && confirmedPaymentRef.current !== nextPayment.paymentId) {
           confirmedPaymentRef.current = nextPayment.paymentId;
-          toast.info('Pagamento Pix confirmado. Seu acesso sera atualizado agora.');
+          toast.info('Pagamento Pix confirmado. Seu acesso será atualizado agora.');
           const freshUser = await getCurrentUser();
           if (!cancelled && freshUser) setUser(freshUser);
         }
@@ -146,7 +146,7 @@ export default function BillingPage() {
       const code = error instanceof Error ? error.message : '';
       const message = code === 'PIXGO_NOT_CONFIGURED'
         ? 'PixGo ainda precisa da API Key configurada no backend.'
-        : 'Nao foi possivel gerar o Pix agora.';
+        : 'Não foi possível gerar o Pix agora.';
       toast.error(message);
     } finally {
       setLoadingPlan(null);
@@ -170,9 +170,9 @@ export default function BillingPage() {
 
     try {
       await navigator.clipboard.writeText(payment.pixCode);
-      toast.info('Codigo Pix copiado.');
+      toast.info('Código Pix copiado.');
     } catch {
-      toast.error('Nao foi possivel copiar o codigo Pix.');
+      toast.error('Não foi possível copiar o código Pix.');
     }
   }
 
@@ -190,10 +190,10 @@ export default function BillingPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold leading-tight text-white sm:text-2xl">
-                Conta bloqueada ate o pagamento
+                Conta bloqueada até o pagamento
               </h1>
               <p className="mt-1 max-w-3xl text-sm leading-relaxed text-white/55">
-                {`${user?.name || 'Sua conta'} ja pode entrar, mas as areas principais do SaaS ficam protegidas por cadeado ate a confirmacao do pagamento.`}
+                {`${user?.name || 'Sua conta'} já pode entrar, mas as áreas principais do SaaS ficam protegidas por cadeado até a confirmação do pagamento.`}
               </p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export default function BillingPage() {
         selectedPlanId={hasSelectedPlan ? selectedPlanId : null}
         selectedLabel={isAdmin ? 'Acesso ilimitado' : 'Selecionado'}
         selectedDescription={selectedDescription}
-        paymentHint="O QR Code Pix abre nesta pagina. Nao armazenamos dados de cartao."
+        paymentHint="O QR Code Pix abre nesta página. Não armazenamos dados de cartão."
       />
 
       <Modal
@@ -242,7 +242,7 @@ export default function BillingPage() {
                       <p className="text-xs font-semibold uppercase tracking-normal text-white/40">Plano escolhido</p>
                       <h2 className="mt-0.5 text-lg font-bold leading-tight text-white">{payment.planName}</h2>
                       <p className="mt-1 text-xs leading-relaxed text-white/62">
-                        O Pix vale por 20 minutos{paymentDeadline ? `, ate ${paymentDeadline}` : ''}. Depois disso, gere um novo pagamento.
+                        O Pix vale por 20 minutos{paymentDeadline ? `, até ${paymentDeadline}` : ''}. Depois disso, gere um novo pagamento.
                       </p>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export default function BillingPage() {
               </div>
 
               <div className="rounded-xl border border-amber-300/25 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-50/80">
-                Voce tem 20 minutos para pagar este Pix. Se o tempo acabar, gere uma nova cobranca antes de pagar.
+                Você tem 20 minutos para pagar este Pix. Se o tempo acabar, gere uma nova cobrança antes de pagar.
               </div>
 
               <div className="grid gap-3 sm:grid-cols-[11.5rem_1fr]">
@@ -279,7 +279,7 @@ export default function BillingPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Pix copia e cola</p>
-                      <p className="text-xs text-white/45">Abra o app do banco, escolha Pix e cole este codigo.</p>
+                      <p className="text-xs text-white/45">Abra o app do banco, escolha Pix e cole este código.</p>
                     </div>
                     <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-white/55">
                       {checkingPayment ? 'Verificando...' : paymentStatusLabel(payment.status)}
@@ -288,7 +288,7 @@ export default function BillingPage() {
 
                   <textarea
                     readOnly
-                    value={payment.pixCode || 'Codigo Pix indisponivel. Use o QR Code acima ou gere uma nova cobranca.'}
+                    value={payment.pixCode || 'Código Pix indisponível. Use o QR Code acima ou gere uma nova cobrança.'}
                     className="mt-3 min-h-[5.25rem] w-full resize-none rounded-xl border border-white/10 bg-[#0b0d12] p-3 text-xs leading-relaxed text-white/72 outline-none"
                   />
 
@@ -301,7 +301,7 @@ export default function BillingPage() {
                       disabled={!payment.pixCode}
                       onClick={copyPixCode}
                     >
-                      Copiar codigo Pix
+                      Copiar código Pix
                     </Button>
                     {payment.status === 'expired' && (
                       <Button
@@ -320,8 +320,8 @@ export default function BillingPage() {
                   <div className="mt-3 grid gap-1.5 text-[11px] leading-relaxed text-white/52">
                     <p>Pagamento confirmado automaticamente via Pix.</p>
                     <p>Use o QR Code ou o Pix copia e cola no app do seu banco.</p>
-                    <p>A liberacao do plano acontece apos a confirmacao da PixGo.</p>
-                    <p>A verificacao continua enquanto este modal estiver aberto e o Pix nao expirar.</p>
+                    <p>A liberação do plano acontece após a confirmação da PixGo.</p>
+                    <p>A verificação continua enquanto este modal estiver aberto e o Pix não expirar.</p>
                   </div>
                 </div>
               </div>

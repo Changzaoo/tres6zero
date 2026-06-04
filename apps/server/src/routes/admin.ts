@@ -177,7 +177,7 @@ async function loadRecentDevices(db: Firestore, uid: string): Promise<AdminDevic
         os: stringValue(data.os, parseOs(userAgent)),
         deviceType: stringValue(data.deviceType, parseDeviceType(userAgent)),
         ip: stringValue(data.ip, 'desconhecido'),
-        location: stringValue(data.location, 'Localizacao nao identificada'),
+        location: stringValue(data.location, 'Localização não identificada'),
         city: stringOrNull(data.city),
         region: stringOrNull(data.region),
         country: stringOrNull(data.country),
@@ -229,7 +229,7 @@ async function loadUsers(db: Firestore, currentAdminUid?: string) {
 
     return {
       uid,
-      name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuario')),
+      name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuário')),
       email: authUser?.email || stringValue(stored.email, ''),
       role: roleFromAuthAndStored(authUser, stored, uid, currentAdminUid),
       disabled: Boolean(authUser?.disabled),
@@ -295,7 +295,7 @@ function buildMediaItems(events: RecordData[], videos: RecordData[]) {
       ownerId: stringValue(input.ownerId),
       source: input.source,
       sourceId: input.sourceId,
-      sourceTitle: stringValue(input.sourceTitle, input.source === 'event' ? 'Evento' : 'Video'),
+      sourceTitle: stringValue(input.sourceTitle, input.source === 'event' ? 'Evento' : 'Vídeo'),
       eventId: stringOrNull(input.eventId),
       videoId: stringOrNull(input.videoId),
       storagePath: stringOrNull(input.storagePath),
@@ -480,7 +480,7 @@ function authUserSummary(authUser: UserRecord | null, stored: RecordData, uid: s
   const ban = activeBanFromData(stored);
   return {
     uid,
-    name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuario')),
+    name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuário')),
     email: authUser?.email || stringValue(stored.email, ''),
     role: roleFromAuthAndStored(authUser, stored, uid, currentAdminUid),
     disabled: Boolean(authUser?.disabled),

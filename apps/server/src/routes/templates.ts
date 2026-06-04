@@ -204,7 +204,7 @@ function heavyAssetJobsEnabled() {
 function rejectHeavyAssetJob(res: Response) {
   return res.status(409).json({
     error: 'HEAVY_ASSET_JOB_DISABLED',
-    message: 'Geracao pesada de templates e musicas deve rodar fora do web service do Render.',
+    message: 'Geração pesada de templates e músicas deve rodar fora do web service do Render.',
   });
 }
 
@@ -390,7 +390,7 @@ templatesRouter.post('/custom-music', requirePlanFeature('custom_template_upload
     await createNotification({
       recipientUid: user.uid,
       category: 'template',
-      title: 'Musica enviada',
+      title: 'Música enviada',
       body: `${data.name} foi salva nas suas trilhas.`,
       link: '/app/templates',
       priority: 'normal',

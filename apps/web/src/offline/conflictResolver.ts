@@ -23,7 +23,7 @@ export async function createOfflineConflict(params: {
 
   const db = await getOfflineDb();
   await db.put('conflicts', conflict);
-  await logOffline('warn', 'conflict', 'Item precisa de revisao antes de sincronizar.', {
+  await logOffline('warn', 'conflict', 'Item precisa de revisão antes de sincronizar.', {
     conflictId: conflict.id,
     entity: conflict.entity,
     entityId: conflict.entityId,

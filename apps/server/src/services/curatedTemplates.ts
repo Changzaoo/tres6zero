@@ -340,7 +340,7 @@ export function buildCuratedTemplates(options: BuildCuratedTemplatesOptions = {}
       font: 'Inter',
       designId: design.id,
       layout: design.id,
-      variantName: type === 'animated' ? 'Animado' : 'Estatico',
+      variantName: type === 'animated' ? 'Animado' : 'Estático',
       source: 'generated',
       isGlobal: true,
       isActive: true,

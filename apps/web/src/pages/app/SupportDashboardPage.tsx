@@ -12,7 +12,7 @@ export default function SupportDashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Painel de suporte</h1>
-              <p className="mt-1 text-sm text-white/42">Atendimento de mensagens e triagem basica.</p>
+              <p className="mt-1 text-sm text-white/42">Atendimento de mensagens e triagem básica.</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

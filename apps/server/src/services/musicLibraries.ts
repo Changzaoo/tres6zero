@@ -62,7 +62,7 @@ const MAX_REMOTE_AUDIO_BYTES = Number(process.env.MUSIC_REMOTE_IMPORT_MAX_MB || 
 export const musicLibraryProviders: MusicLibraryProvider[] = [
   {
     id: 'youtube_audio_library',
-    name: 'YouTube Audio Library',
+    name: 'YouTube Áudio Library',
     type: 'manual_catalog',
     homepageUrl: 'https://www.youtube.com/audiolibrary',
     licenseUrl: 'https://support.google.com/youtube/answer/3376882',
@@ -71,11 +71,11 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     supportsPublicApiSearch: false,
     supportsRemoteImport: true,
     requiresLicenseProof: true,
-    defaultLicenseName: 'YouTube Audio Library license',
+    defaultLicenseName: 'YouTube Áudio Library license',
     notes: [
-      'O catalogo fica no YouTube Studio e nao tem API publica segura para copiar a biblioteca inteira.',
-      'Faixas Creative Commons exigem atribuicao; faixas Standard podem nao exigir atribuicao.',
-      'Importe somente arquivos baixados do YouTube Studio com a licenca/atribuicao correspondente.',
+      'O catálogo fica no YouTube Studio e não tem API pública segura para copiar a biblioteca inteira.',
+      'Faixas Creative Commons exigem atribuição; faixas Standard podem não exigir atribuição.',
+      'Importe somente arquivos baixados do YouTube Studio com a licença/atribuição correspondente.',
     ],
   },
   {
@@ -91,9 +91,9 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: false,
     defaultLicenseName: 'Pixabay Content License',
     notes: [
-      'A licenca de conteudo cobre audio, mas a API oficial documentada lista busca de imagens e videos.',
-      'O app nao faz scraping do site; importe a faixa baixada ou um link direto autorizado.',
-      'Atribuicao nao e exigida pela licenca da Pixabay, mas e recomendada.',
+      'A licença de conteúdo cobre áudio, mas a API oficial documentada lista busca de imagens e vídeos.',
+      'O app não faz scraping do site; importe a faixa baixada ou um link direto autorizado.',
+      'Atribuição não é exigida pela licença da Pixabay, mas é recomendada.',
     ],
   },
   {
@@ -109,9 +109,9 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: false,
     defaultLicenseName: 'Creative Commons / FMA track license',
     notes: [
-      'A licenca varia por faixa; o app bloqueia NC/ND e exige atribuicao quando a licenca pedir.',
-      'Use a pagina da faixa como URL de licenca/comprovante.',
-      'Faixas Public Domain, CC0 e CC BY sao aceitas automaticamente; outras ficam para revisao.',
+      'A licença varia por faixa; o app bloqueia NC/ND e exige atribuição quando a licença pedir.',
+      'Use a página da faixa como URL de licença/comprovante.',
+      'Faixas Public Domain, CC0 e CC BY são aceitas automaticamente; outras ficam para revisão.',
     ],
   },
   {
@@ -127,8 +127,8 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'Artlist subscription/project license',
     notes: [
-      'Requer assinatura/licenca valida de acordo com o projeto e publicacao.',
-      'O SIX3 exige comprovante de licenca antes de salvar a faixa.',
+      'Requer assinatura/licença válida de acordo com o projeto e publicação.',
+      'O SIX3 exige comprovante de licença antes de salvar a faixa.',
     ],
   },
   {
@@ -144,8 +144,8 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'Epidemic Sound active subscription/project license',
     notes: [
-      'Requer assinatura/licenca adequada e canal/projeto coberto.',
-      'Somente importe se o conteudo final sera publicado dentro das condicoes da assinatura.',
+      'Requer assinatura/licença adequada e canal/projeto coberto.',
+      'Somente importe se o conteúdo final será publicado dentro das condições da assinatura.',
     ],
   },
   {
@@ -161,8 +161,8 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'Soundstripe subscription or single-use license',
     notes: [
-      'Requer assinatura ativa ou licenca single-use que cubra o projeto.',
-      'O comprovante deve indicar que a faixa pode ser usada no video/projeto do cliente.',
+      'Requer assinatura ativa ou licença single-use que cubra o projeto.',
+      'O comprovante deve indicar que a faixa pode ser usada no vídeo/projeto do cliente.',
     ],
   },
   {
@@ -178,8 +178,8 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'PremiumBeat single-track license',
     notes: [
-      'Licencas variam por faixa e uso; informe o tipo de licenca comprado.',
-      'Sem comprovante de compra/licenca, a importacao fica bloqueada.',
+      'Licenças variam por faixa e uso; informe o tipo de licença comprado.',
+      'Sem comprovante de compra/licença, a importação fica bloqueada.',
     ],
   },
   {
@@ -195,8 +195,8 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'Envato Elements registered project license',
     notes: [
-      'Itens precisam ser registrados para um uso/projeto especifico.',
-      'O app exige link ou ID do registro de licenca antes de salvar.',
+      'Itens precisam ser registrados para um uso/projeto específico.',
+      'O app exige link ou ID do registro de licença antes de salvar.',
     ],
   },
   {
@@ -212,8 +212,8 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'Uppbeat user agreement/download license',
     notes: [
-      'Downloads sao licenciados por conta/plano; informe codigo, pagina ou comprovante.',
-      'Alguns usos fora de plataformas abertas podem exigir licenca adicional.',
+      'Downloads são licenciados por conta/plano; informe código, página ou comprovante.',
+      'Alguns usos fora de plataformas abertas podem exigir licença adicional.',
     ],
   },
   {
@@ -229,7 +229,7 @@ export const musicLibraryProviders: MusicLibraryProvider[] = [
     requiresLicenseProof: true,
     defaultLicenseName: 'Audiio Pro/Lifetime project license',
     notes: [
-      'Requer assinatura/licenca e comprovante do projeto/faixa.',
+      'Requer assinatura/licença e comprovante do projeto/faixa.',
       'Confira limites de uso, cliente e plano antes de usar em projetos de terceiros.',
     ],
   },
@@ -306,31 +306,31 @@ export function evaluateMusicLicense(params: {
 
   if (isSubscriptionProvider(provider)) {
     status = params.subscriptionConfirmed && params.licenseProofUrl ? 'requires_subscription' : 'blocked';
-    if (!params.subscriptionConfirmed) warnings.push('Confirme que existe assinatura/licenca ativa para esta faixa e projeto.');
-    if (!params.licenseProofUrl) warnings.push('Informe o link, ID ou comprovante da licenca do provedor.');
+    if (!params.subscriptionConfirmed) warnings.push('Confirme que existe assinatura/licença ativa para esta faixa e projeto.');
+    if (!params.licenseProofUrl) warnings.push('Informe o link, ID ou comprovante da licença do provedor.');
   } else {
     status = ccLicenseStatus(licenseName);
   }
 
   if (provider.id === 'youtube_audio_library' && !params.licenseProofUrl) {
-    warnings.push('Use a coluna de tipo de licenca/atribuicao do YouTube Studio como comprovante.');
+    warnings.push('Use a coluna de tipo de licença/atribuição do YouTube Studio como comprovante.');
   }
 
   if (status === 'requires_attribution' && !params.attribution?.trim()) {
-    warnings.push('Esta licenca exige atribuicao; preencha o texto de credito antes de publicar.');
+    warnings.push('Esta licença exige atribuição; preencha o texto de crédito antes de publicar.');
   }
 
   if (status === 'manual_review') {
-    warnings.push('A licenca nao e claramente livre para uso em video editado; revise manualmente antes de importar.');
+    warnings.push('A licença não é claramente livre para uso em vídeo editado; revise manualmente antes de importar.');
   }
 
   if (status === 'blocked') {
-    warnings.push('A licenca informada nao libera uso seguro no SIX3.');
+    warnings.push('A licença informada não libera uso seguro no SIX3.');
   }
 
   if (params.allowTestMode && ['blocked', 'manual_review'].includes(status)) {
     status = 'test_only';
-    warnings.push('MODO TESTE: importacao liberada apenas para validacao interna de edicao de videos.');
+    warnings.push('MODO TESTE: importação liberada apenas para validação interna de edição de vídeos.');
   }
 
   return {

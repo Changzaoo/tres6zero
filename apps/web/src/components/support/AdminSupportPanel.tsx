@@ -14,10 +14,10 @@ function formatDate(value: string) {
 }
 
 const anonymousQuickReplies = [
-  'Para localizar sua conta, me envie o e-mail usado no cadastro e, se possivel, um print do erro que aparece no login.',
-  'Voce consegue confirmar se tentou entrar com Google/Apple ou com e-mail e senha? Isso ajuda a localizar o metodo correto.',
-  'Vou te orientar: primeiro confira se o e-mail esta sem espacos, depois use "Esqueci a senha". Se ainda falhar, me envie o horario aproximado da tentativa.',
-  'Recebi seu chamado como anonimo. Assim que voce informar o e-mail da conta, eu verifico cadastro, assinatura e possivel bloqueio de dispositivo.',
+  'Para localizar sua conta, me envie o e-mail usado no cadastro e, se possível, um print do erro que aparece no login.',
+  'Você consegue confirmar se tentou entrar com Google/Apple ou com e-mail e senha? Isso ajuda a localizar o método correto.',
+  'Vou te orientar: primeiro confira se o e-mail esta sem espaços, depois use "Esqueci a senha". Se ainda falhar, me envie o horário aproximado da tentativa.',
+  'Recebi seu chamado como anônimo. Assim que você informar o e-mail da conta, eu verifico cadastro, assinatura e possível bloqueio de dispositivo.',
 ];
 
 export function AdminSupportPanel() {
@@ -93,7 +93,7 @@ export function AdminSupportPanel() {
       setMessages((current) => [...current, message]);
       setReply('');
       await refreshConversations();
-      toast.success('Resposta enviada ao usuario.');
+      toast.success('Resposta enviada ao usuário.');
     } catch {
       toast.error('Erro ao responder suporte.');
     } finally {
@@ -134,7 +134,7 @@ export function AdminSupportPanel() {
               <div className="mt-1 flex items-center gap-1.5">
                 {conversation.accessLevel === 'anonymous' && (
                   <span className="rounded-full border border-yellow-300/20 bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold text-yellow-100">
-                    anonimo
+                    anônimo
                   </span>
                 )}
                 <p className="min-w-0 truncate text-xs text-white/45">{conversation.userEmail}</p>
@@ -211,7 +211,7 @@ export function AdminSupportPanel() {
                   onChange={(event) => setReply(event.target.value)}
                   rows={2}
                   className="min-h-[3rem] flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm text-white placeholder-white/30 focus:border-brand-400/70 focus:outline-none"
-                  placeholder="Responder ao usuario..."
+                  placeholder="Responder ao usuário..."
                 />
                 <Button type="submit" loading={sending} icon={<Send className="h-4 w-4" />}>
                   Enviar
@@ -234,9 +234,9 @@ export function AdminSupportPanel() {
                 <ClipboardList className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-bold text-white">Processo operacional para anonimo</h3>
+                <h3 className="text-lg font-bold text-white">Processo operacional para anônimo</h3>
                 <p className="mt-1 text-sm leading-relaxed text-white/45">
-                  Use este fluxo para identificar a pessoa sem expor dados sensiveis antes da confirmacao.
+                  Use este fluxo para identificar a pessoa sem expor dados sensíveis antes da confirmação.
                 </p>
               </div>
               <button
@@ -251,9 +251,9 @@ export function AdminSupportPanel() {
             <div className="grid gap-3 sm:grid-cols-2">
               {[
                 ['Identificar', 'Peça e-mail usado no cadastro, nome da empresa e print do erro.', UserRound],
-                ['Checar conta', 'Se necessario, acione um admin para conferir UID, plano e status.', Search],
-                ['Validar seguranca', 'Nao informe dados privados enquanto a pessoa nao provar controle do e-mail.', CheckCircle2],
-                ['Resolver acesso', 'Oriente redefinicao de senha, metodo correto de login e dispositivos conectados.', Mail],
+                ['Checar conta', 'Se necessário, acione um admin para conferir UID, plano e status.', Search],
+                ['Validar segurança', 'Não informe dados privados enquanto a pessoa não provar controle do e-mail.', CheckCircle2],
+                ['Resolver acesso', 'Oriente redefinicao de senha, método correto de login e dispositivos conectados.', Mail],
               ].map(([title, description, Icon]) => (
                 <div key={title as string} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                   <div className="mb-2 flex items-center gap-2 text-sm font-bold text-white">

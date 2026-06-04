@@ -84,7 +84,7 @@ const faqCards: DocCard[] = [
   {
     icon: UploadCloud,
     title: 'Preciso de internet?',
-    description: 'Sim para login, pagamento, upload, publicação, QR Code, suporte e métricas. O app instalado mantém uma base offline para reduzir atrito em campo.',
+    description: 'Sim para login, pagamento, upload, públicação, QR Code, suporte e métricas. O app instalado mantém uma base offline para reduzir atrito em campo.',
   },
   {
     icon: QrCode,
@@ -134,7 +134,7 @@ const legalClauses: DocCard[] = [
   { title: '8. Uso proibido', description: 'Conteúdo ilegal, ofensivo, discriminatório ou violento; uso de imagem, música, marca ou material sem direito; tentativa de invadir, copiar ou burlar o sistema.' },
   { title: '9. Conteúdo enviado', description: 'O usuário é responsável por vídeos, templates, músicas, marcas, textos e imagens enviados, declarando ter autorização para usá-los.' },
   { title: '10. Músicas e direitos autorais', description: 'Não é recomendado usar músicas comerciais famosas sem licença. Use músicas próprias, livres, royalty-free ou licenciadas.' },
-  { title: '11. Imagem de convidados', description: 'Em eventos, o operador deve informar participantes sobre gravação, uso de imagem, publicação de vídeo e coleta de leads quando aplicável.' },
+  { title: '11. Imagem de convidados', description: 'Em eventos, o operador deve informar participantes sobre gravação, uso de imagem, públicação de vídeo e coleta de leads quando aplicável.' },
   { title: '12. Disponibilidade', description: 'Falhas podem ocorrer por internet, navegador, aparelho, serviços de terceiros, manutenção ou limitações técnicas.' },
   { title: '13. Propriedade intelectual', description: 'Marca, interface, códigos, textos, templates oficiais e estrutura pertencem ao SIX3 ou seus licenciadores.' },
   { title: '14. Dados e privacidade', description: 'O tratamento de dados segue a Política de Privacidade e é necessário para funcionamento da plataforma.' },
@@ -191,7 +191,7 @@ const docs: Record<PublicDocsPageId, DocPage> = {
           ['8', 'Duração', '5s, 15s, 25s, 35s ou 45s.'],
           ['9', 'Preview', 'Conferir antes de renderizar.'],
           ['10', 'Render', 'Não fechar a tela.'],
-          ['11', 'Publicação', 'Copiar link, baixar QR, ver vídeo e compartilhar.'],
+          ['11', 'Públicação', 'Copiar link, baixar QR, ver vídeo e compartilhar.'],
           ['12', 'Métricas', 'Views, downloads, shares e leads.'],
         ],
       },
@@ -283,7 +283,7 @@ const docs: Record<PublicDocsPageId, DocPage> = {
         rows: [
           ['Android Chrome', 'Landing, cadastro, login, checkout, dashboard, evento, câmera, upload, preview, template, efeito, música, duração, render, link, QR, lead e métricas.'],
           ['iPhone Safari', 'Permissão de câmera, gravação, upload, preview, render, áudio, QR, bottom nav, teclado e modais sem corte.'],
-          ['Desktop', 'Upload grande, editor, publicação, templates, leads, analytics, billing, settings, suporte e admin.'],
+          ['Desktop', 'Upload grande, editor, públicação, templates, leads, analytics, billing, settings, suporte e admin.'],
           ['Erros', 'Internet cai, arquivo inválido, sem câmera, pagamento recusado, assinatura vencida, música incompatível e render interrompido.'],
         ],
       },
@@ -319,7 +319,7 @@ const docs: Record<PublicDocsPageId, DocPage> = {
         rows: [
           ['Semana 1', 'Preparar venda e segurança', 'Landing, termos, privacidade, checkout, teste em desktop/Android/iPhone e 10 templates fortes.'],
           ['Semana 2', 'Material comercial e captação', 'Demo 60s, prints, QR demo, lista de 100 operadores, DMs e grupos.'],
-          ['Semana 3', 'Validação com operadores reais', 'Onboarding individual, correções críticas, evento simulado, templates pedidos e depoimento.'],
+          ['Semana 3', 'Válidação com operadores reais', 'Onboarding individual, correções críticas, evento simulado, templates pedidos e depoimento.'],
           ['Semana 4', 'Converter e estabilizar', 'Follow-up, case real, 3-5 novos clientes, análise de métricas e decisão de escala.'],
         ],
       },
@@ -397,7 +397,7 @@ function PublicHeader() {
 
   return (
     <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
-      <button type="button" onClick={() => navigate('/')} className="inline-flex min-w-0" aria-label="Voltar para inicio">
+      <button type="button" onClick={() => navigate('/')} className="inline-flex min-w-0" aria-label="Voltar para início">
         <BrandLogo wordmarkClassName="text-3xl" />
       </button>
       <div className="flex items-center gap-2">
@@ -549,7 +549,7 @@ export default function PublicDocsPage({ pageId }: { pageId: PublicDocsPageId })
           className="mb-5 inline-flex items-center gap-2 rounded-full px-2 py-2 text-sm font-bold text-white/50 transition hover:bg-white/[0.055] hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
-          Voltar para inicio
+          Voltar para início
         </button>
 
         <section className={`relative overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br ${page.heroGradient} px-5 py-10 shadow-[0_44px_130px_-80px_rgba(59,109,255,.8)] sm:px-8 sm:py-14 lg:px-10`}>

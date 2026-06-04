@@ -56,7 +56,7 @@ function setOnline(isOnline: boolean) {
     isReconnecting: isOnline && !wasOnline,
   };
 
-  logOffline('info', 'network', isOnline ? 'Conexao restaurada.' : 'App entrou em modo offline.').catch(() => undefined);
+  logOffline('info', 'network', isOnline ? 'Conexão restaurada.' : 'App entrou em modo offline.').catch(() => undefined);
   emit();
 
   if (snapshot.isReconnecting) {

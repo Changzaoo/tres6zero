@@ -111,7 +111,7 @@ export default function DashboardPage() {
         const leads = leadsResult.status === 'fulfilled' ? leadsResult.value : [];
 
         if (eventsResult.status === 'rejected' || videosResult.status === 'rejected' || leadsResult.status === 'rejected') {
-          toast.error('Alguns dados do dashboard nao foram carregados.');
+          toast.error('Alguns dados do dashboard não foram carregados.');
         }
 
         const totalShares = videos.reduce((s, v) => s + (v.shares || 0), 0);

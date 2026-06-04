@@ -18,9 +18,9 @@ const supportSubjectOptions = [
   'Esqueci minha senha',
   'Pagamento ou assinatura',
   'Conta bloqueada por dispositivo',
-  'Nao recebi o e-mail de recuperacao',
+  'Não recebi o e-mail de recuperação',
   'Problema para criar conta',
-  'Erro ao gravar ou enviar video',
+  'Erro ao gravar ou enviar vídeo',
   'Outro assunto',
 ];
 
@@ -87,7 +87,7 @@ function localMessage(visitorId: string, body: string, pending = true): SupportM
     conversationId: '',
     senderUid: visitorId,
     senderRole: 'anonymous',
-    senderName: 'Anonimo',
+    senderName: 'Anônimo',
     body,
     createdAt: now,
     pending,
@@ -142,7 +142,7 @@ export function LoginSupportChat() {
       setConversation(loaded.conversation);
       setMessages(loaded.messages);
     } catch {
-      if (messages.length === 0) toast.error('Nao foi possivel carregar o suporte agora.');
+      if (messages.length === 0) toast.error('Não foi possível carregar o suporte agora.');
     } finally {
       setLoading(false);
     }
@@ -230,7 +230,7 @@ export function LoginSupportChat() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-white">Suporte SIX3</p>
-                <p className="truncate text-xs text-white/40">Atendimento anonimo #{shortVisitor}</p>
+                <p className="truncate text-xs text-white/40">Atendimento anônimo #{shortVisitor}</p>
               </div>
               <button
                 type="button"
@@ -246,7 +246,7 @@ export function LoginSupportChat() {
               <div className="border-b border-white/10 bg-yellow-400/[0.055] px-4 py-3">
                 <div className="flex gap-2 text-xs leading-relaxed text-yellow-50/78">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-200" />
-                  <span>Voce sera identificado como anonimo. O suporte pode pedir o e-mail da conta dentro da conversa se precisar.</span>
+                  <span>Você será identificado como anônimo. O suporte pode pedir o e-mail da conta dentro da conversa se precisar.</span>
                 </div>
                 <div className="mt-3">
                   <select
@@ -275,7 +275,7 @@ export function LoginSupportChat() {
                   <MessageCircle className="mb-3 h-10 w-10 text-white/20" />
                   <p className="text-sm font-semibold text-white">Como podemos ajudar?</p>
                   <p className="mt-1 max-w-xs text-xs leading-relaxed text-white/40">
-                    Escolha o assunto e descreva o erro que aparece ou o que voce tentou fazer.
+                    Escolha o assunto e descreva o erro que aparece ou o que você tentou fazer.
                   </p>
                 </div>
               ) : messages.map((message) => {

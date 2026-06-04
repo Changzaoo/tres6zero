@@ -175,7 +175,7 @@ leadRouter.post('/', async (req, res, next) => {
         category: 'event',
         title: hasFeedback ? 'Novo feedback recebido' : 'Novo lead capturado',
         body: hasFeedback
-          ? `${publicLead.name} deixou um comentario no video.`
+          ? `${publicLead.name} deixou um comentario no vídeo.`
           : `${publicLead.name} deixou contato na galeria.`,
         link: '/app/leads',
         priority: 'normal',

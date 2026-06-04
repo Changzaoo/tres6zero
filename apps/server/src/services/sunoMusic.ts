@@ -108,24 +108,24 @@ function styleFromInput(input: SunoPromptInput) {
     input.effect,
     input.mode === 'vocal' ? 'modern Brazilian pop vocals' : 'modern instrumental electronic soundtrack',
     'clean mix',
-    'short-form video energy',
+    'short-form vídeo energy',
   ].filter(Boolean).join(', ');
 
-  return clampText(base || 'Modern electronic, clean, cinematic, short-form video soundtrack', 900);
+  return clampText(base || 'Modern electronic, clean, cinematic, short-form vídeo soundtrack', 900);
 }
 
 function defaultPromptSubject(input: SunoPromptInput) {
   if (input.source === 'ai_auto_edit') {
     return [
-      'A soundtrack automatically directed for a 360 photo booth video',
+      'A soundtrack automatically directed for a 360 photo booth vídeo',
       input.eventType ? `event type: ${input.eventType}` : '',
       input.templateName ? `template visual identity: ${input.templateName}` : '',
-      input.effect ? `video effect: ${input.effect}` : '',
+      input.effect ? `vídeo effect: ${input.effect}` : '',
       input.mood ? `desired mood: ${input.mood}` : '',
     ].filter(Boolean).join('. ');
   }
 
-  return 'A custom soundtrack for a 360 photo booth video based on the user idea.';
+  return 'A custom soundtrack for a 360 photo booth vídeo based on the user idea.';
 }
 
 export function buildSunoMusicPrompt(input: SunoPromptInput) {
@@ -136,8 +136,8 @@ export function buildSunoMusicPrompt(input: SunoPromptInput) {
   const commonRules = [
     'Create a fully original composition.',
     'Do not imitate any artist, existing song, copyrighted melody, sample, hook, or lyrics.',
-    `Make it work as a ${duration}-second edit for a SIX3 360 video, with a clean beginning, strong middle, and smooth ending.`,
-    'Make it polished, modern, social-media friendly, and easy to cut under a short video.',
+    `Make it work as a ${duration}-second edit for a SIX3 360 vídeo, with a clean beginning, strong middle, and smooth ending.`,
+    'Make it polished, modern, social-media friendly, and easy to cut under a short vídeo.',
   ];
 
   if (input.mode === 'vocal') {
@@ -171,7 +171,7 @@ export function buildSunoGeneratePayload(input: SunoPromptInput): SunoGeneratePa
     model: getSunoModel(),
     callBackUrl: callbackUrl(),
     prompt: customMode ? clampText(sunoPrompt, 5000) : clampText(sunoPrompt, 500),
-    negativeTags: 'copyrighted melody, existing song, artist imitation, uncleared sample, low quality, distorted audio',
+    negativeTags: 'copyrighted melody, existing song, artist imitation, uncleared sample, low quality, distorted áudio',
   };
 
   if (customMode) {

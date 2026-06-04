@@ -18,14 +18,14 @@ import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
 
 const identifySchema = z.object({
-  identifier: z.string().min(3, 'Informe seu usuario ou e-mail'),
+  identifier: z.string().min(3, 'Informe seu usuário ou e-mail'),
 });
 
 const passwordSchema = z.object({
   newPassword: z.string().min(8, 'Use pelo menos 8 caracteres'),
   confirmPassword: z.string(),
 }).refine((data) => data.newPassword === data.confirmPassword, {
-  message: 'As senhas nao coincidem',
+  message: 'As senhas não coincidem',
   path: ['confirmPassword'],
 });
 
@@ -39,10 +39,10 @@ function normalizeIdentifier(value: string) {
 }
 
 function recoveryErrorMessage(code?: string) {
-  if (code === 'RECOVERY_OPTION_MISMATCH') return 'Essa informacao nao confere. Confira com calma e tente novamente.';
+  if (code === 'RECOVERY_OPTION_MISMATCH') return 'Essa informacao não confere. Confira com calma e tente novamente.';
   if (code === 'RECOVERY_EXPIRED') return 'Essa verificacao expirou. Comece novamente para proteger sua conta.';
   if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') return 'Muitas tentativas. Aguarde alguns minutos antes de tentar de novo.';
-  return 'Nao foi possivel concluir a recuperacao agora.';
+  return 'Não foi possível concluir a recuperação agora.';
 }
 
 export default function ForgotPasswordPage() {
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
 
   async function onVerify() {
     if (!challenge || challenge.challenges.some((item) => !selectedOptions[item.id])) {
-      toast.error('Escolha uma opcao em todas as verificacoes.');
+      toast.error('Escolha uma opção em todas as verificacoes.');
       return;
     }
 
@@ -131,7 +131,7 @@ export default function ForgotPasswordPage() {
           {step === 'identify' && (
             <form onSubmit={identifyForm.handleSubmit(onIdentify)} className="space-y-4">
               <Input
-                label="Usuario ou e-mail"
+                label="Usuário ou e-mail"
                 placeholder="vinicius ou admin@six3.com"
                 icon={<UserSearch className="h-4 w-4" />}
                 autoCapitalize="none"
@@ -140,7 +140,7 @@ export default function ForgotPasswordPage() {
                 {...identifyForm.register('identifier')}
               />
               <p className="text-xs leading-relaxed text-white/38">
-                Se sua conta foi criada com usuario SIX3, digite apenas o nome antes de @six3.com.
+                Se sua conta foi criada com usuário SIX3, digite apenas o nome antes de @six3.com.
               </p>
               <Button type="submit" loading={identifyForm.formState.isSubmitting} className="w-full justify-center" size="lg">
                 Verificar identidade
@@ -153,9 +153,9 @@ export default function ForgotPasswordPage() {
               <div className="flex items-start gap-3 rounded-2xl border border-brand-400/25 bg-brand-500/10 p-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-200" />
                 <div>
-                  <h2 className="text-sm font-bold text-white">Confirme as informacoes reconhecidas</h2>
+                  <h2 className="text-sm font-bold text-white">Confirme as informações reconhecidas</h2>
                   <p className="mt-1 text-xs leading-relaxed text-white/45">
-                    Escolha uma opcao em cada verificacao. Os dados reais continuam censurados.
+                    Escolha uma opção em cada verificacao. Os dados reais continuam censurados.
                   </p>
                 </div>
               </div>
@@ -242,7 +242,7 @@ export default function ForgotPasswordPage() {
               <div>
                 <h2 className="text-lg font-bold text-white">Verificacao concluida</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/45">
-                  Essa recuperacao precisa do suporte. Abra o atendimento no login para o admin confirmar o caso sem revelar seus dados.
+                  Essa recuperação precisa do suporte. Abra o atendimento no login para o admin confirmar o caso sem revelar seus dados.
                 </p>
               </div>
               <Button type="button" onClick={() => navigate('/login')} className="w-full justify-center" size="lg">

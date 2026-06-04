@@ -7,7 +7,7 @@ export const cinematicEffect: VideoEffectConfig = {
   longDescription: 'Aplica color grading dramatico, vinheta leve e barras cinematograficas opcionais para um resultado premium.',
   category: 'premium',
   intensity: 'medium',
-  recommendedFor: ['casamentos', 'eventos de luxo', 'videos promocionais'],
+  recommendedFor: ['casamentos', 'eventos de luxo', 'vídeos promocionais'],
   visualBehavior: [
     'Contraste mais forte',
     'Saturacao levemente reduzida',

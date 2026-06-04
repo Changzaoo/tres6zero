@@ -20,7 +20,7 @@ export function SyncStatusBadge() {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1 text-xs font-medium text-cyan-100">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Enviando alteracoes
+        Enviando alterações
       </span>
     );
   }
@@ -29,7 +29,7 @@ export function SyncStatusBadge() {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/25 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-100">
         <TriangleAlert className="h-3.5 w-3.5" />
-        Precisa de revisao
+        Precisa de revisão
       </span>
     );
   }

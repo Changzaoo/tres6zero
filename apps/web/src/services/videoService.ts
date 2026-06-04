@@ -71,7 +71,7 @@ export async function createVideo(data: CreateVideoInput): Promise<AppVideo> {
     payload: data,
     priority: 50,
   });
-  await logOffline('info', 'videos', 'Video salvo neste dispositivo.', { videoId: localId });
+  await logOffline('info', 'videos', 'Vídeo salvo neste dispositivo.', { videoId: localId });
   return localVideo;
 }
 

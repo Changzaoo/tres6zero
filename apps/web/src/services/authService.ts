@@ -465,7 +465,7 @@ const FIREBASE_ERRORS: Record<string, string> = {
   TOO_MANY_ATTEMPTS_TRY_LATER: 'Muitas tentativas. Tente novamente mais tarde.',
   AUTH_REQUIRED: 'Faça login para continuar.',
   PAYMENT_REQUIRED: 'Assinatura necessária para liberar este recurso.',
-  DEVICE_ID_REQUIRED: 'Nao foi possivel identificar este dispositivo.',
+  DEVICE_ID_REQUIRED: 'Não foi possível identificar este dispositivo.',
   DEVICE_DISCONNECTED: 'Este dispositivo foi desconectado da conta.',
   BAN_ACTIVE: 'Sua conta foi suspensa.',
 };

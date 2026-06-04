@@ -11,7 +11,7 @@ export const partyPopEffect: VideoEffectConfig = {
   visualBehavior: [
     'Cores mais vibrantes',
     'Batidas visuais leves',
-    'Opcao de confetes e stickers',
+    'Opção de confetes e stickers',
   ],
   parameters: {
     saturation: 30,

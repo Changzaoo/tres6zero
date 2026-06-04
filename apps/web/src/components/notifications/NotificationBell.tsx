@@ -27,7 +27,7 @@ import type { AppNotification, NotificationCategory } from '@/types';
 const categoryLabel: Record<NotificationCategory, string> = {
   support: 'Suporte',
   billing: 'Pagamento',
-  video: 'Video',
+  video: 'Vídeo',
   event: 'Evento',
   template: 'Template',
   system: 'Sistema',
@@ -91,7 +91,7 @@ function NotificationItem({
         type="button"
         onClick={handleOpen}
         className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-[#222738] text-white/68 transition-colors hover:text-white"
-        aria-label={`Abrir notificacao ${notification.title}`}
+        aria-label={`Abrir notificação ${notification.title}`}
       >
         <Icon className="h-4 w-4" />
       </button>
@@ -113,7 +113,7 @@ function NotificationItem({
       <button
         type="button"
         onClick={handleArchive}
-        aria-label="Arquivar notificacao"
+        aria-label="Arquivar notificação"
         className="flex h-8 w-8 items-center justify-center rounded-full text-white/28 opacity-100 transition-all hover:bg-red-500/12 hover:text-red-200 sm:opacity-0 sm:group-hover:opacity-100"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -154,7 +154,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
   async function handleMarkAllRead(event: MouseEvent<HTMLButtonElement>) {
     stopActionEvent(event);
     if (unreadCount === 0) {
-      toast.info('Todas as notificacoes ja estao lidas.');
+      toast.info('Todas as notificações já estão lidas.');
       return;
     }
 
@@ -162,9 +162,9 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     try {
       await markAllNotificationsRead();
       await refreshNotifications();
-      toast.success('Notificacoes marcadas como lidas.');
+      toast.success('Notificações marcadas como lidas.');
     } catch {
-      toast.error('Nao foi possivel marcar notificacoes.');
+      toast.error('Não foi possível marcar notificações.');
     }
   }
 
@@ -173,7 +173,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     try {
       await archiveNotification(notification.id);
     } catch {
-      toast.error('Nao foi possivel arquivar.');
+      toast.error('Não foi possível arquivar.');
     }
   }
 
@@ -187,13 +187,13 @@ export function NotificationBell({ className = '' }: { className?: string }) {
       className="fixed inset-x-3 bottom-[calc(max(env(safe-area-inset-bottom),0.5rem)+5.8rem)] z-[110] mx-auto max-w-md rounded-[26px] border border-white/[0.12] bg-[#10131d] p-2 shadow-2xl shadow-black/70 lg:inset-x-auto lg:bottom-4 lg:left-[276px] lg:w-[390px] lg:max-w-none"
       onClick={(event) => event.stopPropagation()}
       role="dialog"
-      aria-label="Notificacoes"
+      aria-label="Notificações"
     >
       <div className="flex items-center justify-between gap-3 px-2 py-2">
         <div>
-          <h2 className="text-sm font-black text-white">Notificacoes</h2>
+          <h2 className="text-sm font-black text-white">Notificações</h2>
           <p className="text-xs text-white/42">
-            {unreadCount > 0 ? `${unreadCount} nao lida(s)` : 'Tudo em dia'}
+            {unreadCount > 0 ? `${unreadCount} não lida(s)` : 'Tudo em dia'}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -210,8 +210,8 @@ export function NotificationBell({ className = '' }: { className?: string }) {
             type="button"
             onClick={handleClose}
             className="flex h-9 w-9 items-center justify-center rounded-full text-white/62 transition-colors hover:bg-white/[0.09] hover:text-white"
-            aria-label="Fechar notificacoes"
-            title="Fechar notificacoes"
+            aria-label="Fechar notificações"
+            title="Fechar notificações"
           >
             <X className="h-4 w-4" />
           </button>
@@ -228,7 +228,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
         ) : latestNotifications.length === 0 ? (
           <div className="rounded-2xl border border-white/[0.08] bg-[#151821] px-4 py-8 text-center">
             <Bell className="mx-auto mb-3 h-8 w-8 text-white/20" />
-            <p className="text-sm font-bold text-white/72">Sem notificacoes</p>
+            <p className="text-sm font-bold text-white/72">Sem notificações</p>
             <p className="mt-1 text-xs text-white/38">Avisos importantes vao aparecer aqui.</p>
           </div>
         ) : latestNotifications.map((notification) => (
@@ -247,7 +247,7 @@ export function NotificationBell({ className = '' }: { className?: string }) {
     <div className={`relative ${className}`}>
       <button
         type="button"
-        aria-label="Notificacoes"
+        aria-label="Notificações"
         onClick={() => setOpen((current) => !current)}
         className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/55 transition-colors hover:bg-white/[0.09] hover:text-white"
       >

@@ -84,7 +84,7 @@ const videoUpload = multer({
   limits: { fileSize: MAX_VIDEO_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (isAllowedByMime(file.mimetype, ALLOWED_VIDEO)) cb(null, true);
-    else cb(uploadError('Tipo de arquivo nao permitido. Use MP4, WebM ou MOV.'));
+    else cb(uploadError('Tipo de arquivo não permitido. Use MP4, WebM ou MOV.'));
   },
 });
 
@@ -93,7 +93,7 @@ const imageUpload = multer({
   limits: { fileSize: MAX_IMAGE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (isAllowedByMime(file.mimetype, ALLOWED_IMAGE)) cb(null, true);
-    else cb(uploadError('Tipo de imagem nao permitido. Use PNG, JPEG ou WebP.'));
+    else cb(uploadError('Tipo de imagem não permitido. Use PNG, JPEG ou WebP.'));
   },
 });
 
@@ -102,7 +102,7 @@ const templateUpload = multer({
   limits: { fileSize: MAX_TEMPLATE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (isAllowedByMime(file.mimetype, ALLOWED_TEMPLATE)) cb(null, true);
-    else cb(uploadError('Tipo de template nao permitido. Use PNG, SVG, WebP ou WebM transparente.'));
+    else cb(uploadError('Tipo de template não permitido. Use PNG, SVG, WebP ou WebM transparente.'));
   },
 });
 
@@ -111,7 +111,7 @@ const musicUpload = multer({
   limits: { fileSize: MAX_MUSIC_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (isAllowedByMime(file.mimetype, ALLOWED_MUSIC)) cb(null, true);
-    else cb(uploadError('Tipo de musica nao permitido. Use MP3, WAV, AAC, OGG ou WebM.'));
+    else cb(uploadError('Tipo de música não permitido. Use MP3, WAV, AAC, OGG ou WebM.'));
   },
 });
 

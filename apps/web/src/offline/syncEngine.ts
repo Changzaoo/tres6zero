@@ -240,7 +240,7 @@ export async function runOfflineSync() {
   try {
     const items = await getRunnableQueueItems();
     if (items.length) {
-      await logOffline('info', 'sync', 'Sincronizacao iniciada.', { count: items.length });
+      await logOffline('info', 'sync', 'Sincronização iniciada.', { count: items.length });
     }
 
     for (const item of items) {
@@ -259,7 +259,7 @@ export async function runOfflineSync() {
           nextAttemptAt: status === 'pending' ? nextAttemptAt(attempts) : undefined,
         });
         lastError = message;
-        await logOffline(status === 'failed' ? 'error' : 'warn', 'sync', 'Sincronizacao falhou.', {
+        await logOffline(status === 'failed' ? 'error' : 'warn', 'sync', 'Sincronização falhou.', {
           itemId: item.id,
           attempts,
           error: message,

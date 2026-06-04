@@ -43,7 +43,7 @@ function videoShareUrl(video: AppVideo) {
 }
 
 function whatsappUrl(video: AppVideo) {
-  return `https://wa.me/?text=${encodeURIComponent(`Olha esse video SIX3: ${videoShareUrl(video)}`)}`;
+  return `https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo SIX3: ${videoShareUrl(video)}`)}`;
 }
 
 function ActionButton({
@@ -94,8 +94,8 @@ export default function VideosPage() {
     getUserVideos(user.uid)
       .then(setVideos)
       .catch((error) => {
-        console.warn('[videos] Load failed:', error);
-        toast.error('Nao foi possivel carregar os videos.');
+        console.warn('[vídeos] Load failed:', error);
+        toast.error('Não foi possível carregar os vídeos.');
       })
       .finally(() => setLoading(false));
   }, [user]);
@@ -144,7 +144,7 @@ export default function VideosPage() {
     if (!renameVideo) return;
     const nextTitle = titleDraft.trim();
     if (!nextTitle) {
-      toast.error('Digite um nome para o video.');
+      toast.error('Digite um nome para o vídeo.');
       return;
     }
 
@@ -158,10 +158,10 @@ export default function VideosPage() {
       )));
       setRenameVideo(null);
       setTitleDraft('');
-      toast.success('Nome do video atualizado.');
+      toast.success('Nome do vídeo atualizado.');
     } catch (error) {
-      console.warn('[videos] Rename failed:', error);
-      toast.error('Nao foi possivel atualizar o nome.');
+      console.warn('[vídeos] Rename failed:', error);
+      toast.error('Não foi possível atualizar o nome.');
     } finally {
       setSavingTitle(false);
     }
@@ -184,16 +184,16 @@ export default function VideosPage() {
       });
       setExpandedVideoId((current) => current && deletedIds.includes(current) ? null : current);
       if (navigator.onLine) {
-        toast.success(deletedIds.length === 1 ? 'Video excluido.' : `${deletedIds.length} videos excluidos.`);
+        toast.success(deletedIds.length === 1 ? 'Vídeo excluído.' : `${deletedIds.length} vídeos excluídos.`);
       } else {
         toast.info(deletedIds.length === 1
-          ? 'Video removido deste dispositivo. A exclusao sera enviada depois.'
-          : `${deletedIds.length} videos removidos deste dispositivo. As exclusoes serao enviadas depois.`);
+          ? 'Vídeo removido deste dispositivo. A exclusão será enviada depois.'
+          : `${deletedIds.length} vídeos removidos deste dispositivo. As exclusoes serão enviadas depois.`);
       }
     }
 
     if (failedCount) {
-      toast.error(failedCount === 1 ? 'Nao foi possivel excluir 1 video.' : `Nao foi possivel excluir ${failedCount} videos.`);
+      toast.error(failedCount === 1 ? 'Não foi possível excluir 1 vídeo.' : `Não foi possível excluir ${failedCount} vídeos.`);
     }
 
     setDeleteIds(null);
@@ -206,7 +206,7 @@ export default function VideosPage() {
       await navigator.clipboard.writeText(url);
       toast.success('Link copiado.');
     } catch {
-      toast.error('Nao foi possivel copiar o link.');
+      toast.error('Não foi possível copiar o link.');
     }
   }
 
@@ -243,8 +243,8 @@ export default function VideosPage() {
       bumpStat(video.id, 'downloads');
       toast.success('Download iniciado.');
     } catch (error) {
-      console.warn('[videos] Download failed:', error);
-      toast.error('Nao foi possivel baixar o video.');
+      console.warn('[vídeos] Download failed:', error);
+      toast.error('Não foi possível baixar o vídeo.');
     }
   }
 
@@ -383,7 +383,7 @@ export default function VideosPage() {
                       Editar nome
                     </ActionButton>
                     <ActionButton disabled={!canPlay} onClick={() => editVideoAgain(video)} icon={<Pencil className="h-4 w-4" />}>
-                      Editar video
+                      Editar vídeo
                     </ActionButton>
                     <ActionButton disabled={!canPlay} onClick={() => openVideo(video)} icon={<ExternalLink className="h-4 w-4" />}>
                       Abrir
@@ -430,10 +430,10 @@ export default function VideosPage() {
         </div>
       )}
 
-      <Modal open={Boolean(renameVideo)} onClose={() => !savingTitle && setRenameVideo(null)} title="Editar nome do video">
+      <Modal open={Boolean(renameVideo)} onClose={() => !savingTitle && setRenameVideo(null)} title="Editar nome do vídeo">
         <div className="space-y-5">
           <Input
-            label="Nome do video"
+            label="Nome do vídeo"
             value={titleDraft}
             onChange={(event) => setTitleDraft(event.target.value)}
             onKeyDown={(event) => {

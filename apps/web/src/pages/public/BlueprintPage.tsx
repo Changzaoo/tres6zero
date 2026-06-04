@@ -20,7 +20,7 @@ const stack = [
   ['Frontend', 'React, Vite, TypeScript, Tailwind, Vercel'],
   ['Backend', 'Express, TypeScript, Render'],
   ['Auth e dados', 'Firebase Auth, Firebase Admin, Firestore'],
-  ['Storage', 'Supabase Storage para videos, templates e musicas'],
+  ['Storage', 'Supabase Storage para vídeos, templates e músicas'],
   ['Pagamento', 'PixGo, QR Code Pix e webhook'],
   ['Editor', 'Canvas, MediaRecorder, templates, efeitos e trilhas'],
 ];
@@ -32,16 +32,16 @@ const featureStatus = [
   ['Eventos e galerias', 'Pronto'],
   ['Gravacao/upload', 'Pronto'],
   ['Editor local', 'Pronto'],
-  ['Templates e musicas', 'Parcial'],
+  ['Templates e músicas', 'Parcial'],
   ['Offline/PWA', 'Parcial'],
   ['Recorrencia automatizada Pix', 'Planejado'],
 ];
 
 const roadmap = [
-  'Validar o fluxo de video em celulares reais.',
+  'Validar o fluxo de vídeo em celulares reais.',
   'Curar templates profissionais por categoria.',
-  'Publicar termos de uso e politica de privacidade.',
-  'Migrar cobranca mensal para recorrencia nativa quando necessario.',
+  'Publicar termos de uso e política de privacidade.',
+  'Migrar cobrança mensal para recorrencia nativa quando necessário.',
   'Adicionar testes e monitoramento.',
 ];
 
@@ -96,10 +96,10 @@ export default function BlueprintPage() {
               Blueprint do produto
             </p>
             <h1 className="text-4xl font-black leading-tight tracking-normal text-white sm:text-6xl">
-              SIX3° e uma esteira SaaS para entregar videos 360 com cara profissional.
+              SIX3° e uma esteira SaaS para entregar vídeos 360 com cara profissional.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/52 sm:text-lg">
-              Esta pagina resume a arquitetura, jornada, MVP, roadmap e status das funcionalidades sem expor segredos ou configuracoes privadas.
+              Esta página resume a arquitetura, jornada, MVP, roadmap e status das funcionalidades sem expor segredos ou configurações privadas.
             </p>
           </div>
         </section>
@@ -107,13 +107,13 @@ export default function BlueprintPage() {
         <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <Section icon={Map} title="Visao geral">
             <p className="text-sm leading-relaxed text-white/55">
-              O produto ajuda operadores 360 a criar eventos, gravar ou enviar videos, aplicar templates, efeitos e trilhas, publicar links com QR Code e acompanhar leads e metricas.
+              O produto ajuda operadores 360 a criar eventos, gravar ou enviar vídeos, aplicar templates, efeitos e trilhas, publicar links com QR Code e acompanhar leads e métricas.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {[
                 ['Produto', 'SaaS 360'],
-                ['Publico', 'Operadores e eventos'],
-                ['MVP', 'Video + QR + galeria'],
+                ['Público', 'Operadores e eventos'],
+                ['MVP', 'Vídeo + QR + galeria'],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                   <p className="text-xs text-white/35">{label}</p>
@@ -138,7 +138,7 @@ export default function BlueprintPage() {
         <div className="grid gap-5 lg:grid-cols-3">
           <Section icon={Smartphone} title="Jornada">
             <ol className="space-y-3 text-sm text-white/62">
-              {['Conta', 'Plano', 'Evento ou video avulso', 'Editor', 'Publicacao', 'QR Code', 'Metricas'].map((item, index) => (
+              {['Conta', 'Plano', 'Evento ou vídeo avulso', 'Editor', 'Publicação', 'QR Code', 'Métricas'].map((item, index) => (
                 <li key={item} className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-xs font-black text-brand-100">{index + 1}</span>
                   <span>{item}</span>
@@ -150,15 +150,15 @@ export default function BlueprintPage() {
           <Section icon={Film} title="Fluxo de dados">
             <div className="space-y-2 text-sm text-white/62">
               <p>Navegador chama o backend com token Firebase.</p>
-              <p>Backend valida usuario, plano e permissao.</p>
-              <p>Midias ficam no Supabase Storage.</p>
-              <p>Eventos, videos, leads e suporte ficam no Firestore.</p>
+              <p>Backend válida usuário, plano e permissão.</p>
+              <p>Mídias ficam no Supabase Storage.</p>
+              <p>Eventos, vídeos, leads e suporte ficam no Firestore.</p>
             </div>
           </Section>
 
           <Section icon={CircleDollarSign} title="MVP vendavel">
             <p className="text-sm leading-relaxed text-white/62">
-              O MVP e vender o fluxo de gravar/enviar, editar, publicar com QR Code e medir resultado. A IA e templates avancados entram como diferencial, nao como dependencia.
+              O MVP e vender o fluxo de gravar/enviar, editar, publicar com QR Code e medir resultado. A IA e templates avancados entram como diferencial, não como dependencia.
             </p>
           </Section>
         </div>
@@ -175,11 +175,11 @@ export default function BlueprintPage() {
         </Section>
 
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <Section icon={ShieldCheck} title="Seguranca">
+          <Section icon={ShieldCheck} title="Segurança">
             <ul className="space-y-2 text-sm text-white/62">
               <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />Segredos ficam no backend/Render.</li>
               <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />Admin por variaveis de ambiente.</li>
-              <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />Recuperacao sem revelar dados completos.</li>
+              <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />Recuperação sem revelar dados completos.</li>
               <li className="flex gap-2"><Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />Revisar rules e policies antes de escala.</li>
             </ul>
           </Section>
@@ -199,9 +199,9 @@ export default function BlueprintPage() {
         <section className="rounded-[28px] border border-brand-300/20 bg-gradient-to-br from-brand-500/18 via-white/[0.04] to-cyan-400/10 p-5 sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-black text-white">Proxima tarefa mais importante</h2>
+              <h2 className="text-2xl font-black text-white">Próxima tarefa mais importante</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/58">
-                Testar e estabilizar o fluxo de video em celulares reais: gravacao, upload, template, efeito, musica, render, QR Code e pagina publica.
+                Testar e estabilizar o fluxo de vídeo em celulares reais: gravação, upload, template, efeito, música, render, QR Code e página pública.
               </p>
             </div>
             <Link to="/app/gravar">

@@ -28,8 +28,8 @@ export function BannedAccountNotice({ reason, expiresAt }: { reason?: string | n
         </div>
         <h1 className="text-xl font-bold text-white">Sua conta foi suspensa.</h1>
         {reason && <p className="mt-3 text-sm leading-relaxed text-white/58">{reason}</p>}
-        {expiration && <p className="mt-2 text-sm text-white/42">Suspensao expira em {expiration}.</p>}
-        {!expiration && <p className="mt-2 text-sm text-white/42">Suspensao permanente ate revisao administrativa.</p>}
+        {expiration && <p className="mt-2 text-sm text-white/42">Suspensão expira em {expiration}.</p>}
+        {!expiration && <p className="mt-2 text-sm text-white/42">Suspensão permanente até revisão administrativa.</p>}
         <Button onClick={handleOtherAccount} className="mt-6 w-full justify-center">
           Entrar com outra conta
         </Button>

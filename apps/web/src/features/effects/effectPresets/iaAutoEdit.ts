@@ -3,15 +3,15 @@ import type { VideoEffectConfig } from '../effects.types';
 export const iaAutoEditEffect: VideoEffectConfig = {
   id: 'ai_auto',
   name: 'IA auto edit',
-  shortDescription: 'Escolha automatica de efeito, clima e trilha.',
-  longDescription: 'Analisa contexto, template, duracao e tipo do evento para escolher o acabamento ideal no navegador.',
+  shortDescription: 'Escolha automática de efeito, clima e trilha.',
+  longDescription: 'Analisa contexto, template, duração e tipo do evento para escolher o acabamento ideal no navegador.',
   category: 'ai',
   intensity: 'auto',
-  recommendedFor: ['entregas rapidas', 'operacao sem editor', 'videos prontos para postar'],
+  recommendedFor: ['entregas rapidas', 'operação sem editor', 'vídeos prontos para postar'],
   visualBehavior: [
     'Detecta cena e contexto',
     'Escolhe efeito e trilha',
-    'Ajusta duracao e estilo automaticamente',
+    'Ajusta duração e estilo automaticamente',
   ],
   parameters: {
     autoDetectScene: true,

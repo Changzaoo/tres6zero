@@ -4,7 +4,7 @@ import type { AppNotification, NotificationCategory, NotificationPreferences } f
 export const notificationCategories: { value: NotificationCategory; label: string; description: string }[] = [
   { value: 'support', label: 'Suporte', description: 'Respostas do admin e novos chamados.' },
   { value: 'billing', label: 'Pagamentos', description: 'Confirmações, vencimento e mudanças de plano.' },
-  { value: 'video', label: 'Videos', description: 'Processamento, falhas e publicações.' },
+  { value: 'video', label: 'Vídeos', description: 'Processamento, falhas e publicações.' },
   { value: 'event', label: 'Eventos', description: 'Criação, alteração e status de eventos.' },
   { value: 'template', label: 'Templates', description: 'Uploads e mudanças no catálogo.' },
   { value: 'system', label: 'Sistema', description: 'Avisos operacionais da plataforma.' },

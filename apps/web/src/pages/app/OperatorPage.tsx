@@ -411,7 +411,7 @@ function TimelineClip({
         isClickable && !isDraggable ? 'cursor-pointer hover:brightness-110' : ''
       } ${className}`}
       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-      title={`${label} - ${formatTime(start)} ate ${formatTime(end)}`}
+      title={`${label} - ${formatTime(start)} até ${formatTime(end)}`}
       onClick={isClickable && !isDraggable ? onClick : undefined}
     >
       {isDraggable && onLeftHandleDown && (
@@ -784,7 +784,7 @@ function TemplateFineControls({
     <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-bold uppercase text-white/52">
-          {isTemplateAnimated(template) ? 'Animado' : 'Estatico'}
+          {isTemplateAnimated(template) ? 'Animado' : 'Estático'}
         </span>
         <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${premium ? 'border-yellow-300/25 bg-yellow-500/12 text-yellow-100' : 'border-emerald-300/20 bg-emerald-500/10 text-emerald-100'}`}>
           {premium ? 'Premium' : 'Gratis'}
@@ -1074,7 +1074,7 @@ function EditorTimeline({
           </div>
 
           {/* VIDEO ROW */}
-          <TimelineRow icon={<Film className="h-3.5 w-3.5" />} label="Video" trackRef={videoTrackRef}>
+          <TimelineRow icon={<Film className="h-3.5 w-3.5" />} label="Vídeo" trackRef={videoTrackRef}>
             {/* Outside-output dimmed regions */}
             <div className="pointer-events-none absolute inset-y-0 rounded-xl bg-black/20" style={{ left: 0, width: `${(outputStart / timelineDuration) * 100}%` }} />
             <div className="pointer-events-none absolute inset-y-0 rounded-xl bg-black/20" style={{ left: `${(outputEnd / timelineDuration) * 100}%`, right: 0 }} />
@@ -1274,7 +1274,7 @@ export default function OperatorPage() {
   const [videoUrl, setVideoUrl] = useState('');
   const [savedVideoId, setSavedVideoId] = useState('');
   const [progress, setProgress] = useState(0);
-  const [processingLabel, setProcessingLabel] = useState('Preparando video...');
+  const [processingLabel, setProcessingLabel] = useState('Preparando vídeo...');
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [duration, setDuration] = useState<number>(operatorPreferences.defaultDuration);
@@ -1356,25 +1356,25 @@ export default function OperatorPage() {
     [favoriteTemplateIds, isAdmin, templates, user?.planId, videoOrientation]
   );
   const templateAspectHint = videoOrientation
-    ? `Video em ${videoOrientationLabel(videoOrientation)}: mostrando apenas templates ${templateOrientationPlural(videoOrientation)}.`
-    : 'Carregue ou grave um video para filtrar os templates por retrato ou paisagem.';
+    ? `Vídeo em ${videoOrientationLabel(videoOrientation)}: mostrando apenas templates ${templateOrientationPlural(videoOrientation)}.`
+    : 'Carregue ou grave um vídeo para filtrar os templates por retrato ou paisagem.';
   const templatePreviewClass = selectedTemplate?.aspectRatio === '16:9'
-    ? 'mx-auto aspect-video max-w-[260px]'
+    ? 'mx-auto aspect-vídeo max-w-[260px]'
     : selectedTemplate?.aspectRatio === '1:1'
       ? 'mx-auto aspect-square max-w-[220px]'
       : 'mx-auto aspect-[9/16] max-w-[220px]';
   const videoPreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-video max-h-[48vh] sm:max-h-[80vh]'
+    ? 'aspect-vídeo max-h-[48vh] sm:max-h-[80vh]'
     : 'aspect-[9/16] max-h-[48vh] sm:max-h-[80vh] mx-auto';
   const livePreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-video max-h-[48vh] sm:max-h-[68vh]'
+    ? 'aspect-vídeo max-h-[48vh] sm:max-h-[68vh]'
     : 'aspect-[9/16] max-h-[48vh] sm:max-h-[68vh] mx-auto';
 
   const eventOptions = [
-    { value: '', label: 'Sem evento - video avulso' },
+    { value: '', label: 'Sem evento - vídeo avulso' },
     ...events.map(e => ({ value: e.id, label: `${e.name} - ${eventStatusLabel[e.status] || e.status}` })),
   ];
-  const defaultVideoTitle = `${isStandaloneVideo ? 'Video avulso' : selectedEvent?.name || 'Video 360'} - ${new Date().toLocaleDateString('pt-BR')}`;
+  const defaultVideoTitle = `${isStandaloneVideo ? 'Vídeo avulso' : selectedEvent?.name || 'Vídeo 360'} - ${new Date().toLocaleDateString('pt-BR')}`;
   const resolvedVideoTitle = videoTitle.trim() || defaultVideoTitle;
   const processActionLabel = editingVideoId ? 'Atualizar' : 'Processar';
 
@@ -1391,7 +1391,7 @@ export default function OperatorPage() {
     ...musicOptions,
     ...sortFavoritesFirst(musicCatalog, favoriteMusicIds).map((track) => ({
       value: `url:${track.musicUrl}`,
-      label: `${favoriteMusicIds.has(track.id) ? '★ ' : ''}${track.source === 'custom' ? 'Sua musica - ' : 'SIX3 - '}${track.name}`,
+      label: `${favoriteMusicIds.has(track.id) ? '★ ' : ''}${track.source === 'custom' ? 'Sua música - ' : 'SIX3 - '}${track.name}`,
     })),
   ];
 
@@ -1604,16 +1604,16 @@ export default function OperatorPage() {
           title: video.title || '',
           video,
         });
-        toast.success('Video carregado para reedicacao.');
+        toast.success('Vídeo carregado para reedicacao.');
       })
       .catch((error) => {
-        console.warn('[operator] Edit video load failed:', error);
+        console.warn('[operator] Edit vídeo load failed:', error);
         if (!cancelled) {
           loadedEditVideoIdRef.current = null;
           setEditingVideoId(null);
           setEditingOriginalVideo(null);
           setSearchParams({}, { replace: true });
-          toast.error('Nao foi possivel abrir este video para editar.');
+          toast.error('Não foi possível abrir este vídeo para editar.');
         }
       })
       .finally(() => {
@@ -1633,7 +1633,7 @@ export default function OperatorPage() {
       setVideoOrientation(recordingOrientation);
       setStep('capture');
     } catch {
-      toast.error('Nao foi possivel abrir a camera. Verifique a permissao do app ou use o upload manual.');
+      toast.error('Não foi possível abrir a câmera. Verifique a permissão do app ou use o upload manual.');
     }
   }
 
@@ -1650,7 +1650,7 @@ export default function OperatorPage() {
       }
       setVideoOrientation(orientation);
     } catch {
-      toast.error('Nao foi possivel trocar o formato da camera.');
+      toast.error('Não foi possível trocar o formato da câmera.');
     }
   }
 
@@ -1667,13 +1667,13 @@ export default function OperatorPage() {
   function startRecording() {
     const stream = streamRef.current;
     if (!stream || !stream.getVideoTracks().some((track) => track.readyState === 'live')) {
-      toast.error('Camera indisponivel. Abra a camera novamente.');
+      toast.error('Câmera indisponível. Abra a câmera novamente.');
       setStep('select');
       return;
     }
 
     if (typeof MediaRecorder === 'undefined') {
-      toast.error('Este navegador nao suporta gravacao local. Use o upload manual.');
+      toast.error('Este navegador não suporta gravação local. Use o upload manual.');
       return;
     }
 
@@ -1704,7 +1704,7 @@ export default function OperatorPage() {
       streamRef.current = null;
 
       if (chunksRef.current.length === 0) {
-        toast.error('A gravacao saiu vazia. Tente novamente ou use o upload manual.');
+        toast.error('A gravação saiu vazia. Tente novamente ou use o upload manual.');
         setStep('select');
         return;
       }
@@ -1929,7 +1929,7 @@ export default function OperatorPage() {
 
   function enableAiAutoEdit() {
     if (!canUseAiAuto) {
-      toast.error('A edicao automatica com IA esta liberada no plano Ilimitado.');
+      toast.error('A edição automática com IA está liberada no plano Ilimitado.');
       return;
     }
 
@@ -1937,12 +1937,12 @@ export default function OperatorPage() {
     setMusicTheme('none');
     setEffectSegmentsDraft([]);
     setActiveEffectSegmentId(null);
-    toast.success('IA automatica ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
+    toast.success('IA automática ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
   }
 
   async function generateAiMusicFromContext() {
     if (!canUseAiAuto) {
-      toast.error('Geracao de trilha IA esta liberada no plano Ilimitado.');
+      toast.error('Geração de trilha IA está liberada no plano Ilimitado.');
       return;
     }
     if (generatingAiMusic) return;
@@ -1951,11 +1951,11 @@ export default function OperatorPage() {
     const promptParts = [
       selectedEvent
         ? `Trilha original para evento ${selectedEvent.name}, tipo ${selectedEvent.type}, cliente ${selectedEvent.clientName || 'SIX3'}`
-        : 'Trilha original para video avulso de photo booth 360',
+        : 'Trilha original para vídeo avulso de photo booth 360',
       selectedTemplate ? `template visual ${selectedTemplate.name}` : 'sem template definido',
-      `efeito de video ${effect === 'ai_auto' ? aiDirection.effect : effect}`,
-      `duracao final ${outputDuration.toFixed(1)} segundos`,
-      'energia moderna, memoravel, pronta para video curto e sem qualquer melodia conhecida',
+      `efeito de vídeo ${effect === 'ai_auto' ? aiDirection.effect : effect}`,
+      `duração final ${outputDuration.toFixed(1)} segundos`,
+      'energia moderna, memoravel, pronta para vídeo curto e sem qualquer melodia conhecida',
     ];
 
     setGeneratingAiMusic(true);
@@ -1993,10 +1993,10 @@ export default function OperatorPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao gerar trilha IA.';
       setAiMusicStatus(message === 'SUNO_GENERATION_STILL_PROCESSING'
-        ? 'A Suno ainda esta processando. Tente novamente em alguns minutos.'
+        ? 'A Suno ainda está processando. Tente novamente em alguns minutos.'
         : message);
       toast.error(message === 'SUNO_GENERATION_STILL_PROCESSING'
-        ? 'A Suno ainda esta processando a trilha.'
+        ? 'A Suno ainda está processando a trilha.'
         : message);
     } finally {
       setGeneratingAiMusic(false);
@@ -2013,7 +2013,7 @@ export default function OperatorPage() {
     if (!selectedMusicTrack) return;
     const next = toggleMediaFavorite('music', selectedMusicTrack.id, user?.uid);
     setFavorites(next);
-    toast.success(isMediaFavorite('music', selectedMusicTrack.id, next) ? 'Musica favoritada.' : 'Musica removida dos favoritos.');
+    toast.success(isMediaFavorite('music', selectedMusicTrack.id, next) ? 'Música favoritada.' : 'Música removida dos favoritos.');
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -2029,7 +2029,7 @@ export default function OperatorPage() {
   async function handleProcess() {
     if (!videoBlob || !user) return;
     if (!canUseEffect) {
-      toast.error('Esse efeito nao esta liberado no seu plano.');
+      toast.error('Esse efeito não está liberado no seu plano.');
       return;
     }
     if (!canUseTemplate) {
@@ -2041,7 +2041,7 @@ export default function OperatorPage() {
     setProgress(2);
     try {
       if (!canRenderVideoInBrowser()) {
-        throw new Error('Seu navegador nao suporta o editor local. Atualize o navegador e tente novamente.');
+        throw new Error('Seu navegador não suporta o editor local. Atualize o navegador e tente novamente.');
       }
 
       const aiDirection = localAiDirection(selectedEvent?.type, selectedTemplate?.category);
@@ -2056,7 +2056,7 @@ export default function OperatorPage() {
 
       setProcessingLabel(effect === 'ai_auto'
         ? 'Editando com IA local: efeito, template e trilha...'
-        : 'Editando video no navegador...');
+        : 'Editando vídeo no navegador...');
 
       const templateAssets = templateRenderAssets(selectedTemplate);
       const renderedBlob = await renderVideoInBrowser({
@@ -2081,12 +2081,12 @@ export default function OperatorPage() {
       });
 
       setProgress(72);
-      setProcessingLabel('Enviando video editado para a nuvem...');
+      setProcessingLabel('Enviando vídeo editado para a nuvem...');
       const uploaded = await uploadVideoToServer(renderedVideoFile(renderedBlob), (pct) => {
         setProgress(Math.min(94, 72 + Math.round(pct * 0.22)));
       });
 
-      setProcessingLabel(editingVideoId ? 'Atualizando video...' : 'Publicando video...');
+      setProcessingLabel(editingVideoId ? 'Atualizando vídeo...' : 'Publicando vídeo...');
       const savedFields = {
         title: resolvedVideoTitle,
         storagePath: uploaded.storagePath,
@@ -2124,14 +2124,14 @@ export default function OperatorPage() {
       setProgress(100);
       setStep('done');
       if (uploaded.status === 'pending_offline' || publishedVideoId.startsWith('local_')) {
-        toast.info('Video salvo neste dispositivo. Ele sera enviado quando a internet voltar.');
+        toast.info('Vídeo salvo neste dispositivo. Ele será enviado quando a internet voltar.');
       } else if (editingVideoId) {
-        toast.success('Video atualizado.');
+        toast.success('Vídeo atualizado.');
       } else {
-        toast.success('Video editado no navegador e publicado sem sobrecarregar o servidor.');
+        toast.success('Vídeo editado no navegador e publicado sem sobrecarregar o servidor.');
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar video.');
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar vídeo.');
       setStep('preview');
     }
   }
@@ -2165,7 +2165,7 @@ export default function OperatorPage() {
     setActiveEffectSegmentId(null);
     setSavedVideoId('');
     setProgress(0);
-    setProcessingLabel('Preparando video...');
+    setProcessingLabel('Preparando vídeo...');
     setStep('select');
   }
 
@@ -2179,13 +2179,13 @@ export default function OperatorPage() {
     <div className="mx-auto max-w-6xl space-y-4 sm:space-y-5">
       <div className="space-y-1">
         <h1 className="text-xl font-bold text-white sm:text-2xl">Gravar</h1>
-        <p className="hidden text-sm text-white/40 sm:block">Grave, edite com IA e publique videos 360 sem sobrecarregar o servidor</p>
+        <p className="hidden text-sm text-white/40 sm:block">Grave, edite com IA e publique vídeos 360 sem sobrecarregar o servidor</p>
       </div>
 
       {(loadingEditVideo || (editingVideoId && step !== 'done')) && (
         <div className="flex items-center gap-3 rounded-2xl border border-brand-300/20 bg-brand-500/10 px-4 py-3 text-sm text-brand-100">
           {loadingEditVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-          <span>{loadingEditVideo ? 'Carregando video para editar...' : 'Reeditando video existente. Ao atualizar, ele continua no mesmo item da lista.'}</span>
+          <span>{loadingEditVideo ? 'Carregando vídeo para editar...' : 'Reeditando vídeo existente. Ao atualizar, ele continua no mesmo item da lista.'}</span>
         </div>
       )}
 
@@ -2193,7 +2193,7 @@ export default function OperatorPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_0.82fr]">
           <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:space-y-5 sm:p-6">
             <Input
-              label="Nome do video"
+              label="Nome do vídeo"
               value={videoTitle}
               onChange={(event) => setVideoTitle(event.target.value)}
               maxLength={90}
@@ -2202,7 +2202,7 @@ export default function OperatorPage() {
             <Select label="Evento vinculado" options={eventOptions} value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)} />
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-white">Formato da gravacao</p>
+              <p className="text-sm font-semibold text-white">Formato da gravação</p>
               <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
                 {(['portrait', 'landscape'] as const).map((orientation) => (
                   <button
@@ -2220,7 +2220,7 @@ export default function OperatorPage() {
                 ))}
               </div>
               <p className="text-xs text-white/40">
-                No iOS/Android, escolha aqui antes de abrir a camera para gravar em pe ou deitado.
+                No iOS/Android, escolha aqui antes de abrir a câmera para gravar em pe ou deitado.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -2247,7 +2247,7 @@ export default function OperatorPage() {
           <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 sm:space-y-4 sm:p-5">
             <div className="flex items-center gap-2 text-white font-semibold">
               <Wand2 className="w-4 h-4 text-brand-300" />
-              Edicao do video
+              Edição do vídeo
             </div>
             <button
               type="button"
@@ -2264,7 +2264,7 @@ export default function OperatorPage() {
                 <Sparkles className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-white">Edicao automatica com IA</span>
+                <span className="block text-sm font-bold text-white">Edição automática com IA</span>
                 <span className="hidden text-xs leading-relaxed text-white/42 sm:block">
                   Escolhe efeito e clima no navegador para publicar sem derrubar o backend.
                 </span>
@@ -2328,7 +2328,7 @@ export default function OperatorPage() {
             {(!canUseEffect || !canUseTemplate) && (
               <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
                 <Lock className="w-4 h-4 shrink-0" />
-                Recurso bloqueado pelo plano atual. O backend tambem valida antes de publicar.
+                Recurso bloqueado pelo plano atual. O backend também válida antes de publicar.
               </div>
             )}
             <div className="hidden gap-4 border-t border-white/[0.08] pt-4 sm:grid sm:grid-cols-[180px_minmax(0,1fr)]">
@@ -2346,7 +2346,7 @@ export default function OperatorPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <Clock className="h-4 w-4 text-brand-300" />
-                    Duracao final
+                    Duração final
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     {DURATION_OPTIONS.map((seconds) => (
@@ -2369,13 +2369,13 @@ export default function OperatorPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-white">
                     <Volume2 className="h-4 w-4 text-brand-300" />
-                    Previa da musica
+                    Previa da música
                   </div>
                   {musicPreviewUrl ? (
                     <audio src={musicPreviewUrl} controls preload="metadata" className="h-10 w-full" />
                   ) : (
                     <p className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/40">
-                      {musicTheme === 'none' ? 'Sem trilha selecionada.' : 'Essa trilha sera aplicada no editor local.'}
+                      {musicTheme === 'none' ? 'Sem trilha selecionada.' : 'Essa trilha será aplicada no editor local.'}
                     </p>
                   )}
                 </div>
@@ -2429,7 +2429,7 @@ export default function OperatorPage() {
                 value={String(duration)} onChange={e => setDuration(Number(e.target.value))} className="w-24" />
               <Button className="flex-1 justify-center" size="xl" onClick={startCountdown} disabled={recording}
                 icon={<Video className="w-5 h-5" />}>
-                {recording ? 'Gravando...' : 'Iniciar gravacao'}
+                {recording ? 'Gravando...' : 'Iniciar gravação'}
               </Button>
             </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => {
@@ -2452,7 +2452,7 @@ export default function OperatorPage() {
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-white">
               <span className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4 text-brand-300" />
-                Configuracao aplicada
+                Configuração aplicada
               </span>
               <ChevronDown className="h-4 w-4 text-white/45 transition-transform group-open:rotate-180" />
             </summary>
@@ -2466,7 +2466,7 @@ export default function OperatorPage() {
           </details>
 
           <div className="hidden h-fit space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 lg:block">
-            <p className="text-sm font-semibold text-white">Configuracao aplicada</p>
+            <p className="text-sm font-semibold text-white">Configuração aplicada</p>
             <p className="text-sm text-white/50">{selectedTemplate?.name || 'Sem overlay'}</p>
             <p className="text-sm text-white/50">{effectMeta?.name || effect}</p>
             <p className="flex items-center gap-2 text-sm text-white/50"><Clock className="h-4 w-4" />{duration} segundos</p>
@@ -2542,7 +2542,7 @@ export default function OperatorPage() {
               </div>
 
               <Input
-                label="Nome do video"
+                label="Nome do vídeo"
                 value={videoTitle}
                 onChange={(event) => setVideoTitle(event.target.value)}
                 maxLength={90}
@@ -2597,7 +2597,7 @@ export default function OperatorPage() {
 
               <div className="space-y-2 rounded-2xl border border-white/[0.08] bg-black/15 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-white/52">Efeitos no video</p>
+                  <p className="text-xs font-semibold text-white/52">Efeitos no vídeo</p>
                   <button
                     type="button"
                     onClick={() => addEffectSegment()}
@@ -2610,7 +2610,7 @@ export default function OperatorPage() {
 
                 {effect === 'ai_auto' ? (
                   <p className="rounded-xl border border-brand-300/18 bg-brand-500/10 px-3 py-2 text-xs text-brand-100/75">
-                    A IA automatica controla os efeitos neste modo.
+                    A IA automática controla os efeitos neste modo.
                   </p>
                 ) : effectSegments.length === 0 ? (
                   <p className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2 text-xs text-white/38">
@@ -2660,7 +2660,7 @@ export default function OperatorPage() {
                     <div className="grid grid-cols-4 gap-1.5">
                       {[
                         ['all', 'Tudo'],
-                        ['intro', 'Inicio'],
+                        ['intro', 'Início'],
                         ['center', 'Meio'],
                         ['ending', 'Fim'],
                       ].map(([preset, label]) => (
@@ -2680,7 +2680,7 @@ export default function OperatorPage() {
                         onClick={() => markEffectAtCurrent('start')}
                         className="h-8 rounded-lg border border-white/8 bg-white/[0.04] text-[11px] font-bold text-white/55 transition hover:border-brand-300/25 hover:text-white"
                       >
-                        Inicio aqui
+                        Início aqui
                       </button>
                       <button
                         type="button"
@@ -2733,7 +2733,7 @@ export default function OperatorPage() {
 
               {/* Duration */}
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-white/52">Duracao final</p>
+                <p className="text-xs font-semibold text-white/52">Duração final</p>
                 <div className="grid grid-cols-5 gap-1.5">
                   {DURATION_OPTIONS.map((seconds) => (
                     <button
@@ -2840,8 +2840,8 @@ export default function OperatorPage() {
             <Check className="w-8 h-8 text-green-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">{editingVideoId ? 'Video atualizado!' : 'Video publicado!'}</h2>
-            <p className="text-white/50 text-sm mt-1">{selectedEvent ? 'Compartilhe o QR Code com o cliente' : 'Video avulso pronto para compartilhar'}</p>
+            <h2 className="text-xl font-bold text-white">{editingVideoId ? 'Vídeo atualizado!' : 'Vídeo publicado!'}</h2>
+            <p className="text-white/50 text-sm mt-1">{selectedEvent ? 'Compartilhe o QR Code com o cliente' : 'Vídeo avulso pronto para compartilhar'}</p>
           </div>
           {publicUrl && (
             <div className="bg-white p-4 rounded-xl">
@@ -2852,10 +2852,10 @@ export default function OperatorPage() {
           <div className="grid w-full gap-3 sm:grid-cols-3">
             <Button className="justify-center" disabled={!publicUrl} onClick={() => publicUrl && window.open(publicUrl, '_blank', 'noopener,noreferrer')}
               icon={<Eye className="w-4 h-4" />}>
-              Ver video
+              Ver vídeo
             </Button>
             <Button variant="secondary" className="flex-1 justify-center" onClick={reset} icon={<RefreshCw className="w-4 h-4" />}>
-              Novo video
+              Novo vídeo
             </Button>
             <Button className="flex-1 justify-center" disabled={!publicUrl} onClick={() => navigator.share?.({ url: publicUrl, title: resolvedVideoTitle })}
               icon={<Share2 className="w-4 h-4" />}>

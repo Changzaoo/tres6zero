@@ -74,7 +74,7 @@ export function EffectSelector({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-white">Efeito</p>
-            <p className="text-xs leading-relaxed text-white/38">Escolha o acabamento visual do video.</p>
+            <p className="text-xs leading-relaxed text-white/38">Escolha o acabamento visual do vídeo.</p>
           </div>
           {selectedEffect.isAI && (
             <span className="rounded-full border border-brand-300/25 bg-brand-500/14 px-3 py-1 text-[11px] font-bold text-brand-100">

@@ -44,7 +44,7 @@ async function activateFromCheckoutSession(session: CheckoutSession) {
       recipientUid: firebaseUid,
       category: 'billing',
       title: 'Pagamento confirmado',
-      body: `Seu plano ${plan.name} esta ativo ate ${access.currentPeriodEnd ? new Date(access.currentPeriodEnd).toLocaleDateString('pt-BR') : 'o proximo ciclo'}.`,
+      body: `Seu plano ${plan.name} está ativo até ${access.currentPeriodEnd ? new Date(access.currentPeriodEnd).toLocaleDateString('pt-BR') : 'o próximo ciclo'}.`,
       link: '/app/billing',
       priority: 'high',
       metadata: { checkoutSessionId: session.id, planId: plan.id },

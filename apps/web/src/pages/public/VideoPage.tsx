@@ -77,8 +77,8 @@ export default function VideoPage() {
     try {
       await startVideoDownload();
     } catch (error) {
-      console.warn('[video] Download failed:', error);
-      toast.error('Nao foi possivel baixar o video.');
+      console.warn('[vídeo] Download failed:', error);
+      toast.error('Não foi possível baixar o vídeo.');
     }
   }
 
@@ -100,8 +100,8 @@ export default function VideoPage() {
     try {
       await startVideoDownload('Obrigado! O download foi iniciado.');
     } catch (error) {
-      console.warn('[video] Lead download failed:', error);
-      toast.error('Cadastro salvo, mas nao foi possivel baixar o video.');
+      console.warn('[vídeo] Lead download failed:', error);
+      toast.error('Cadastro salvo, mas não foi possível baixar o vídeo.');
     }
   }
 
@@ -141,8 +141,8 @@ export default function VideoPage() {
       setFeedbackText('');
       toast.success('Feedback enviado. Obrigado!');
     } catch (error) {
-      console.warn('[video] Feedback failed:', error);
-      toast.error('Nao foi possivel enviar o feedback.');
+      console.warn('[vídeo] Feedback failed:', error);
+      toast.error('Não foi possível enviar o feedback.');
     } finally {
       setFeedbackSending(false);
     }
@@ -198,8 +198,8 @@ export default function VideoPage() {
 
   const shareUrl = window.location.href;
   const whatsappMsg = encodeURIComponent(event?.name
-    ? `Olha meu video 360 no evento ${event.name}: ${shareUrl}`
-    : `Olha meu video 360: ${shareUrl}`);
+    ? `Olha meu vídeo 360 no evento ${event.name}: ${shareUrl}`
+    : `Olha meu vídeo 360: ${shareUrl}`);
 
   return (
     <div className="mx-auto min-h-screen max-w-md bg-surface pb-20">
@@ -238,7 +238,7 @@ export default function VideoPage() {
         <form onSubmit={handleFeedbackSubmit} className="rounded-[22px] border border-brand-400/20 bg-brand-500/10 p-4">
           <div className="mb-3 text-center">
             <p className="text-sm font-semibold text-white/82">Deixe seu feedback</p>
-            <p className="mt-1 text-xs text-white/40">Nome, WhatsApp e e-mail sao opcionais.</p>
+            <p className="mt-1 text-xs text-white/40">Nome, WhatsApp e e-mail são opcionais.</p>
           </div>
           {feedbackSent && (
             <div className="mb-3 rounded-2xl border border-green-300/15 bg-green-500/10 px-3 py-2 text-center text-xs font-semibold text-green-100/80">
@@ -255,7 +255,7 @@ export default function VideoPage() {
                 value={feedbackText}
                 onChange={(eventInput) => setFeedbackText(eventInput.target.value)}
                 rows={3}
-                placeholder="Conte como foi sua experiencia..."
+                placeholder="Conte como foi sua experiência..."
                 className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-brand-500/50 focus:outline-none"
               />
             </label>
@@ -279,7 +279,7 @@ export default function VideoPage() {
 
       <Modal open={leadOpen} onClose={() => setLeadOpen(false)} title="Antes de baixar...">
         <div className="space-y-3">
-          <p className="text-sm text-white/60">Deixe seus dados para baixar o vídeo. Os campos sao opcionais.</p>
+          <p className="text-sm text-white/60">Deixe seus dados para baixar o vídeo. Os campos são opcionais.</p>
           <Input label="Nome" placeholder="Seu nome" value={leadName} onChange={(event) => setLeadName(event.target.value)} />
           <Input label="WhatsApp" placeholder="(11) 9 9999-9999" value={leadPhone} onChange={(event) => setLeadPhone(event.target.value)} />
           <Input label="E-mail" type="email" placeholder="seu@email.com" value={leadEmail} onChange={(event) => setLeadEmail(event.target.value)} />

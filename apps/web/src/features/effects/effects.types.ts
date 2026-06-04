@@ -37,7 +37,7 @@ export type VideoEffectConfig = {
   visualBehavior: readonly string[];
   parameters: VideoEffectParameters;
   previewStyle: VideoEffectPreviewStyle;
-  badge?: 'Padrao' | 'Popular' | 'Filme' | 'Premium' | 'IA' | 'Recomendado';
+  badge?: 'Padrão' | 'Popular' | 'Filme' | 'Premium' | 'IA' | 'Recomendado';
   isPremium?: boolean;
   isAI?: boolean;
   requiredFeature: VideoEffectFeature;

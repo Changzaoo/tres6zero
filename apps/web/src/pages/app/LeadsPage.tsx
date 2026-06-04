@@ -65,7 +65,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function shortId(value?: string | null, size = 8) {
-  if (!value) return 'anonimo';
+  if (!value) return 'anônimo';
   return value.length <= size ? value : `${value.slice(0, size)}...`;
 }
 
@@ -74,11 +74,11 @@ function isNamedLead(lead?: Lead) {
 }
 
 function contactLabel(lead?: Lead) {
-  if (!lead) return 'Visitante anonimo';
+  if (!lead) return 'Visitante anônimo';
   if (isNamedLead(lead)) return lead.name;
   if (lead.phone) return lead.phone;
   if (lead.email) return lead.email;
-  return 'Visitante anonimo';
+  return 'Visitante anônimo';
 }
 
 function hasContact(lead: Lead) {
@@ -230,7 +230,7 @@ export default function LeadsPage() {
         if (videosResult.status === 'fulfilled') setVideos(videosResult.value);
 
         if ([leadsResult, engagementResult, eventsResult, videosResult].some((result) => result.status === 'rejected')) {
-          toast.error('Alguns resultados nao foram carregados.');
+          toast.error('Alguns resultados não foram carregados.');
         }
       })
       .finally(() => setLoading(false));
@@ -272,13 +272,13 @@ export default function LeadsPage() {
   }, [eventMap, search, videoMap, visitorRows]);
 
   function eventName(id?: string | null) {
-    if (!id || id === 'standalone') return 'Video avulso';
+    if (!id || id === 'standalone') return 'Vídeo avulso';
     return eventMap.get(id)?.name || 'Evento';
   }
 
   function videoTitle(id?: string | null) {
     if (!id) return '';
-    return videoMap.get(id)?.title || 'Video';
+    return videoMap.get(id)?.title || 'Vídeo';
   }
 
   function handleExport() {
@@ -302,7 +302,7 @@ export default function LeadsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Resultados</h1>
-          <p className="text-sm text-white/40">Leads, feedbacks, downloads e cliques reais dos seus links publicos.</p>
+          <p className="text-sm text-white/40">Leads, feedbacks, downloads e cliques reais dos seus links públicos.</p>
         </div>
         <Button variant="secondary" onClick={handleExport} icon={<Download className="h-4 w-4" />} size="sm">
           Exportar CSV
@@ -325,7 +325,7 @@ export default function LeadsPage() {
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nome, telefone, e-mail, feedback, evento ou video..."
+          placeholder="Buscar por nome, telefone, e-mail, feedback, evento ou vídeo..."
           className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-9 pr-4 text-sm text-white placeholder-white/30 focus:border-brand-500/40 focus:outline-none"
         />
       </div>
@@ -334,7 +334,7 @@ export default function LeadsPage() {
         <EmptyState
           icon={<Users className="h-8 w-8" />}
           title="Nenhuma acao real ainda"
-          description="Downloads, cliques, feedbacks e contatos enviados pela pagina publica aparecem aqui."
+          description="Downloads, cliques, feedbacks e contatos enviados pela página pública aparecem aqui."
         />
       ) : (
         <div className="space-y-3">

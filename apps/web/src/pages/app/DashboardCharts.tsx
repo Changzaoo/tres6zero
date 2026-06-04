@@ -29,18 +29,18 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
   return (
     <div className="grid lg:grid-cols-2 gap-4">
       <Card>
-        <h3 className="text-sm font-semibold text-white/70 mb-4">Videos e Leads (ultimos 7 dias)</h3>
+        <h3 className="text-sm font-semibold text-white/70 mb-4">Vídeos e Leads (ultimos 7 dias)</h3>
         <div className="relative">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={data}>
               <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
               <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="videos" fill="#7c3aed" radius={[4, 4, 0, 0]} name="Videos reais" />
+              <Bar dataKey="videos" fill="#7c3aed" radius={[4, 4, 0, 0]} name="Vídeos reais" />
               <Bar dataKey="leads" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Leads reais" />
             </BarChart>
           </ResponsiveContainer>
-          {!hasDailyData && <EmptyRealData label="Sem videos ou leads reais nos ultimos 7 dias." />}
+          {!hasDailyData && <EmptyRealData label="Sem vídeos ou leads reais nos ultimos 7 dias." />}
         </div>
       </Card>
 
@@ -52,7 +52,7 @@ export default function DashboardCharts({ data }: DashboardChartsProps) {
               <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
               <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="cumulativeVideos" stroke="#7c3aed" strokeWidth={2} dot={false} name="Videos acumulados" />
+              <Line type="monotone" dataKey="cumulativeVideos" stroke="#7c3aed" strokeWidth={2} dot={false} name="Vídeos acumulados" />
               <Line type="monotone" dataKey="cumulativeLeads" stroke="#4f46e5" strokeWidth={2} dot={false} name="Leads acumulados" />
             </LineChart>
           </ResponsiveContainer>

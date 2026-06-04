@@ -95,7 +95,7 @@ export function getFallbackAIVideoDirection(params: {
   return {
     effect: fallbackEffect(params.eventType),
     musicTheme,
-    rationale: 'IA indisponivel no momento; direcao automatica aplicada pelo servidor.',
+    rationale: 'IA indisponível no momento; direcao automática aplicada pelo servidor.',
   };
 }
 
@@ -120,7 +120,7 @@ export async function getAIVideoDirection(params: {
       store: false,
       max_output_tokens: 260,
       instructions: [
-        'You are the SIX3 video director for a 360 photo booth SaaS.',
+        'You are the SIX3 vídeo director for a 360 photo booth SaaS.',
         'Analyze the frame and event context, then choose the best visual preset and music theme.',
         'Return only valid JSON. Do not include markdown.',
         `Allowed effects: ${AI_EFFECTS.join(', ')}.`,

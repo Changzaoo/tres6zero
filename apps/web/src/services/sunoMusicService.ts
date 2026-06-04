@@ -78,12 +78,12 @@ export async function getSunoMusicGeneration(taskId: string) {
 export function describeSunoStatus(status: string) {
   const normalized = status.toUpperCase();
   const labels: Record<string, string> = {
-    PENDING: 'Suno preparando a musica...',
-    TEXT_SUCCESS: 'Ideia musical criada, gerando audio...',
+    PENDING: 'Suno preparando a música...',
+    TEXT_SUCCESS: 'Ideia musical criada, gerando áudio...',
     FIRST_SUCCESS: 'Primeira faixa pronta, salvando...',
-    SUCCESS: 'Musica pronta, salvando...',
-    CREATE_TASK_FAILED: 'A Suno nao conseguiu criar a tarefa.',
-    GENERATE_AUDIO_FAILED: 'A Suno nao conseguiu gerar o audio.',
+    SUCCESS: 'Música pronta, salvando...',
+    CREATE_TASK_FAILED: 'A Suno não conseguiu criar a tarefa.',
+    GENERATE_AUDIO_FAILED: 'A Suno não conseguiu gerar o áudio.',
     CALLBACK_EXCEPTION: 'A Suno falhou ao chamar o servidor.',
     SENSITIVE_WORD_ERROR: 'A Suno bloqueou algum termo do prompt.',
   };

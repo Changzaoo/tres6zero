@@ -18,12 +18,12 @@ export type ApplyEffectResponse = {
 
 export function buildEffectPayload(input: ApplyEffectInput): ApplyEffectPayload {
   if (!isVideoEffectId(input.effectId)) {
-    throw new Error('Efeito invalido.');
+    throw new Error('Efeito inválido.');
   }
 
   const effect = getVideoEffect(input.effectId);
   if (!effect) {
-    throw new Error('Efeito invalido.');
+    throw new Error('Efeito inválido.');
   }
 
   return {

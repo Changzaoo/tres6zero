@@ -9,9 +9,9 @@ export const cleanEffect: VideoEffectConfig = {
   intensity: 'low',
   recommendedFor: ['corporativo', 'eventos simples', 'entregas rapidas'],
   visualBehavior: [
-    'Correcoes leves de brilho e contraste',
+    'Correções leves de brilho e contraste',
     'Nitidez discreta',
-    'Transicoes suaves no inicio e no final',
+    'Transicoes suaves no início e no final',
   ],
   parameters: {
     brightness: 4,
@@ -26,6 +26,6 @@ export const cleanEffect: VideoEffectConfig = {
     cardClass: 'border-white/12 bg-white/[0.045]',
     previewFilter: 'contrast(1.05) saturate(1.08) brightness(1.01)',
   },
-  badge: 'Padrao',
+  badge: 'Padrão',
   requiredFeature: 'basic_effects',
 };
