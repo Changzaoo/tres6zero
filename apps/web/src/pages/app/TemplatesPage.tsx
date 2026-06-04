@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ChangeEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Star, Upload, Wand2, X } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
@@ -250,6 +250,24 @@ function TemplateCard({
   const isMotionActive = Boolean(motionVideoUrl && activeMotionId === template.id && canUseTransparentMotionOverlay());
   const animated = isTemplateAnimated(template);
   const premium = templateRequiresPremiumTemplates(template);
+  const portraitPreview = template.aspectRatio === '9:16' || template.aspectRatio === 'auto';
+  const previewStyle: CSSProperties = {
+    background: `radial-gradient(circle at 28% 18%, ${primary}55, transparent 34%), linear-gradient(135deg, ${primary}30, ${secondary}1f 48%, rgba(0,0,0,0.78))`,
+    ...(!portraitPreview ? { aspectRatio: templateAspectRatio(template.aspectRatio) } : {}),
+  };
+  const previewMedia = isMotionActive && motionVideoUrl ? (
+    <video
+      src={motionVideoUrl}
+      className={`absolute inset-0 h-full w-full object-contain ${portraitPreview ? 'p-1' : 'p-2'}`}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+    />
+  ) : (
+    <TemplateOverlayRenderer template={template} preferPreview className={portraitPreview ? 'p-1' : ''} />
+  );
 
   return (
     <div
@@ -276,23 +294,21 @@ function TemplateCard({
           : 'border-white/[0.08]'
       }`}>
         <div
-          className="relative flex min-h-[148px] max-h-[210px] items-center justify-center overflow-hidden sm:min-h-[260px] sm:max-h-none"
-          style={{ aspectRatio: templateAspectRatio(template.aspectRatio), background: `radial-gradient(circle at 28% 18%, ${primary}55, transparent 34%), linear-gradient(135deg, ${primary}30, ${secondary}1f 48%, rgba(0,0,0,0.78))` }}
+          className={`relative flex items-center justify-center overflow-hidden ${
+            portraitPreview
+              ? 'min-h-[168px] sm:min-h-[260px]'
+              : 'min-h-[148px] max-h-[210px] sm:min-h-[260px] sm:max-h-none'
+          }`}
+          style={previewStyle}
         >
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_34%,rgba(0,0,0,0.38))]" />
-          <BrandWordmark className="relative text-2xl opacity-80 drop-shadow-lg sm:text-3xl" />
-          {isMotionActive && motionVideoUrl ? (
-            <video
-              src={motionVideoUrl}
-              className="absolute inset-0 h-full w-full object-contain p-2"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-            />
+          <BrandWordmark className={`relative text-2xl opacity-80 drop-shadow-lg sm:text-3xl ${portraitPreview ? 'scale-90' : ''}`} />
+          {portraitPreview ? (
+            <div className="absolute inset-y-2 left-1/2 z-[1] aspect-[9/16] -translate-x-1/2 overflow-hidden rounded-[18px] border border-white/12 bg-black/24 shadow-[0_14px_32px_rgba(0,0,0,0.28)] sm:inset-y-3 sm:rounded-[22px]">
+              {previewMedia}
+            </div>
           ) : (
-            <TemplateOverlayRenderer template={template} preferPreview />
+            previewMedia
           )}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1 sm:left-3 sm:top-3 sm:gap-1.5">
             <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px] ${
@@ -1551,7 +1567,7 @@ export default function TemplatesPage() {
             );
           })()}
 
-          <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 min-[460px]:grid-cols-3 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleTemplates.map((template) => (
               <TemplateCard
                 key={template.id}
