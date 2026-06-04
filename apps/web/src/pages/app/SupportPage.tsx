@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
+import { AdminSupportPanel } from '@/components/support/AdminSupportPanel';
 import type { SupportConversation, SupportMessage } from '@/types';
 
 function formatDate(value: string) {
@@ -18,7 +19,14 @@ function formatDate(value: string) {
 }
 
 export default function SupportPage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  if (isAdmin) return <AdminSupportPanel />;
+
+  return <UserSupportPage accountEmail={user?.email || ''} />;
+}
+
+function UserSupportPage({ accountEmail }: { accountEmail: string }) {
   const [conversations, setConversations] = useState<SupportConversation[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -27,7 +35,6 @@ export default function SupportPage() {
   const [reply, setReply] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const accountEmail = user?.email || '';
 
   const selected = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) || null,

@@ -23,12 +23,12 @@ import { currentPlanLabel, planExpirationLabel } from '@/utils/subscriptionDispl
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
   { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
-  { to: '/app/gravar', label: 'Gravar', icon: Camera, primary: true },
+  { to: '/app/gravar', label: 'Gravar', icon: Camera },
   { to: '/app/templates', label: 'Templates', icon: Layers },
 ];
 
 const supportMobileItems = [
-  { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true, primary: false },
+  { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
 const accountItems = [
@@ -47,6 +47,10 @@ function ProfileBubble({ avatarUrl, initial, size = 'sm' }: { avatarUrl?: string
   );
 }
 
+function routeMatches(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 export function MobileBottomNav() {
   const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
@@ -63,6 +67,7 @@ export function MobileBottomNav() {
   const accountPlan = currentPlanLabel(user);
   const accountExpiration = planExpirationLabel(user);
   const accountExpirationClass = isSupport || hasActiveSubscription ? 'text-emerald-300/75' : 'text-white/35';
+  const accountActive = accountOpen || items.some((item) => routeMatches(location.pathname, item.to));
 
   useEffect(() => {
     setAccountOpen(false);
@@ -140,7 +145,7 @@ export function MobileBottomNav() {
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-[#0e1016]/85 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur-2xl lg:hidden">
         <div className={`mx-auto grid max-w-md ${isSupport ? 'grid-cols-2' : 'grid-cols-5'} items-end gap-1 rounded-[26px] border border-white/[0.08] bg-black/25 p-1.5 shadow-2xl shadow-black/45`}>
-          {visibleMobileItems.map(({ to, label, icon: Icon, primary, unlocked }) => {
+          {visibleMobileItems.map(({ to, label, icon: Icon, unlocked }) => {
             const locked = isLocked(unlocked);
             return (
               <NavLink
@@ -148,17 +153,19 @@ export function MobileBottomNav() {
                 to={to}
                 className={({ isActive }) =>
                   `relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold transition-all ${
-                    primary
+                    isActive
                       ? 'min-h-[58px] -translate-y-3 bg-gradient-brand text-white shadow-glow ring-1 ring-white/15'
-                      : isActive
-                        ? 'bg-white/[0.09] text-white'
-                        : 'text-white/45 hover:bg-white/[0.06] hover:text-white/80'
+                      : 'text-white/45 hover:bg-white/[0.06] hover:text-white/80'
                   } ${locked ? 'opacity-65' : ''}`
                 }
               >
-                <Icon className={primary ? 'h-5 w-5' : 'h-[18px] w-[18px]'} />
-                <span className="max-w-full truncate">{label}</span>
-                {locked && <Lock className="absolute right-1.5 top-1.5 h-3 w-3 text-white/35" />}
+                {({ isActive }) => (
+                  <>
+                    <Icon className={isActive ? 'h-5 w-5' : 'h-[18px] w-[18px]'} />
+                    <span className="max-w-full truncate">{label}</span>
+                    {locked && <Lock className="absolute right-1.5 top-1.5 h-3 w-3 text-white/35" />}
+                  </>
+                )}
               </NavLink>
             );
           })}
@@ -168,7 +175,9 @@ export function MobileBottomNav() {
             onClick={() => setAccountOpen((open) => !open)}
             aria-expanded={accountOpen}
             className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold transition-all ${
-              accountOpen ? 'bg-white/[0.09] text-white' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/80'
+              accountActive
+                ? 'min-h-[58px] -translate-y-3 bg-gradient-brand text-white shadow-glow ring-1 ring-white/15'
+                : 'text-white/45 hover:bg-white/[0.06] hover:text-white/80'
             }`}
           >
             <ProfileBubble avatarUrl={user?.avatarUrl} initial={initial} />

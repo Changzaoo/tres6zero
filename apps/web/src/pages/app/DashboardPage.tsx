@@ -1,7 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Video, Share2, Users, Download, Eye, Activity, TrendingUp, Mail, MessageSquareText, ArrowRight } from 'lucide-react';
-import { StatCard } from '@/components/ui/StatCard';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents } from '@/services/eventService';
 import { getUserVideos } from '@/services/videoService';
@@ -197,6 +196,100 @@ function ChartFallback() {
   );
 }
 
+type MetricTone = 'brand' | 'blue' | 'green' | 'yellow' | 'orange' | 'pink' | 'cyan';
+
+const metricToneClass: Record<MetricTone, { shell: string; icon: string; value: string; bar: string }> = {
+  brand: {
+    shell: 'border-brand-300/18 bg-brand-500/[0.08]',
+    icon: 'border-brand-200/18 bg-brand-500/14 text-brand-100',
+    value: 'text-brand-50',
+    bar: 'bg-brand-400',
+  },
+  blue: {
+    shell: 'border-blue-300/16 bg-blue-500/[0.07]',
+    icon: 'border-blue-200/18 bg-blue-500/14 text-blue-100',
+    value: 'text-blue-50',
+    bar: 'bg-blue-400',
+  },
+  green: {
+    shell: 'border-emerald-300/16 bg-emerald-500/[0.07]',
+    icon: 'border-emerald-200/18 bg-emerald-500/14 text-emerald-100',
+    value: 'text-emerald-50',
+    bar: 'bg-emerald-400',
+  },
+  yellow: {
+    shell: 'border-yellow-300/16 bg-yellow-500/[0.07]',
+    icon: 'border-yellow-200/18 bg-yellow-500/14 text-yellow-100',
+    value: 'text-yellow-50',
+    bar: 'bg-yellow-300',
+  },
+  orange: {
+    shell: 'border-orange-300/16 bg-orange-500/[0.07]',
+    icon: 'border-orange-200/18 bg-orange-500/14 text-orange-100',
+    value: 'text-orange-50',
+    bar: 'bg-orange-400',
+  },
+  pink: {
+    shell: 'border-pink-300/16 bg-pink-500/[0.07]',
+    icon: 'border-pink-200/18 bg-pink-500/14 text-pink-100',
+    value: 'text-pink-50',
+    bar: 'bg-pink-400',
+  },
+  cyan: {
+    shell: 'border-cyan-300/16 bg-cyan-500/[0.07]',
+    icon: 'border-cyan-200/18 bg-cyan-500/14 text-cyan-100',
+    value: 'text-cyan-50',
+    bar: 'bg-cyan-400',
+  },
+};
+
+function MetricCard({
+  title,
+  value,
+  helper,
+  icon,
+  tone = 'brand',
+  loading,
+}: {
+  title: string;
+  value: string | number;
+  helper: string;
+  icon: ReactNode;
+  tone?: MetricTone;
+  loading?: boolean;
+}) {
+  const toneClass = metricToneClass[tone];
+
+  return (
+    <div className={`relative min-w-0 overflow-hidden rounded-[20px] border p-3 ${toneClass.shell}`}>
+      <span className={`absolute inset-x-0 top-0 h-0.5 ${toneClass.bar}`} />
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-bold uppercase tracking-normal text-white/42">{title}</p>
+          {loading ? (
+            <div className="six3-shimmer mt-3 h-7 w-16 rounded-lg bg-white/10" />
+          ) : (
+            <p className={`mt-1 truncate text-2xl font-black leading-none ${toneClass.value}`}>{value}</p>
+          )}
+        </div>
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-2xl border ${toneClass.icon}`}>
+          {icon}
+        </span>
+      </div>
+      <p className="mt-2 line-clamp-2 min-h-[2rem] text-xs leading-snug text-white/44">{helper}</p>
+    </div>
+  );
+}
+
+function InsightPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2">
+      <p className="truncate text-[11px] font-semibold text-white/38">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -257,84 +350,139 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timeout);
   }, []);
 
+  const firstName = user?.name?.split(' ')[0] || 'Admin';
+  const contentTotal = stats ? stats.totalEvents + stats.totalVideos : '-';
+  const publicActions = stats ? stats.totalViews + stats.totalDownloads + stats.totalShares : '-';
+  const peopleSummary = resultsSnapshot
+    ? `${resultsSnapshot.people} pessoa(s), ${resultsSnapshot.contacts} contato(s)`
+    : 'Carregando pessoas e contatos';
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-black tracking-[-0.02em] text-white">
-          Olá, <span className="six3-gradient-text">{user?.name?.split(' ')[0]}</span>
-        </h1>
-        <p className="mt-1 text-sm text-white/40">Aqui está um resumo da sua plataforma SIX3°</p>
-      </div>
+    <div className="space-y-4 pb-4 animate-fade-in">
+      <section className="relative overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0d111b] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:p-5">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(82,100,255,0.24),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.018))]" />
+        <div className="relative">
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-brand-100/68">Resumo simples</p>
+          <h1 className="mt-2 text-3xl font-black leading-tight text-white">
+            Olá, <span className="six3-gradient-text">{firstName}</span>
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-white/55">
+            Veja em uma tela o que foi publicado, quantas pessoas interagiram e quais links deram resultado.
+          </p>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-        <StatCard title="Eventos" value={stats?.totalEvents ?? '-'} icon={<Calendar className="w-5 h-5" />} loading={loading} />
-        <StatCard title="Vídeos" value={stats?.totalVideos ?? '-'} icon={<Video className="w-5 h-5" />} loading={loading} color="text-green-400" />
-        <StatCard title="Leads" value={stats?.totalLeads ?? '-'} icon={<Users className="w-5 h-5" />} loading={loading} color="text-yellow-400" />
-        <StatCard title="Compartilhamentos" value={stats?.totalShares ?? '-'} icon={<Share2 className="w-5 h-5" />} loading={loading} color="text-blue-400" />
-        <StatCard title="Visualizações" value={stats?.totalViews ?? '-'} icon={<Eye className="w-5 h-5" />} loading={loading} color="text-pink-400" />
-        <StatCard title="Downloads" value={stats?.totalDownloads ?? '-'} icon={<Download className="w-5 h-5" />} loading={loading} color="text-orange-400" />
-        <StatCard title="Eventos ativos" value={stats?.activeEvents ?? '-'} icon={<Activity className="w-5 h-5" />} loading={loading} color="text-cyan-400" />
-        <StatCard title="Taxa compartilhamento" value={stats ? `${stats.shareRate}%` : '-'} icon={<TrendingUp className="w-5 h-5" />} loading={loading} color="text-brand-400" />
-      </div>
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-white">Resultados dos links</h2>
-            <p className="mt-1 text-sm text-white/40">Resumo dos cliques, contatos e feedbacks recebidos nas páginas públicas.</p>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <InsightPill label="Conteúdo" value={contentTotal} />
+            <InsightPill label="Ações" value={publicActions} />
+            <InsightPill label="Pessoas" value={resultsSnapshot?.people ?? '-'} />
           </div>
-          <Link
-            to="/app/leads"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-white/72 transition hover:border-brand-300/35 hover:text-white"
-          >
-            Ver detalhes
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          <StatCard title="Pessoas" value={resultsSnapshot?.people ?? '-'} icon={<Users className="w-5 h-5" />} loading={loading} color="text-cyan-300" />
-          <StatCard title="Contatos" value={resultsSnapshot?.contacts ?? '-'} icon={<Mail className="w-5 h-5" />} loading={loading} color="text-green-300" />
-          <StatCard title="Feedbacks" value={resultsSnapshot?.feedbacks ?? '-'} icon={<MessageSquareText className="w-5 h-5" />} loading={loading} color="text-yellow-300" />
-          <StatCard title="Cliques" value={resultsSnapshot?.clicks ?? '-'} icon={<Share2 className="w-5 h-5" />} loading={loading} color="text-blue-300" />
-        </div>
-
-        <div className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-brand-300" />
-            <h3 className="text-base font-semibold text-white">Últimas interações</h3>
-          </div>
-          {loading ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {[...Array(5)].map((_, index) => (
-                <div key={index} className="six3-shimmer h-20 rounded-2xl bg-white/10" />
-              ))}
-            </div>
-          ) : resultsSnapshot?.recent.length ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {resultsSnapshot.recent.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
-                  <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                  <p className="mt-1 truncate text-xs text-white/45">{item.detail}</p>
-                  <p className="mt-3 text-[11px] text-white/30">{formatActivityDate(item.createdAt)}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-5 text-center text-sm text-white/38">
-              Nenhuma interação real registrada ainda.
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-xs font-semibold text-white/48">
+              {loading ? 'Carregando os números mais recentes...' : peopleSummary}
             </p>
-          )}
+            <Link
+              to="/app/leads"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-black text-[#10131c] transition hover:bg-brand-50"
+            >
+              Ver contatos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
-      {loadCharts ? (
-        <Suspense fallback={<ChartFallback />}>
-          <DashboardCharts data={chartData} />
-        </Suspense>
-      ) : (
-        <ChartFallback />
-      )}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-black text-white">O que você já tem</h2>
+          <p className="mt-0.5 text-xs text-white/42">Eventos e vídeos publicados na sua conta.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <MetricCard title="Eventos" value={stats?.totalEvents ?? '-'} helper="Páginas de evento criadas." icon={<Calendar className="h-4 w-4" />} loading={loading} tone="brand" />
+          <MetricCard title="Vídeos" value={stats?.totalVideos ?? '-'} helper="Vídeos prontos ou publicados." icon={<Video className="h-4 w-4" />} loading={loading} tone="green" />
+          <MetricCard title="Ativos" value={stats?.activeEvents ?? '-'} helper="Eventos abertos agora." icon={<Activity className="h-4 w-4" />} loading={loading} tone="cyan" />
+          <MetricCard title="Leads" value={stats?.totalLeads ?? '-'} helper="Registros recebidos nos links." icon={<Users className="h-4 w-4" />} loading={loading} tone="yellow" />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-black text-white">Como o público respondeu</h2>
+          <p className="mt-0.5 text-xs text-white/42">Visualizações, downloads e compartilhamentos.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          <MetricCard title="Views" value={stats?.totalViews ?? '-'} helper="Quantas vezes abriram vídeos." icon={<Eye className="h-4 w-4" />} loading={loading} tone="pink" />
+          <MetricCard title="Downloads" value={stats?.totalDownloads ?? '-'} helper="Arquivos baixados pelo público." icon={<Download className="h-4 w-4" />} loading={loading} tone="orange" />
+          <MetricCard title="Compart." value={stats?.totalShares ?? '-'} helper="Compartilhamentos registrados." icon={<Share2 className="h-4 w-4" />} loading={loading} tone="blue" />
+          <MetricCard title="Média" value={stats ? `${stats.shareRate}%` : '-'} helper="Compartilhamentos por vídeo." icon={<TrendingUp className="h-4 w-4" />} loading={loading} tone="brand" />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-black text-white">Pessoas interessadas</h2>
+            <p className="mt-0.5 text-xs text-white/42">Contatos, feedbacks e cliques dos links públicos.</p>
+          </div>
+          <Link to="/app/leads" className="shrink-0 text-xs font-black text-brand-200 hover:text-white">Detalhes</Link>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <MetricCard title="Pessoas" value={resultsSnapshot?.people ?? '-'} helper="Visitantes com alguma ação." icon={<Users className="h-4 w-4" />} loading={loading} tone="cyan" />
+          <MetricCard title="Contatos" value={resultsSnapshot?.contacts ?? '-'} helper="Quem deixou nome, telefone ou e-mail." icon={<Mail className="h-4 w-4" />} loading={loading} tone="green" />
+          <MetricCard title="Feedbacks" value={resultsSnapshot?.feedbacks ?? '-'} helper="Mensagens recebidas." icon={<MessageSquareText className="h-4 w-4" />} loading={loading} tone="yellow" />
+          <MetricCard title="Cliques" value={resultsSnapshot?.clicks ?? '-'} helper="WhatsApp, QR ou link copiado." icon={<Share2 className="h-4 w-4" />} loading={loading} tone="blue" />
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="grid h-9 w-9 place-items-center rounded-2xl border border-brand-200/18 bg-brand-500/12 text-brand-100">
+              <Activity className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-black text-white">Últimas ações</h3>
+              <p className="text-xs text-white/38">O que aconteceu mais recentemente.</p>
+            </div>
+          </div>
+        </div>
+        {loading ? (
+          <div className="space-y-2">
+            {[...Array(4)].map((_, index) => (
+              <div key={index} className="six3-shimmer h-14 rounded-2xl bg-white/10" />
+            ))}
+          </div>
+        ) : resultsSnapshot?.recent.length ? (
+          <div className="space-y-2">
+            {resultsSnapshot.recent.map((item) => (
+              <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-black/18 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-white">{item.title}</p>
+                  <p className="truncate text-xs text-white/42">{item.detail}</p>
+                </div>
+                <span className="shrink-0 text-right text-[11px] font-semibold text-white/30">{formatActivityDate(item.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-white/[0.08] bg-black/18 px-4 py-5 text-center text-sm text-white/38">
+            Nenhuma interação real registrada ainda.
+          </p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-base font-black text-white">Últimos 7 dias</h2>
+          <p className="mt-0.5 text-xs text-white/42">Vídeos e leads crescendo ao longo da semana.</p>
+        </div>
+        {loadCharts ? (
+          <Suspense fallback={<ChartFallback />}>
+            <DashboardCharts data={chartData} />
+          </Suspense>
+        ) : (
+          <ChartFallback />
+        )}
+      </section>
     </div>
   );
 }

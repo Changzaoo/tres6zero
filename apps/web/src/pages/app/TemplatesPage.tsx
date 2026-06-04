@@ -327,8 +327,8 @@ function TemplateCard({
             <Star className="h-4 w-4" fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/82 via-black/28 to-transparent" />
-          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 opacity-0 transition-all duration-300 group-hover:opacity-100">
-            <span className="rounded-full border border-white/12 bg-black/50 px-3 py-1.5 text-xs font-black text-white backdrop-blur-md">Usar moldura</span>
+          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 transition-all duration-300">
+            <span className="rounded-full border border-white/12 bg-black/58 px-3 py-1.5 text-xs font-black text-white shadow-lg backdrop-blur-md">Usar</span>
             <span className="rounded-full border border-brand-200/30 bg-brand-500/22 px-2.5 py-1 text-[11px] font-bold text-brand-50 backdrop-blur-md">{template.aspectRatio}</span>
           </div>
         </div>
@@ -472,10 +472,10 @@ export default function TemplatesPage() {
     [spotlightTemplateId, visibleTemplates]
   );
   const sectionTabs = useMemo(() => [
-    { id: 'frames' as const, label: 'Molduras', count: availableTemplates.length, icon: <Layers className="h-4 w-4" /> },
-    { id: 'music' as const, label: 'Músicas', count: music.length, icon: <Music2 className="h-4 w-4" /> },
-    { id: 'libraries' as const, label: 'Bibliotecas', count: undefined, icon: <Library className="h-4 w-4" /> },
-    { id: 'ai' as const, label: 'IA', count: undefined, icon: <Wand2 className="h-4 w-4" /> },
+    { id: 'frames' as const, label: 'Molduras', detail: 'Aparência do vídeo', count: availableTemplates.length, icon: <Layers className="h-4 w-4" /> },
+    { id: 'music' as const, label: 'Músicas', detail: 'Trilhas prontas', count: music.length, icon: <Music2 className="h-4 w-4" /> },
+    { id: 'libraries' as const, label: 'Importar', detail: 'Catálogos externos', count: undefined, icon: <Library className="h-4 w-4" /> },
+    { id: 'ai' as const, label: 'Criar IA', detail: 'Música original', count: undefined, icon: <Wand2 className="h-4 w-4" /> },
   ], [availableTemplates.length, music.length]);
   const hasMoreTemplates = visibleCount < filteredTemplates.length;
   const hasActiveFilters = Boolean(searchTerm.trim())
@@ -924,77 +924,86 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 pb-4">
       <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Biblioteca</h1>
-            <p className="text-sm text-white/40">
-              {activeSection === 'frames' && `${filteredTemplates.length} de ${availableTemplates.length} molduras`}
-              {activeSection === 'music' && `${filteredMusic.length} de ${music.length} músicas`}
-              {activeSection === 'libraries' && 'Importe músicas licenciadas de forma rápida'}
-              {activeSection === 'ai' && 'Crie músicas originais com IA'}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-            {isAdmin && (
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={seeding}
-                onClick={handleSeedSupabase}
-                icon={<Database className="h-4 w-4" />}
-                className="col-span-2 sm:col-span-1"
-              >
-                Salvar biblioteca 360
-              </Button>
+        <section className="relative overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0d111b] shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(82,120,255,0.26),transparent_34%),radial-gradient(circle_at_92%_20%,rgba(34,211,238,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.058),rgba(255,255,255,0.018))]" />
+          <div className="relative grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.42fr)] lg:items-center">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-100/70">Biblioteca visual</p>
+              <h1 className="mt-2 text-3xl font-black leading-tight text-white sm:text-4xl">Escolha o visual do vídeo</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/55">
+                Molduras, músicas e estilos prontos para deixar a entrega mais bonita sem precisar entender de edição.
+              </p>
+
+              <div className="mt-5 grid grid-cols-3 gap-2 max-w-lg">
+                <span className="rounded-2xl border border-white/[0.08] bg-black/24 px-3 py-2 text-center">
+                  <span className="block text-lg font-black text-white">{availableTemplates.length}</span>
+                  <span className="text-[11px] font-bold text-white/40">molduras</span>
+                </span>
+                <span className="rounded-2xl border border-white/[0.08] bg-black/24 px-3 py-2 text-center">
+                  <span className="block text-lg font-black text-white">{music.length}</span>
+                  <span className="text-[11px] font-bold text-white/40">músicas</span>
+                </span>
+                <span className="rounded-2xl border border-white/[0.08] bg-black/24 px-3 py-2 text-center">
+                  <span className="block text-lg font-black text-white">{favoriteTemplateIds.size}</span>
+                  <span className="text-[11px] font-bold text-white/40">favoritas</span>
+                </span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <label className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-black transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-white text-[#10131c] shadow-[0_14px_36px_rgba(255,255,255,0.18)] hover:bg-brand-50' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+                  {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  <span className="truncate">{uploading ? `${progress}%` : 'Enviar moldura'}</span>
+                  <input type="file" accept="image/png,image/svg+xml,image/webp,image/gif,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
+                </label>
+                <label className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/12 bg-white/[0.075] text-white hover:bg-white/[0.12]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+                  {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Enviar música'}</span>
+                  <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
+                </label>
+              </div>
+
+              {isAdmin && (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  <Button variant="secondary" size="sm" loading={seeding} onClick={handleSeedSupabase} icon={<Database className="h-4 w-4" />}>
+                    Atualizar biblioteca
+                  </Button>
+                  <Button variant="secondary" size="sm" loading={seedingMusic} onClick={handleSeedMusic} icon={<Music2 className="h-4 w-4" />}>
+                    Gerar trilhas
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {activeSection === 'frames' && spotlightTemplate ? (
+              <div className="relative mx-auto w-full max-w-[260px] lg:max-w-none">
+                <div className="relative aspect-[9/16] overflow-hidden rounded-[30px] border border-white/12 bg-black/35 shadow-[0_24px_70px_rgba(0,0,0,0.46)]">
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_38%,rgba(0,0,0,0.38))]" />
+                  <BrandWordmark className="absolute left-1/2 top-1/2 text-4xl opacity-35 -translate-x-1/2 -translate-y-1/2" />
+                  <TemplateOverlayRenderer template={spotlightTemplate} preferPreview />
+                  <div className="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-black/45 p-3 backdrop-blur">
+                    <p className="truncate text-sm font-black text-white">{spotlightTemplate.name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-white/45">{templateCategoryLabel(spotlightTemplate.category)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-[26px] border border-white/[0.08] bg-black/24 p-4">
+                <p className="text-sm font-black text-white">
+                  {activeSection === 'music' && `${filteredMusic.length} trilhas encontradas`}
+                  {activeSection === 'libraries' && 'Importe trilhas com licença'}
+                  {activeSection === 'ai' && 'Crie uma trilha original'}
+                </p>
+                <p className="mt-1 text-sm text-white/45">
+                  {activeSection === 'music' && 'Organize músicas por clima, evento e favoritos.'}
+                  {activeSection === 'libraries' && 'Traga músicas externas quando tiver direito de uso.'}
+                  {activeSection === 'ai' && 'Use uma ideia simples para gerar uma música nova.'}
+                </p>
+              </div>
             )}
-            {isAdmin && (
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={seedingMusic}
-                onClick={handleSeedMusic}
-                icon={<Music2 className="h-4 w-4" />}
-                className="col-span-2 sm:col-span-1"
-              >
-                Gerar músicas
-              </Button>
-            )}
-            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
-              {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              <span className="truncate">{uploading ? `${progress}%` : 'Template'}</span>
-              <input type="file" accept="image/png,image/svg+xml,image/webp,image/gif,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
-            </label>
-            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
-              {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Música'}</span>
-              <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
-            </label>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!canUpload}
-              onClick={() => setActiveSection('libraries')}
-              icon={canUpload ? <Library className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              className="hidden"
-              title={canUpload ? 'Importar trilha licenciada' : 'Liberado nos planos Profissional e Ilimitado'}
-            >
-              Bibliotecas
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!canGenerateSuno}
-              onClick={() => setActiveSection('ai')}
-              icon={canGenerateSuno ? <Wand2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              className="hidden"
-              title={canGenerateSuno ? 'Gerar música original pela Suno' : 'Liberado no plano Ilimitado'}
-            >
-              Gerar IA
-            </Button>
           </div>
-        </div>
+        </section>
 
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {sectionTabs.map((tab) => {
@@ -1004,18 +1013,20 @@ export default function TemplatesPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSection(tab.id)}
-                className={`flex min-h-[64px] items-center gap-3 rounded-2xl border px-4 text-left transition-all ${
+                className={`relative flex min-h-[72px] items-center gap-3 overflow-hidden rounded-[22px] border px-3 text-left transition-all sm:px-4 ${
                   active
-                    ? 'border-brand-300/60 bg-brand-500/20 text-white shadow-glow'
-                    : 'border-white/10 bg-white/[0.045] text-white/62 hover:bg-white/[0.07] hover:text-white'
+                    ? 'border-brand-200/55 bg-[linear-gradient(135deg,rgba(82,100,255,0.34),rgba(34,211,238,0.12))] text-white shadow-[0_16px_42px_rgba(48,69,255,0.22)]'
+                    : 'border-white/10 bg-white/[0.04] text-white/62 hover:bg-white/[0.07] hover:text-white'
                 }`}
               >
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? 'bg-brand-400/22 text-brand-100' : 'bg-white/[0.06] text-white/45'}`}>
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${active ? 'bg-white text-brand-600' : 'bg-white/[0.06] text-white/45'}`}>
                   {tab.icon}
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold">{tab.label}</span>
-                  {typeof tab.count === 'number' && <span className="mt-0.5 block text-xs text-white/38">{tab.count} item(s)</span>}
+                  <span className="block truncate text-sm font-black">{tab.label}</span>
+                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-white/42">
+                    {typeof tab.count === 'number' ? `${tab.count} itens` : tab.detail}
+                  </span>
                 </span>
               </button>
             );
@@ -1023,26 +1034,26 @@ export default function TemplatesPage() {
         </div>
 
         {activeSection === 'frames' && (
-          <div className="overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#090c13] shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-            <div className="bg-[radial-gradient(circle_at_top_left,rgba(69,92,255,0.22),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.058),rgba(255,255,255,0.018))] p-4 sm:p-5">
+          <div className="overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#090c13] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
+            <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.058),rgba(255,255,255,0.018))] p-4 sm:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-200/75">Galeria de molduras</p>
-                  <h2 className="mt-1 text-2xl font-black text-white">Escolha sua moldura</h2>
-                  <p className="mt-1 text-sm text-white/45">Selecione uma moldura para aplicar ao vídeo.</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100/68">Estilos prontos</p>
+                  <h2 className="mt-1 text-2xl font-black text-white">Encontre pelo visual</h2>
+                  <p className="mt-1 text-sm text-white/45">Festa, luxo, neon, casamento, loja ou formatura.</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 sm:flex">
                   <span className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-center">
                     <span className="block text-base font-black text-white">{filteredTemplates.length}</span>
-                    <span className="text-[11px] font-bold text-white/38">resultados</span>
+                    <span className="text-[11px] font-bold text-white/38">opções</span>
                   </span>
                   <span className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-center">
                     <span className="block text-base font-black text-white">{staticTemplateCount}</span>
-                    <span className="text-[11px] font-bold text-white/38">estáticas</span>
+                    <span className="text-[11px] font-bold text-white/38">fixas</span>
                   </span>
                   <span className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-center">
                     <span className="block text-base font-black text-white">{animatedTemplateCount}</span>
-                    <span className="text-[11px] font-bold text-white/38">animadas</span>
+                    <span className="text-[11px] font-bold text-white/38">movimento</span>
                   </span>
                 </div>
               </div>
@@ -1053,7 +1064,7 @@ export default function TemplatesPage() {
                   <input
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Buscar por nome, tema, efeito..."
+                    placeholder="Buscar estilo: casamento, neon, festa..."
                     className="h-12 w-full rounded-2xl border border-white/10 bg-black/24 pl-10 pr-10 text-sm font-semibold text-white placeholder-white/30 outline-none transition-all focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/15"
                   />
                   {searchTerm && (
@@ -1077,7 +1088,7 @@ export default function TemplatesPage() {
                   }`}
                 >
                   <SlidersHorizontal className="h-4 w-4" />
-                  Ajustes
+                  Filtros
                 </button>
               </div>
             </div>
@@ -1500,10 +1511,10 @@ export default function TemplatesPage() {
 
                   <div className="flex flex-col justify-between gap-6 border-t border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.018))] p-5 lg:border-l lg:border-t-0 lg:p-7">
                     <div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-200/75">Preview da moldura</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-200/75">Moldura em destaque</p>
                       <h3 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{spotlightTemplate.name}</h3>
                       <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/48">
-                        Visualize a moldura antes de aplicar no vídeo. Passe pelos cards abaixo para trocar este preview.
+                        Esta é a moldura selecionada agora. Escolha outra abaixo ou comece a gravar com ela.
                       </p>
                       <div className="mt-5 flex flex-wrap gap-2">
                         <span className="rounded-full border border-brand-200/18 bg-brand-500/10 px-3 py-1.5 text-xs font-bold text-brand-100">
@@ -1519,7 +1530,7 @@ export default function TemplatesPage() {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                       <Button onClick={() => openRecorderWithTemplate(spotlightTemplate)} className="justify-center">
-                        Usar na gravação
+                        Gravar com esta moldura
                       </Button>
                       <button
                         type="button"

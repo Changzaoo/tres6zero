@@ -121,6 +121,11 @@ function videoShareUrl(video: AppVideo) {
   return publicVideoShareUrl(video) || video.videoUrl;
 }
 
+function videoPreviewSrc(url: string) {
+  if (!url || url.includes('#')) return url;
+  return `${url}#t=0.001`;
+}
+
 function whatsappUrl(url: string) {
   return `https://wa.me/?text=${encodeURIComponent(`Olha esse video SIX3: ${url}`)}`;
 }
@@ -742,7 +747,7 @@ export default function VideosPage() {
                       />
                     ) : canPlay ? (
                       <video
-                        src={video.videoUrl}
+                        src={videoPreviewSrc(video.videoUrl)}
                         muted
                         playsInline
                         preload="metadata"
@@ -923,7 +928,7 @@ export default function VideosPage() {
             <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
               <video
                 key={previewVideo.id}
-                src={previewVideo.videoUrl}
+                src={previewVideo.thumbnailUrl ? previewVideo.videoUrl : videoPreviewSrc(previewVideo.videoUrl)}
                 poster={previewVideo.thumbnailUrl}
                 controls
                 playsInline

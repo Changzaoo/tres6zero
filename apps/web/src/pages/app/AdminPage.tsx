@@ -48,7 +48,6 @@ import { getAdminSession } from '@/services/authService';
 import { getPaidCustomers } from '@/services/billingService';
 import { useAuthStore } from '@/store/authStore';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { StatCard } from '@/components/ui/StatCard';
 import { toast } from '@/components/ui/Toast';
 import { AdminSupportPanel } from '@/components/support/AdminSupportPanel';
 import { PLAN_ENTITLEMENTS, PLANS, type PlanId } from '@/config/plans';
@@ -416,6 +415,24 @@ function StatusBadge({ user }: { user: Pick<AdminUserOverview, 'banned' | 'disab
     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${banBadgeClass(user)}`}>
       {banLabel(user)}
     </span>
+  );
+}
+
+function AdminMetricTile({ title, value, icon, color, loading }: { title: string; value: string | number; icon: ReactNode; color: string; loading?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3 py-2.5">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-[11px] font-semibold text-white/45">{title}</span>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] ${color}`}>
+          {icon}
+        </span>
+      </div>
+      {loading ? (
+        <div className="mt-2 h-5 w-12 animate-pulse rounded-md bg-white/10" />
+      ) : (
+        <p className="mt-1 truncate text-xl font-black leading-tight text-white">{value}</p>
+      )}
+    </div>
   );
 }
 
@@ -1047,6 +1064,18 @@ export default function AdminPage() {
     { id: 'media', label: 'Mídias', icon: <FileImage className="h-4 w-4" />, count: overview?.summary.totalMedia ?? '-' },
     { id: 'logins', label: 'Logins', icon: <KeyRound className="h-4 w-4" />, count: overview?.loginLogs.length ?? '-' },
     { id: 'customers', label: 'Clientes', icon: <UserCheck className="h-4 w-4" />, count: customers.length },
+  ];
+
+  const summary = overview?.summary;
+  const adminMetrics = [
+    { title: 'Usuários', value: summary?.totalUsers ?? '-', icon: <Users className="h-4 w-4" />, color: 'text-cyan-300', loading: loadingOverview },
+    { title: 'Ativos', value: summary?.activeUsers ?? '-', icon: <UserCheck className="h-4 w-4" />, color: 'text-green-300', loading: loadingOverview },
+    { title: 'Expirados', value: summary?.expiredUsers ?? '-', icon: <Clock className="h-4 w-4" />, color: 'text-red-300', loading: loadingOverview },
+    { title: '7 dias', value: summary?.expiringIn7Days ?? '-', icon: <CalendarDays className="h-4 w-4" />, color: 'text-yellow-300', loading: loadingOverview },
+    { title: 'Teste grátis', value: summary?.trialUsers ?? '-', icon: <Activity className="h-4 w-4" />, color: 'text-blue-300', loading: loadingOverview },
+    { title: 'Vitalícios', value: summary?.lifetimeUsers ?? '-', icon: <ShieldCheck className="h-4 w-4" />, color: 'text-brand-300', loading: loadingOverview },
+    { title: 'Bloqueados', value: summary?.bannedOrSuspendedUsers ?? '-', icon: <ShieldAlert className="h-4 w-4" />, color: 'text-red-300', loading: loadingOverview },
+    { title: 'Pagos', value: customers.length, icon: <UserCheck className="h-4 w-4" />, color: 'text-emerald-300', loading: loadingOverview },
   ];
 
   if (!adminUser) {
@@ -2521,33 +2550,37 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 text-yellow-400" />
-          <div>
-            <h1 className="text-2xl font-bold text-white">Admin</h1>
-            <p className="text-sm text-white/40">Sessao administrativa confirmada</p>
+    <div className="space-y-4 sm:space-y-5">
+      <section className="rounded-2xl border border-white/[0.08] bg-[#101218] p-3 shadow-[0_16px_45px_rgba(0,0,0,0.22)] sm:p-4">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 text-yellow-300 ring-1 ring-yellow-300/20">
+              <Shield className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-black leading-tight text-white sm:text-2xl">Admin</h1>
+              <p className="truncate text-xs text-white/40">Sessao confirmada</p>
+            </div>
+          </div>
+          <div className="min-w-0 shrink text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-white/28">Atualizado</p>
+            <p className="truncate text-[11px] font-semibold text-white/50">{overview ? formatDateTime(overview.generatedAt) : 'agora'}</p>
           </div>
         </div>
-        <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/45">
-          Atualizado {overview ? formatDateTime(overview.generatedAt) : 'agora'}
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {adminMetrics.map((metric) => (
+            <AdminMetricTile
+              key={metric.title}
+              title={metric.title}
+              value={metric.value}
+              icon={metric.icon}
+              color={metric.color}
+              loading={metric.loading}
+            />
+          ))}
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Usuários" value={overview?.summary.totalUsers ?? '-'} icon={<Users className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
-        <StatCard title="Ativos" value={overview?.summary.activeUsers ?? '-'} icon={<UserCheck className="h-5 w-5" />} color="text-green-300" loading={loadingOverview} />
-        <StatCard title="Expirados" value={overview?.summary.expiredUsers ?? '-'} icon={<Clock className="h-5 w-5" />} color="text-red-300" loading={loadingOverview} />
-        <StatCard title="Expiram em 7 dias" value={overview?.summary.expiringIn7Days ?? '-'} icon={<CalendarDays className="h-5 w-5" />} color="text-yellow-300" loading={loadingOverview} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Teste grátis" value={overview?.summary.trialUsers ?? '-'} icon={<Activity className="h-5 w-5" />} color="text-blue-300" loading={loadingOverview} />
-        <StatCard title="Vitalícios" value={overview?.summary.lifetimeUsers ?? '-'} icon={<ShieldCheck className="h-5 w-5" />} color="text-brand-300" loading={loadingOverview} />
-        <StatCard title="Banidos/suspensos" value={overview?.summary.bannedOrSuspendedUsers ?? '-'} icon={<ShieldAlert className="h-5 w-5" />} color="text-red-300" loading={loadingOverview} />
-        <StatCard title="Clientes pagos" value={customers.length} icon={<UserCheck className="h-5 w-5" />} color="text-green-400" />
-      </div>
+      </section>
 
       <div className="hide-scrollbar flex gap-2 overflow-x-auto rounded-2xl border border-white/[0.08] bg-white/[0.025] p-2">
         {sections.map((section) => (

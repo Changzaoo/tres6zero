@@ -405,8 +405,14 @@ async function buildBoomerangFrameCache({
   const sourceStart = Math.max(trimStart, Math.min(trimEnd - 0.05, trimStart + outputStart));
   const sourceAvailable = Math.max(0.2, trimEnd - sourceStart);
   const outputDuration = Math.max(0.2, outputEnd - outputStart);
-  const forwardDuration = Math.max(0.35, Math.min(sourceAvailable, outputDuration / 2, 4));
-  const frameCount = Math.max(8, Math.min(MAX_BOOMERANG_FRAMES, Math.round(forwardDuration * BOOMERANG_CACHE_FPS)));
+  // Duração ideal de cada passada "para frente" antes do reverso.
+  const desiredForward = Math.max(0.35, Math.min(sourceAvailable, outputDuration / 2, 4));
+  // Escolhe um número inteiro de ciclos (ida + volta) para que o loop termine
+  // sempre no frame inicial: o vídeo volta exatamente para o segundo em que o
+  // efeito começou, em vez de cortar no meio do movimento.
+  const cycles = Math.max(1, Math.ceil(outputDuration / (desiredForward * 2)));
+  const forwardDuration = Math.min(sourceAvailable, outputDuration / (2 * cycles));
+  const frameCount = Math.max(8, Math.min(MAX_BOOMERANG_FRAMES, Math.round(Math.max(0.35, forwardDuration) * BOOMERANG_CACHE_FPS)));
   const frameCanvas = document.createElement('canvas');
   frameCanvas.width = width;
   frameCanvas.height = height;
@@ -435,19 +441,16 @@ function mapManualSourceTime(effect: string, elapsed: number, effectDuration: nu
   const usableDuration = Math.max(0.2, Math.min(Math.max(0.2, sourceEnd - sourceStart), effectDuration));
 
   if (effect === 'boomerang') {
-    const halfCycle = Math.max(0.5, Math.min(usableDuration, effectDuration / 2));
+    // Mesma lógica do cache: ciclos inteiros para terminar no frame inicial.
+    const desiredForward = Math.max(0.35, Math.min(usableDuration, effectDuration / 2));
+    const cycles = Math.max(1, Math.ceil(effectDuration / (desiredForward * 2)));
+    const halfCycle = effectDuration / (2 * cycles);
     const cyclePosition = elapsed % (halfCycle * 2);
     const localTime = cyclePosition <= halfCycle ? cyclePosition : halfCycle - (cyclePosition - halfCycle);
-    return sourceStart + localTime;
+    return Math.min(sourceEnd - 0.04, sourceStart + localTime);
   }
 
   return Math.min(sourceEnd - 0.04, sourceStart + (elapsed % usableDuration));
-}
-
-function isBoomerangReverseFrame(elapsed: number, effectDuration: number, sourceStart: number, sourceEnd: number) {
-  const usableDuration = Math.max(0.2, Math.min(Math.max(0.2, sourceEnd - sourceStart), effectDuration));
-  const halfCycle = Math.max(0.5, Math.min(usableDuration, effectDuration / 2));
-  return elapsed % (halfCycle * 2) > halfCycle;
 }
 
 function drawEffectOverlay(ctx: CanvasRenderingContext2D, effect: string, elapsed: number, width: number, height: number) {
@@ -902,13 +905,9 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
 
       if (cachedBoomerangFrame) {
         drawBitmapCover(ctx, cachedBoomerangFrame, width, height);
-      } else if (currentEffect === 'boomerang' && isBoomerangReverseFrame(effectState.localElapsed, effectState.duration, sourceEffectStart, sourceEffectEnd)) {
-        ctx.save();
-        ctx.translate(width, 0);
-        ctx.scale(-1, 1);
-        drawCover(ctx, sourceVideo, width, height);
-        ctx.restore();
       } else {
+        // No fallback ao vivo o reverso já vem do seek para trás em
+        // mapManualSourceTime; basta desenhar o frame normalmente (sem espelhar).
         drawCover(ctx, sourceVideo, width, height);
       }
       ctx.filter = 'none';

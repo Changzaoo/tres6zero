@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, MessageCircle, QrCode, Send, Share2 } from 'lucide-react';
+import { Download, MessageCircle, PlayCircle, QrCode, Send, Share2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { getEvent } from '@/services/eventService';
 import { createLead } from '@/services/leadService';
@@ -20,6 +20,8 @@ export default function VideoPage() {
   const [video, setVideo] = useState<AppVideo | null>(null);
   const [event, setEvent] = useState<AppEvent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [playerError, setPlayerError] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadName, setLeadName] = useState('');
@@ -57,6 +59,11 @@ export default function VideoPage() {
       });
     }).catch(() => setVideo(null)).finally(() => setLoading(false));
   }, [videoId]);
+
+  useEffect(() => {
+    setPlayerReady(false);
+    setPlayerError(false);
+  }, [video?.id]);
 
   function publicEventId() {
     return event?.id || video?.eventId || STANDALONE_EVENT_ID;
@@ -215,14 +222,40 @@ export default function VideoPage() {
   }
 
   const shareUrl = window.location.href;
+  const hasPoster = Boolean(video.thumbnailUrl);
   const whatsappMsg = encodeURIComponent(event?.name
     ? `Olha meu vídeo 360 no evento ${event.name}: ${shareUrl}`
     : `Olha meu vídeo 360: ${shareUrl}`);
 
   return (
     <div className="mx-auto min-h-screen max-w-md bg-surface pb-20">
-      <div className="relative bg-black">
-        <video src={video.videoUrl} controls playsInline className="w-full" />
+      <div className="relative aspect-[9/16] overflow-hidden bg-black">
+        <div className={`pointer-events-none absolute inset-0 grid place-items-center px-6 text-center text-white/35 transition-opacity ${playerReady || hasPoster ? 'opacity-0' : 'opacity-100'}`}>
+          <div>
+            <PlayCircle className="mx-auto h-16 w-16" />
+            <p className="mt-3 text-xs font-semibold text-white/45">Carregando preview do video...</p>
+          </div>
+        </div>
+        {playerError && (
+          <div className="absolute inset-x-4 top-4 z-20 rounded-2xl border border-red-300/15 bg-red-500/12 px-4 py-3 text-center text-xs font-semibold text-red-50/80">
+            Nao foi possivel carregar o preview. Use o botao de download abaixo.
+          </div>
+        )}
+        <video
+          key={video.id}
+          src={video.videoUrl}
+          poster={video.thumbnailUrl}
+          autoPlay={!hasPoster}
+          controls
+          loop={!hasPoster}
+          muted={!hasPoster}
+          playsInline
+          preload="auto"
+          onCanPlay={() => setPlayerReady(true)}
+          onLoadedData={() => setPlayerReady(true)}
+          onError={() => setPlayerError(true)}
+          className={`relative z-10 h-full w-full bg-black object-contain transition-opacity ${playerReady || hasPoster ? 'opacity-100' : 'opacity-0'}`}
+        />
       </div>
 
       <div className="space-y-4 p-4">

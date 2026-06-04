@@ -13,7 +13,7 @@ import { getUserEvents } from '@/services/eventService';
 import { createVideo, getUserVideos, updateVideo } from '@/services/videoService';
 import { getTemplates, seedTemplates } from '@/services/templateService';
 import { getUserMusic } from '@/services/musicService';
-import { uploadVideoToServer, getGeneratedMusic } from '@/services/serverMediaService';
+import { uploadImageToServer, uploadVideoToServer, uploadTemplateToServer, uploadMusicToServer, getGeneratedMusic } from '@/services/serverMediaService';
 import { describeSunoStatus, generateSunoMusic, waitForSunoMusic } from '@/services/sunoMusicService';
 import { canRenderVideoInBrowser, canUseTransparentMotionOverlay, renderVideoInBrowser } from '@/services/browserVideoRenderer';
 import { getOperatorPreferences } from '@/services/appPreferences';
@@ -183,6 +183,109 @@ function renderedVideoFile(blob: Blob) {
   const type = blob.type.includes('mp4') ? 'video/mp4' : 'video/webm';
   const extension = type === 'video/mp4' ? 'mp4' : 'webm';
   return new File([blob], `six3-edited-${Date.now()}.${extension}`, { type });
+}
+
+function waitForPreviewVideoEvent(video: HTMLVideoElement, eventName: string, timeoutMs = 8000) {
+  return new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error(`${eventName.toUpperCase()}_TIMEOUT`));
+    }, timeoutMs);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.removeEventListener(eventName, onEvent);
+      video.removeEventListener('error', onError);
+    };
+
+    const onEvent = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error(`${eventName.toUpperCase()}_FAILED`));
+    };
+
+    video.addEventListener(eventName, onEvent, { once: true });
+    video.addEventListener('error', onError, { once: true });
+  });
+}
+
+async function seekPreviewVideo(video: HTMLVideoElement, time: number) {
+  if (!Number.isFinite(time) || time <= 0) return;
+
+  const target = Math.max(0, time);
+  await new Promise<void>((resolve) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, 3500);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('error', onError);
+    };
+
+    const onSeeked = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
+      resolve();
+    };
+
+    video.addEventListener('seeked', onSeeked, { once: true });
+    video.addEventListener('error', onError, { once: true });
+    video.currentTime = target;
+  });
+}
+
+async function createVideoThumbnailFile(blob: Blob) {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') return null;
+
+  const url = URL.createObjectURL(blob);
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+
+  try {
+    video.src = url;
+    await waitForPreviewVideoEvent(video, 'loadedmetadata', 12000);
+    await waitForPreviewVideoEvent(video, 'loadeddata', 8000).catch(() => undefined);
+
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const targetTime = duration > 0.35 ? Math.min(duration - 0.08, Math.max(0.18, duration * 0.08)) : 0;
+    await seekPreviewVideo(video, targetTime);
+
+    const sourceWidth = video.videoWidth || 720;
+    const sourceHeight = video.videoHeight || 1280;
+    const maxSide = 720;
+    const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const thumbnailBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.84));
+    if (!thumbnailBlob) return null;
+
+    return new File([thumbnailBlob], `six3-thumb-${Date.now()}.jpg`, { type: 'image/jpeg' });
+  } catch (error) {
+    console.warn('[video] Thumbnail generation skipped:', error);
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+    video.removeAttribute('src');
+    video.load();
+  }
 }
 
 function titleFromFileName(fileName: string) {
@@ -1046,6 +1149,98 @@ function TemplateFineControls({
   );
 }
 
+function MediaUploadBar({
+  onUploadTemplate,
+  onUploadMusic,
+  uploadingTemplate,
+  uploadingMusic,
+}: {
+  onUploadTemplate: (file: File) => void;
+  onUploadMusic: (file: File) => void;
+  uploadingTemplate: boolean;
+  uploadingMusic: boolean;
+}) {
+  const templateInputRef = useRef<HTMLInputElement>(null);
+  const musicInputRef = useRef<HTMLInputElement>(null);
+
+  function pickFile(ref: React.RefObject<HTMLInputElement>) {
+    ref.current?.click();
+  }
+
+  function onTemplateChosen(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) onUploadTemplate(file);
+  }
+
+  function onMusicChosen(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) onUploadMusic(file);
+  }
+
+  return (
+    <div className="space-y-2.5 rounded-2xl border border-brand-300/20 bg-brand-500/[0.06] p-3">
+      <div className="flex items-center gap-2">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-gradient-brand text-white ring-1 ring-white/15">
+          <Upload className="h-3.5 w-3.5" />
+        </span>
+        <p className="text-xs font-bold text-white">Enviar moldura ou música</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => pickFile(templateInputRef)}
+          disabled={uploadingTemplate}
+          className="flex min-h-[52px] touch-manipulation flex-col items-center justify-center gap-1 rounded-2xl border border-white/12 bg-white/[0.05] px-2 py-2 text-center transition-all hover:border-brand-300/45 hover:bg-white/[0.08] active:scale-[0.98] disabled:opacity-60"
+        >
+          {uploadingTemplate ? (
+            <Loader2 className="h-4 w-4 animate-spin text-brand-200" />
+          ) : (
+            <Layers className="h-4 w-4 text-brand-200" />
+          )}
+          <span className="text-xs font-bold text-white">{uploadingTemplate ? 'Enviando...' : 'Moldura'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => pickFile(musicInputRef)}
+          disabled={uploadingMusic}
+          className="flex min-h-[52px] touch-manipulation flex-col items-center justify-center gap-1 rounded-2xl border border-white/12 bg-white/[0.05] px-2 py-2 text-center transition-all hover:border-brand-300/45 hover:bg-white/[0.08] active:scale-[0.98] disabled:opacity-60"
+        >
+          {uploadingMusic ? (
+            <Loader2 className="h-4 w-4 animate-spin text-brand-200" />
+          ) : (
+            <Music2 className="h-4 w-4 text-brand-200" />
+          )}
+          <span className="text-xs font-bold text-white">{uploadingMusic ? 'Enviando...' : 'Música'}</span>
+        </button>
+      </div>
+
+      <p className="text-[11px] leading-relaxed text-white/45">
+        <span className="font-bold text-white/70">Moldura:</span> imagem transparente em <span className="font-bold text-brand-100">PNG</span> ou <span className="font-bold text-brand-100">WebP</span> (animada: <span className="font-bold text-brand-100">WebM</span>).{' '}
+        <span className="font-bold text-white/70">Música:</span> MP3, M4A ou WAV.
+      </p>
+
+      <input
+        ref={templateInputRef}
+        type="file"
+        accept="image/png,image/webp,video/webm,.png,.webp,.webm"
+        className="hidden"
+        onChange={onTemplateChosen}
+      />
+      <input
+        ref={musicInputRef}
+        type="file"
+        accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac"
+        className="hidden"
+        onChange={onMusicChosen}
+      />
+    </div>
+  );
+}
+
 function EditorTimeline({
   sourceDuration,
   outputDuration,
@@ -1518,6 +1713,8 @@ export default function OperatorPage() {
   const [activeEffectSegmentId, setActiveEffectSegmentId] = useState<string | null>(null);
   const [generatingAiMusic, setGeneratingAiMusic] = useState(false);
   const [aiMusicStatus, setAiMusicStatus] = useState('');
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
+  const [uploadingMusic, setUploadingMusic] = useState(false);
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [mobileEditorTab, setMobileEditorTab] = useState<'controls' | 'timeline'>('controls');
 
@@ -2286,6 +2483,90 @@ export default function OperatorPage() {
     toast.success(isMediaFavorite('music', selectedMusicTrack.id, next) ? 'Música favoritada.' : 'Música removida dos favoritos.');
   }
 
+  async function handleUploadCustomTemplate(file: File) {
+    const isAnimated = file.type === 'video/webm' || /\.webm$/i.test(file.name);
+    const isImage = /^image\/(png|webp)$/i.test(file.type) || /\.(png|webp)$/i.test(file.name);
+    if (!isImage && !isAnimated) {
+      toast.error('Use uma moldura PNG ou WebP transparente (ou WebM para moldura animada).');
+      return;
+    }
+    setUploadingTemplate(true);
+    try {
+      const result = await uploadTemplateToServer(file);
+      const url = result.templateUrl || result.publicUrl || result.imageUrl;
+      if (!url) throw new Error('NO_URL');
+      const now = new Date().toISOString();
+      const id = `custom-template-${result.id || Date.now()}`;
+      const name = file.name.replace(/\.[^.]+$/, '').trim() || 'Moldura enviada';
+      const customTemplate: AppTemplate = {
+        id,
+        name,
+        category: 'viral',
+        colors: { primary: '#6366f1', secondary: '#22d3ee' },
+        font: 'Inter',
+        previewUrl: url,
+        overlayUrl: url,
+        frameUrl: url,
+        animationUrl: isAnimated ? url : undefined,
+        type: isAnimated ? 'animated' : 'static',
+        source: 'custom',
+        ownerId: user?.uid,
+        opacityDefault: 1,
+        aspectRatio: 'auto',
+        effects: [],
+        isGlobal: false,
+        isActive: true,
+        isPremium: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setTemplates((prev) => [customTemplate, ...prev.filter((item) => item.id !== id)]);
+      setSelectedTemplateId(id);
+      setTemplateOpacity(1);
+      toast.success('Moldura enviada e aplicada ao vídeo.');
+    } catch {
+      toast.error('Não foi possível enviar a moldura. Tente novamente.');
+    } finally {
+      setUploadingTemplate(false);
+    }
+  }
+
+  async function handleUploadCustomMusic(file: File) {
+    const isAudio = file.type.startsWith('audio/') || /\.(mp3|m4a|wav|ogg|aac)$/i.test(file.name);
+    if (!isAudio) {
+      toast.error('Use um arquivo de áudio (MP3, M4A ou WAV).');
+      return;
+    }
+    setUploadingMusic(true);
+    try {
+      const result = await uploadMusicToServer(file);
+      const url = result.musicUrl || result.publicUrl;
+      if (!url) throw new Error('NO_URL');
+      const now = new Date().toISOString();
+      const id = `custom-music-${result.id || Date.now()}`;
+      const name = file.name.replace(/\.[^.]+$/, '').trim() || 'Música enviada';
+      const customMusic: AppMusic = {
+        id,
+        ownerId: user?.uid,
+        name,
+        category: 'ambient',
+        source: 'custom',
+        musicUrl: url,
+        isGlobal: false,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      setMusicCatalog((prev) => [customMusic, ...prev.filter((item) => item.musicUrl !== url)]);
+      setMusicTheme(`url:${url}`);
+      toast.success('Música enviada e aplicada ao vídeo.');
+    } catch {
+      toast.error('Não foi possível enviar a música. Tente novamente.');
+    } finally {
+      setUploadingMusic(false);
+    }
+  }
+
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -2352,10 +2633,21 @@ export default function OperatorPage() {
       });
 
       setProgress(72);
+      setProcessingLabel('Preparando preview do video...');
+      const thumbnailFile = await createVideoThumbnailFile(renderedBlob);
       setProcessingLabel('Enviando vídeo editado para a nuvem...');
-      const uploaded = await uploadVideoToServer(renderedVideoFile(renderedBlob), (pct) => {
-        setProgress(Math.min(94, 72 + Math.round(pct * 0.22)));
-      });
+      const [uploaded, uploadedThumbnail] = await Promise.all([
+        uploadVideoToServer(renderedVideoFile(renderedBlob), (pct) => {
+          setProgress(Math.min(94, 72 + Math.round(pct * 0.22)));
+        }),
+        thumbnailFile
+          ? uploadImageToServer(thumbnailFile).catch((error) => {
+            console.warn('[video] Thumbnail upload skipped:', error);
+            return null;
+          })
+          : Promise.resolve(null),
+      ]);
+      const thumbnailUrl = uploadedThumbnail?.publicUrl || uploadedThumbnail?.imageUrl || editingOriginalVideo?.thumbnailUrl;
 
       setProcessingLabel(editingVideoId ? 'Atualizando vídeo...' : 'Publicando vídeo...');
       const savedFields = {
@@ -2363,6 +2655,7 @@ export default function OperatorPage() {
         storagePath: uploaded.storagePath,
         videoUrl: uploaded.videoUrl || '',
         rawVideoUrl: editingOriginalVideo?.rawVideoUrl || editingOriginalVideo?.videoUrl,
+        thumbnailUrl,
         status: 'published' as const,
         visibility: editingOriginalVideo?.visibility || 'public' as const,
         size: renderedBlob.size, format: renderedBlob.type || 'video/webm',
@@ -2639,6 +2932,12 @@ export default function OperatorPage() {
                 onOpacityChange={setTemplateOpacity}
                 onRemove={() => setSelectedTemplateId('')}
               />
+              <MediaUploadBar
+                onUploadTemplate={handleUploadCustomTemplate}
+                onUploadMusic={handleUploadCustomMusic}
+                uploadingTemplate={uploadingTemplate}
+                uploadingMusic={uploadingMusic}
+              />
               <EffectSelector
                 value={effect}
                 onChange={applyEffectSelection}
@@ -2823,6 +3122,12 @@ export default function OperatorPage() {
               opacity={templateOpacity}
               onOpacityChange={setTemplateOpacity}
               onRemove={() => setSelectedTemplateId('')}
+            />
+            <MediaUploadBar
+              onUploadTemplate={handleUploadCustomTemplate}
+              onUploadMusic={handleUploadCustomMusic}
+              uploadingTemplate={uploadingTemplate}
+              uploadingMusic={uploadingMusic}
             />
             <EffectSelector
               value={effect}
@@ -3181,6 +3486,12 @@ export default function OperatorPage() {
                 opacity={templateOpacity}
                 onOpacityChange={setTemplateOpacity}
                 onRemove={() => setSelectedTemplateId('')}
+              />
+              <MediaUploadBar
+                onUploadTemplate={handleUploadCustomTemplate}
+                onUploadMusic={handleUploadCustomMusic}
+                uploadingTemplate={uploadingTemplate}
+                uploadingMusic={uploadingMusic}
               />
 
               {/* Effect — minimal: only dropdown, no detail panel */}

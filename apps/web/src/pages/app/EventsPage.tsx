@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { type KeyboardEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, MapPin, Users, MoreVertical, Copy, Archive, Trash2, Edit2, ExternalLink } from 'lucide-react';
+import { Plus, Calendar, MapPin, Users, MoreVertical, Copy, Archive, Trash2, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserEvents, deleteEvent, duplicateEvent, updateEvent } from '@/services/eventService';
@@ -56,6 +56,18 @@ export default function EventsPage() {
     setMenuId(null);
   }
 
+  function openEventPage(appEvent: AppEvent) {
+    window.open(`/g/${appEvent.slug}`, '_blank', 'noopener,noreferrer');
+  }
+
+  function handleCardKeyDown(keyboardEvent: KeyboardEvent<HTMLDivElement>, appEvent: AppEvent) {
+    if (keyboardEvent.target !== keyboardEvent.currentTarget) return;
+    if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') return;
+
+    keyboardEvent.preventDefault();
+    openEventPage(appEvent);
+  }
+
   if (loading) return <div className="animate-pulse space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="h-24 rounded-2xl bg-white/5" />)}</div>;
 
   return (
@@ -76,13 +88,18 @@ export default function EventsPage() {
         <div className="space-y-3">
           {events.map(event => (
             <motion.div key={event.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 transition-all hover:border-brand-500/20 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
+              role="link"
+              tabIndex={0}
+              aria-label={`Abrir pagina do evento ${event.name}`}
+              onClick={() => openEventPage(event)}
+              onKeyDown={(keyboardEvent) => handleCardKeyDown(keyboardEvent, event)}
+              className="group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 transition-all hover:border-brand-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08090d] sm:flex-row sm:items-center sm:gap-4 sm:p-5">
               <div className="w-12 h-12 rounded-xl bg-gradient-brand flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-lg shadow-brand-600/20">
                 {event.name.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-white">{event.name}</h3>
+                  <h3 className="font-semibold text-white underline-offset-4 transition-all group-hover:underline">{event.name}</h3>
                   <Badge variant={statusVariant[event.status]}>{statusLabel[event.status]}</Badge>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-white/40">
@@ -91,8 +108,7 @@ export default function EventsPage() {
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" />{event.clientName}</span>
                 </div>
               </div>
-              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
-                <Button className="flex-1 justify-center sm:flex-none" variant="secondary" size="sm" onClick={() => window.open(`/g/${event.slug}`, '_blank')} icon={<ExternalLink className="w-4 h-4" />}>Página</Button>
+              <div className="absolute right-3 top-3 z-10 flex items-center justify-end gap-2 sm:static sm:w-auto" onClick={(mouseEvent) => mouseEvent.stopPropagation()}>
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === event.id ? null : event.id)}
                     className="p-2 rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-white transition-colors">

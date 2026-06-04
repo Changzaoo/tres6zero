@@ -15,6 +15,11 @@ function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov)(\?|$)/i.test(url);
 }
 
+function videoPreviewSrc(url: string) {
+  if (!url || url.includes('#')) return url;
+  return `${url}#t=0.001`;
+}
+
 export default function GalleryPage() {
   const { eventSlug } = useParams<{ eventSlug: string }>();
   const navigate = useNavigate();
@@ -215,7 +220,7 @@ export default function GalleryPage() {
                     {v.thumbnailUrl ? (
                       <img src={v.thumbnailUrl} className="w-full h-full object-cover" alt={v.title} />
                     ) : v.videoUrl ? (
-                      <video src={v.videoUrl} className="w-full h-full object-cover" muted playsInline />
+                      <video src={videoPreviewSrc(v.videoUrl)} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-white/20">
                         <Video className="w-10 h-10" />
