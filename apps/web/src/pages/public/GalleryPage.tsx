@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarDays, Download, Lock, Pencil, MapPin, QrCode, Share2, Sparkles, Video } from 'lucide-react';
+import { CalendarDays, Download, Lock, Pencil, MapPin, Play, QrCode, Share2, Sparkles, Video } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { getEventBySlug } from '@/services/eventService';
 import { getEventVideos } from '@/services/videoService';
@@ -193,9 +193,17 @@ export default function GalleryPage() {
         <section className="px-4 sm:px-6 py-5">
           <h2 className="text-sm font-bold text-white/70 mb-3">Vídeos publicados</h2>
           {videos.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <Video className="w-12 h-12 text-white/20" />
-              <p className="text-white/40">Nenhum vídeo publicado ainda</p>
+            <div className="relative flex min-h-[220px] flex-col items-center justify-center overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025] px-6 py-12 text-center">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,109,255,0.14),transparent_58%)]" />
+              <div className="relative mb-5 grid h-24 w-24 place-items-center rounded-[28px] border border-white/[0.1] bg-gradient-to-br from-brand-500/18 via-white/[0.045] to-fuchsia-500/12 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+                <span className="absolute -right-1 top-5 h-3 w-3 rounded-full bg-cyan-300/70 shadow-[0_0_18px_rgba(103,232,249,0.55)]" />
+                <span className="absolute bottom-4 left-3 h-2 w-2 rounded-full bg-brand-200/80 shadow-[0_0_16px_rgba(147,197,253,0.45)]" />
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white/[0.09] text-white/80 ring-1 ring-white/12">
+                  <Play className="ml-0.5 h-7 w-7" fill="currentColor" />
+                </span>
+              </div>
+              <p className="relative text-sm font-semibold text-white/55">Nenhum vídeo publicado ainda</p>
+              <p className="relative mt-1 max-w-xs text-xs text-white/32">Os vídeos do evento aparecerão aqui quando forem publicados.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

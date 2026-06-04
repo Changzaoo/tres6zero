@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown, Minus, Plus, X, Pencil, Star } from 'lucide-react';
+import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown, Minus, Plus, X, Pencil, Star, Search } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -306,22 +306,35 @@ function generatedTemplateRenderUrl(template?: AppTemplate) {
 
 function generatedTemplateMotionUrl(template?: AppTemplate) {
   const animationUrl = template?.animationUrl;
-  return animationUrl && /\.(webm|mp4|mov)(\?|$)/i.test(animationUrl) && !/render-motion/i.test(animationUrl) ? animationUrl : undefined;
+  return animationUrl && isTemplateVideoSource(animationUrl) && !/render-motion/i.test(animationUrl) ? animationUrl : undefined;
 }
 
-function templateImageSources(template?: AppTemplate) {
+function isTemplateVideoSource(source?: string) {
+  return Boolean(source && /\.(webm|mp4|mov)(\?|$)/i.test(source));
+}
+
+function templateVisualSources(template?: AppTemplate) {
   return uniqueSources([
-    generatedTemplateRenderUrl(template),
     template?.overlayUrl,
     template?.frameUrl,
     template?.previewUrl,
-    template?.animationUrl && !/\.(webm|mp4|mov)(\?|$)/i.test(template.animationUrl) ? template.animationUrl : undefined,
+    template?.animationUrl && !isTemplateVideoSource(template.animationUrl) ? template.animationUrl : undefined,
+    generatedTemplateRenderUrl(template),
   ]);
 }
 
+function templateImageSources(template?: AppTemplate) {
+  return templateVisualSources(template);
+}
+
+function templateThumbnailUrl(template?: AppTemplate) {
+  return templateVisualSources(template)[0];
+}
+
 function templateRenderAssets(template?: AppTemplate) {
-  const imageSources = templateImageSources(template);
-  const renderFallback = imageSources[1] || imageSources[0] || generatedTemplateRenderUrl(template);
+  const imageSources = templateVisualSources(template);
+  const generatedFallback = generatedTemplateRenderUrl(template);
+  const renderFallback = imageSources.find((source) => source !== imageSources[0]) || generatedFallback || imageSources[0];
 
   return {
     overlayUrl: imageSources[0] || renderFallback,
@@ -340,44 +353,64 @@ function TemplateOverlayPreview({ template, opacity }: { template?: AppTemplate;
   useEffect(() => {
     setImageIndex(0);
     setMotionFailed(false);
-  }, [template?.id, template?.overlayUrl, template?.animationUrl]);
+  }, [template?.id, template?.previewUrl, template?.overlayUrl, template?.frameUrl, template?.animationUrl]);
 
   const className = 'absolute inset-0 h-full w-full object-contain pointer-events-none';
-  if (useMotionPreview && motionSrc) {
+
+  if (template && imageSources.length === 0) {
     return (
-      <video
-        key={`${template?.id}-${motionSrc}`}
-        src={motionSrc}
-        className={className}
-        style={{ opacity: opacity ?? template?.opacityDefault ?? 0.95 }}
-        muted
-        autoPlay
-        loop
-        playsInline
-        preload="metadata"
-        onError={() => setMotionFailed(true)}
-      />
+      <>
+        <TemplateOverlayRenderer template={template} opacity={opacity} />
+        {useMotionPreview && motionSrc && (
+          <video
+            key={`${template.id}-${motionSrc}`}
+            src={motionSrc}
+            className={className}
+            style={{ opacity: opacity ?? template.opacityDefault ?? 0.95 }}
+            muted
+            autoPlay
+            loop
+            playsInline
+            preload="metadata"
+            onError={() => setMotionFailed(true)}
+          />
+        )}
+      </>
     );
   }
 
-  if (template && imageSources.length === 0) {
-    return <TemplateOverlayRenderer template={template} opacity={opacity} />;
-  }
-
   const src = imageSources[imageIndex];
-  if (!src) return null;
+  if (!src && !(useMotionPreview && motionSrc)) return null;
 
   return (
-    <img
-      key={`${template?.id}-${src}`}
-      src={src}
-      alt=""
-      className={className}
-      style={{ opacity: opacity ?? template?.opacityDefault ?? 0.95 }}
-      loading="lazy"
-      decoding="async"
-      onError={() => setImageIndex((current) => Math.min(current + 1, imageSources.length))}
-    />
+    <>
+      {src && (
+        <img
+          key={`${template?.id}-${src}`}
+          src={src}
+          alt=""
+          className={className}
+          style={{ opacity: opacity ?? template?.opacityDefault ?? 0.95 }}
+          loading="lazy"
+          decoding="async"
+          onError={() => setImageIndex((current) => Math.min(current + 1, imageSources.length))}
+        />
+      )}
+      {useMotionPreview && motionSrc && (
+        <video
+          key={`${template?.id}-${motionSrc}`}
+          src={motionSrc}
+          className={className}
+          style={{ opacity: opacity ?? template?.opacityDefault ?? 0.95 }}
+          muted
+          autoPlay
+          loop
+          playsInline
+          preload="metadata"
+          onError={() => setMotionFailed(true)}
+        />
+      )}
+    </>
   );
 }
 
@@ -621,6 +654,8 @@ function TemplatePicker({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [activeQuickFilter, setActiveQuickFilter] = useState<'all' | 'free' | 'premium' | 'animated' | 'favorites'>('all');
+  const [templateQuery, setTemplateQuery] = useState('');
 
   const selectedTemplate = templates.find((t) => t.id === selectedId);
 
@@ -629,186 +664,325 @@ function TemplatePicker({
     [templates]
   );
 
-  const visibleTemplates = useMemo(() => {
-    const base = activeCategory === 'favorites'
-      ? templates.filter((t) => favoriteTemplateIds.has(t.id))
-      : activeCategory === 'all'
-        ? templates
-        : templates.filter((t) => t.category === activeCategory);
-    return base.slice(0, 40);
-  }, [activeCategory, favoriteTemplateIds, templates]);
+  const filteredTemplates = useMemo(() => {
+    const query = templateQuery.trim().toLowerCase();
+    return templates.filter((template) => {
+      const animated = isTemplateAnimated(template);
+      const premium = templateRequiresPremiumTemplates(template);
+      const haystack = [
+        template.name,
+        template.category,
+        template.variantName,
+        template.variantKey,
+        template.tags?.join(' '),
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      if (activeCategory !== 'all' && template.category !== activeCategory) return false;
+      if (activeQuickFilter === 'favorites' && !favoriteTemplateIds.has(template.id)) return false;
+      if (activeQuickFilter === 'animated' && !animated) return false;
+      if (activeQuickFilter === 'premium' && !premium) return false;
+      if (activeQuickFilter === 'free' && premium) return false;
+      if (query && !haystack.includes(query)) return false;
+
+      return true;
+    });
+  }, [activeCategory, activeQuickFilter, favoriteTemplateIds, templateQuery, templates]);
+
+  const visibleTemplates = useMemo(() => filteredTemplates.slice(0, 72), [filteredTemplates]);
 
   const thumbFrame = videoOrientation === 'landscape'
-    ? 'h-6 w-10'
-    : 'h-9 w-5';
+    ? 'h-12 w-[76px]'
+    : 'h-14 w-9';
   const thumbGrid = videoOrientation === 'landscape'
     ? 'aspect-video'
     : 'aspect-[9/16]';
+  const selectedPreviewFrame = videoOrientation === 'landscape'
+    ? 'aspect-video'
+    : 'aspect-[9/16] max-h-64';
+  const animatedCount = templates.filter((template) => isTemplateAnimated(template)).length;
+  const premiumCount = templates.filter((template) => templateRequiresPremiumTemplates(template)).length;
+  const freeCount = Math.max(0, templates.length - premiumCount);
+  const selectedTemplateThumb = templateThumbnailUrl(selectedTemplate);
+  const selectedPremium = selectedTemplate ? templateRequiresPremiumTemplates(selectedTemplate) : false;
+  const quickFilters = [
+    { id: 'all' as const, label: 'Todos', count: templates.length },
+    { id: 'free' as const, label: 'Grátis', count: freeCount },
+    { id: 'premium' as const, label: 'Premium', count: premiumCount },
+    { id: 'animated' as const, label: 'Animados', count: animatedCount },
+    ...(favoriteTemplateIds.size > 0 ? [{ id: 'favorites' as const, label: 'Favoritos', count: favoriteTemplateIds.size }] : []),
+  ].filter((filter) => filter.count > 0 || filter.id === 'all');
 
   function handleSelect(id: string) {
     onChange(id);
-    setExpanded(false);
+  }
+
+  function filterChipClass(active: boolean, tone: 'default' | 'amber' | 'cyan' = 'default') {
+    if (active && tone === 'amber') return 'border-amber-300/45 bg-amber-400/16 text-amber-100 shadow-[0_0_26px_rgba(251,191,36,0.14)]';
+    if (active && tone === 'cyan') return 'border-cyan-300/45 bg-cyan-400/14 text-cyan-100 shadow-[0_0_26px_rgba(34,211,238,0.12)]';
+    if (active) return 'border-brand-300/50 bg-brand-500/18 text-white shadow-[0_0_28px_rgba(90,108,255,0.16)]';
+    return 'border-white/[0.09] bg-white/[0.045] text-white/56 hover:border-white/[0.18] hover:bg-white/[0.075] hover:text-white';
   }
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-semibold text-white/52">Template</p>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-white/52">Moldura</p>
+        <span className="text-[11px] font-medium text-white/32">{templates.length} disponível(is)</span>
+      </div>
 
-      {/* Trigger */}
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className={`flex min-h-[48px] w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-all active:scale-[0.99] touch-manipulation ${
+        className={`group flex min-h-[68px] w-full items-center gap-3 rounded-[22px] border px-3 py-3 text-left transition-all active:scale-[0.99] touch-manipulation ${
           expanded
-            ? 'border-brand-300/40 bg-brand-500/10 ring-2 ring-brand-500/15'
+            ? 'border-brand-300/45 bg-brand-500/12 ring-2 ring-brand-500/15'
             : 'border-white/[0.09] bg-white/[0.045] hover:border-white/[0.18] hover:bg-white/[0.065]'
         }`}
       >
-        <div className={`relative shrink-0 overflow-hidden rounded border border-white/15 bg-black/40 ${thumbFrame}`}>
-          {selectedTemplate && (selectedTemplate.previewUrl || selectedTemplate.overlayUrl) ? (
+        <div className={`relative shrink-0 overflow-hidden rounded-xl border border-white/15 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.22),rgba(0,0,0,0.45))] shadow-[0_10px_28px_rgba(0,0,0,0.26)] ${thumbFrame}`}>
+          {selectedTemplateThumb ? (
             <img
-              src={selectedTemplate.previewUrl || selectedTemplate.overlayUrl}
+              src={selectedTemplateThumb}
               alt=""
-              className="absolute inset-0 h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-contain p-0.5"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              <Layers className="h-2.5 w-2.5 text-white/25" />
+              <Layers className="h-4 w-4 text-white/28" />
             </div>
           )}
         </div>
-        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-white">
-          {selectedTemplate ? selectedTemplate.name : 'Sem overlay'}
-        </p>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-white">
+            {selectedTemplate ? selectedTemplate.name : 'Sem moldura'}
+          </span>
+          <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase text-white/45">
+              {selectedTemplate ? (CATEGORY_LABELS[selectedTemplate.category] || selectedTemplate.category) : 'Vídeo limpo'}
+            </span>
+            {selectedTemplate && (
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                isTemplateAnimated(selectedTemplate)
+                  ? 'border-cyan-300/25 bg-cyan-400/12 text-cyan-100'
+                  : 'border-white/10 bg-white/[0.05] text-white/42'
+              }`}>
+                {isTemplateAnimated(selectedTemplate) ? 'Animado' : 'Estático'}
+              </span>
+            )}
+          </span>
+        </span>
         <ChevronDown
-          className={`h-4 w-4 shrink-0 text-white/42 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 shrink-0 text-white/42 transition-transform duration-200 group-hover:text-white/70 ${expanded ? 'rotate-180' : ''}`}
         />
       </button>
 
-      {/* Inline picker */}
       {expanded && (
-        <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025]">
-          {/* Category tabs */}
-          <div className="hide-scrollbar flex gap-1 overflow-x-auto border-b border-white/[0.06] px-2 py-2">
-            <button
-              onClick={() => setActiveCategory('all')}
-              className={`min-h-[32px] shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold transition-colors touch-manipulation ${
-                activeCategory === 'all'
-                  ? 'border border-brand-300/35 bg-brand-500/22 text-brand-200'
-                  : 'text-white/38 hover:text-white/70'
-              }`}
-            >
-              Todos
-            </button>
-            {favoriteTemplateIds.size > 0 && (
-              <button
-                onClick={() => setActiveCategory('favorites')}
-                className={`min-h-[32px] shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold transition-colors touch-manipulation ${
-                  activeCategory === 'favorites'
-                    ? 'border border-amber-300/40 bg-amber-400/18 text-amber-100'
-                    : 'text-white/38 hover:text-amber-100'
-                }`}
-              >
-                Favoritos
-              </button>
-            )}
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`min-h-[32px] shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold transition-colors touch-manipulation ${
-                  activeCategory === cat
-                    ? 'border border-brand-300/35 bg-brand-500/22 text-brand-200'
-                    : 'text-white/38 hover:text-white/70'
-                }`}
-              >
-                {CATEGORY_LABELS[cat] || cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Grid */}
-          <div
-            className="grid grid-cols-4 gap-1.5 overflow-y-auto p-2 sm:grid-cols-5"
-            style={{ maxHeight: 240 }}
-          >
-            {/* No template option */}
-            <button
-              onClick={() => handleSelect('')}
-              className={`flex ${thumbGrid} min-h-11 touch-manipulation flex-col items-center justify-center rounded-lg border text-[8px] font-bold transition-all ${
-                !selectedId
-                  ? 'border-brand-300/55 bg-brand-500/15 text-brand-200'
-                  : 'border-white/10 bg-white/[0.03] text-white/30 hover:border-white/20'
-              }`}
-            >
-              <X className="mb-0.5 h-2.5 w-2.5 opacity-50" />
-              Sem
-            </button>
-
-            {visibleTemplates.map((t) => {
-              const favorite = favoriteTemplateIds.has(t.id);
-              return (
-              <div
-                key={t.id}
-                title={t.name}
-                className={`relative ${thumbGrid} min-h-11 touch-manipulation overflow-hidden rounded-lg border transition-all ${
-                  selectedId === t.id
-                    ? 'border-brand-300/70 ring-1 ring-brand-300/30'
-                    : 'border-white/[0.08] hover:border-white/30'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleSelect(t.id)}
-                  className="absolute inset-0"
-                >
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.5))]" />
-                  {(t.previewUrl || t.overlayUrl) && (
-                    <img
-                      src={t.previewUrl || t.overlayUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-contain"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  )}
-                  {selectedId === t.id && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-brand-500/25">
-                      <Check className="h-3 w-3 text-brand-200" />
-                    </div>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleFavorite(t.id);
-                  }}
-                  className={`absolute right-1 top-1 z-10 grid h-6 w-6 place-items-center rounded-full border backdrop-blur-md ${
-                    favorite
-                      ? 'border-amber-200/45 bg-amber-400/18 text-amber-100'
-                      : 'border-white/10 bg-black/35 text-white/40 hover:text-amber-100'
-                  }`}
-                  aria-label={favorite ? 'Remover template dos favoritos' : 'Favoritar template'}
-                >
-                  <Star className="h-3 w-3" fill={favorite ? 'currentColor' : 'none'} />
-                </button>
+        <div className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#090c13] shadow-[0_24px_80px_rgba(0,0,0,0.42)]">
+          <div className="relative border-b border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(69,92,255,0.2),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-black text-white">Escolha sua moldura</h3>
+                <p className="mt-1 text-xs text-white/45">Selecione uma moldura para aplicar ao vídeo.</p>
               </div>
-            );
-            })}
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                aria-label="Fechar galeria de molduras"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/52 transition hover:bg-white/[0.09] hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1fr)]">
+              <div className={`relative mx-auto w-full overflow-hidden rounded-[24px] border border-white/[0.1] bg-[linear-gradient(135deg,rgba(44,58,105,0.86),rgba(8,10,16,0.94))] ${selectedPreviewFrame}`}>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(125,139,255,0.28),transparent_34%),radial-gradient(circle_at_70%_80%,rgba(34,211,238,0.14),transparent_34%)]" />
+                {selectedTemplate && selectedTemplateThumb ? (
+                  <img src={selectedTemplateThumb} alt="" className="absolute inset-0 h-full w-full object-contain p-2" loading="lazy" decoding="async" />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/34">
+                    <Layers className="h-9 w-9" />
+                    <span className="text-xs font-bold">Sem moldura</span>
+                  </div>
+                )}
+                <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                  {selectedTemplate && (
+                    <>
+                      <span className="rounded-full border border-white/12 bg-black/35 px-2 py-1 text-[10px] font-black uppercase text-white/80 backdrop-blur-md">{selectedTemplate.aspectRatio}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase backdrop-blur-md ${isTemplateAnimated(selectedTemplate) ? 'border-cyan-200/35 bg-cyan-400/16 text-cyan-50' : 'border-white/12 bg-black/35 text-white/65'}`}>
+                        {isTemplateAnimated(selectedTemplate) ? 'Animado' : 'Estático'}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-col justify-between gap-3 rounded-[24px] border border-white/[0.08] bg-black/20 p-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-brand-200/75">Moldura selecionada</p>
+                  <h4 className="mt-2 line-clamp-2 text-xl font-black leading-tight text-white">{selectedTemplate?.name || 'Vídeo sem moldura'}</h4>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {selectedTemplate ? (
+                      <>
+                        <span className="rounded-full border border-brand-200/20 bg-brand-500/12 px-2.5 py-1 text-xs font-bold text-brand-100">{CATEGORY_LABELS[selectedTemplate.category] || selectedTemplate.category}</span>
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${selectedPremium ? 'border-amber-300/25 bg-amber-400/12 text-amber-100' : 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100'}`}>
+                          {selectedPremium ? 'Premium' : 'Grátis'}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs font-bold text-white/48">Nenhuma camada aplicada</span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <button type="button" onClick={() => setExpanded(false)} className="h-11 rounded-2xl bg-gradient-brand px-4 text-sm font-black text-white shadow-[0_16px_38px_rgba(70,96,255,0.28)] transition hover:brightness-110 active:scale-[0.99]">
+                    Aplicar moldura
+                  </button>
+                  <button type="button" onClick={() => handleSelect('')} className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/50 transition hover:bg-white/[0.08] hover:text-white" aria-label="Remover moldura">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                <input
+                  value={templateQuery}
+                  onChange={(event) => setTemplateQuery(event.target.value)}
+                  placeholder="Buscar moldura por nome, tema ou categoria..."
+                  className="h-12 w-full rounded-2xl border border-white/10 bg-black/24 pl-10 pr-10 text-sm font-semibold text-white outline-none transition placeholder:text-white/28 focus:border-brand-300/55 focus:ring-2 focus:ring-brand-500/16"
+                />
+                {templateQuery && (
+                  <button type="button" aria-label="Limpar busca" onClick={() => setTemplateQuery('')} className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-white/42 transition hover:bg-white/[0.08] hover:text-white">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.045] px-3 py-2 text-center text-xs font-bold text-white/52">
+                {visibleTemplates.length} de {filteredTemplates.length}
+              </span>
+            </div>
           </div>
 
-          {/* Count hint */}
-          {(() => {
-            const total = activeCategory === 'favorites'
-              ? templates.filter((t) => favoriteTemplateIds.has(t.id)).length
-              : activeCategory === 'all' ? templates.length : templates.filter((t) => t.category === activeCategory).length;
-            return total > visibleTemplates.length ? (
-              <p className="border-t border-white/[0.05] px-3 py-1.5 text-center text-[10px] text-white/28">
-                Mostrando 40 de {total} — filtre por categoria para ver mais
+          <div className="space-y-3 p-3 sm:p-4">
+            <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1">
+              {quickFilters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setActiveQuickFilter(filter.id)}
+                  className={`h-10 shrink-0 rounded-full border px-3.5 text-xs font-black transition-all touch-manipulation ${filterChipClass(activeQuickFilter === filter.id, filter.id === 'favorites' ? 'amber' : filter.id === 'animated' ? 'cyan' : 'default')}`}
+                >
+                  {filter.label}
+                  <span className="ml-1.5 text-white/38">{filter.count}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1">
+              <button type="button" onClick={() => setActiveCategory('all')} className={`h-9 shrink-0 rounded-full border px-3 text-xs font-bold transition-all touch-manipulation ${filterChipClass(activeCategory === 'all')}`}>
+                Todas categorias
+              </button>
+              {categories.map((cat) => (
+                <button key={cat} type="button" onClick={() => setActiveCategory(cat)} className={`h-9 shrink-0 rounded-full border px-3 text-xs font-bold transition-all touch-manipulation ${filterChipClass(activeCategory === cat)}`}>
+                  {CATEGORY_LABELS[cat] || cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="max-h-[min(72vh,680px)] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                <button
+                  type="button"
+                  onClick={() => handleSelect('')}
+                  className={`group flex min-h-[170px] touch-manipulation flex-col items-center justify-center rounded-[24px] border text-center transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/35 ${!selectedId ? 'border-brand-300/65 bg-brand-500/14 text-brand-100 shadow-[0_18px_42px_rgba(70,96,255,0.18)]' : 'border-white/[0.08] bg-white/[0.035] text-white/36 hover:border-white/18 hover:bg-white/[0.06] hover:text-white/70'}`}
+                >
+                  <span className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-black/20 transition group-hover:scale-105"><X className="h-5 w-5" /></span>
+                  <span className="mt-3 text-sm font-black">Sem moldura</span>
+                  <span className="mt-1 text-xs text-white/32">Vídeo limpo</span>
+                </button>
+
+                {visibleTemplates.map((template) => {
+                  const favorite = favoriteTemplateIds.has(template.id);
+                  const thumbnailUrl = templateThumbnailUrl(template);
+                  const animated = isTemplateAnimated(template);
+                  const premium = templateRequiresPremiumTemplates(template);
+                  const selected = selectedId === template.id;
+
+                  return (
+                    <div key={template.id} title={template.name} className={`group relative touch-manipulation overflow-hidden rounded-[24px] border bg-[#11141d] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_58px_rgba(0,0,0,0.36)] ${selected ? 'border-brand-200/70 shadow-[0_0_0_1px_rgba(147,197,253,0.2),0_22px_54px_rgba(70,96,255,0.2)]' : 'border-white/[0.08] hover:border-brand-200/28'}`}>
+                      <button type="button" onClick={() => handleSelect(template.id)} className="block w-full text-left focus:outline-none focus:ring-2 focus:ring-brand-500/35" aria-label={`Selecionar moldura ${template.name}`}>
+                        <div className={`relative ${thumbGrid} overflow-hidden bg-[radial-gradient(circle_at_top,rgba(89,106,255,0.22),rgba(0,0,0,0.72))]`}>
+                          {thumbnailUrl ? (
+                            <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.025]" loading="lazy" decoding="async" />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-white/22"><Layers className="h-8 w-8" /></div>
+                          )}
+                          <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
+                            <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase backdrop-blur-md ${animated ? 'border-cyan-200/35 bg-cyan-400/16 text-cyan-50' : 'border-white/12 bg-black/35 text-white/70'}`}>
+                              {animated ? 'Animado' : 'Estático'}
+                            </span>
+                            {selected && (
+                              <span className="grid h-7 w-7 place-items-center rounded-full bg-brand-400 text-white shadow-[0_0_18px_rgba(99,102,241,0.42)]"><Check className="h-4 w-4" /></span>
+                            )}
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/78 to-transparent" />
+                        </div>
+                        <div className="space-y-2 p-3">
+                          <p className="line-clamp-2 min-h-[2.5rem] text-sm font-black leading-tight text-white">{template.name}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className="rounded-full border border-brand-200/18 bg-brand-500/10 px-2 py-0.5 text-[11px] font-bold text-brand-100">{CATEGORY_LABELS[template.category] || template.category}</span>
+                            <span className="rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[11px] font-bold text-white/45">{template.aspectRatio}</span>
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${premium ? 'border-amber-300/22 bg-amber-400/10 text-amber-100' : 'border-emerald-300/18 bg-emerald-400/10 text-emerald-100'}`}>
+                              {premium ? 'Premium' : 'Grátis'}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onToggleFavorite(template.id);
+                        }}
+                        className={`absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full border backdrop-blur-md transition-all ${favorite ? 'border-amber-200/45 bg-amber-400/20 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]' : 'border-white/12 bg-black/35 text-white/45 hover:border-amber-200/35 hover:text-amber-100'}`}
+                        aria-label={favorite ? 'Remover template dos favoritos' : 'Favoritar template'}
+                      >
+                        <Star className="h-4 w-4" fill={favorite ? 'currentColor' : 'none'} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filteredTemplates.length === 0 && (
+                <div className="mt-3 flex min-h-56 flex-col items-center justify-center rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6 text-center">
+                  <Search className="h-9 w-9 text-white/22" />
+                  <p className="mt-3 text-sm font-black text-white">Nenhuma moldura encontrada</p>
+                  <p className="mt-1 max-w-xs text-xs leading-relaxed text-white/38">Tente remover a busca ou escolher outra categoria.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTemplateQuery('');
+                      setActiveCategory('all');
+                      setActiveQuickFilter('all');
+                    }}
+                    className="mt-4 h-10 rounded-full border border-white/10 bg-white/[0.055] px-4 text-xs font-black text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {filteredTemplates.length > visibleTemplates.length && (
+              <p className="rounded-2xl border border-white/[0.06] bg-white/[0.035] px-3 py-2 text-center text-xs text-white/38">
+                Mostrando {visibleTemplates.length} de {filteredTemplates.length}. Use busca ou categorias para refinar.
               </p>
-            ) : null;
-          })()}
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1427,6 +1601,9 @@ export default function OperatorPage() {
   const templatePreviewClass = templateOrientation === 'landscape'
     ? 'mx-auto aspect-video max-w-[260px]'
     : 'mx-auto aspect-[9/16] max-w-[220px]';
+  const mobileSetupPreviewClass = templateOrientation === 'landscape'
+    ? 'aspect-video'
+    : 'mx-auto aspect-[9/16] max-h-[44vh] max-w-[240px]';
   const videoPreviewFrameClass = templateOrientation === 'landscape'
     ? 'aspect-video max-h-[48vh] sm:max-h-[80vh]'
     : 'aspect-[9/16] max-h-[48vh] sm:max-h-[80vh] mx-auto';
@@ -2286,7 +2463,232 @@ export default function OperatorPage() {
       )}
 
       {step === 'select' && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_0.82fr]">
+        <>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 lg:hidden">
+          <section className="overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#080b11] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center justify-between gap-3 px-1 pb-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand-200/80">Gravação</p>
+                <h2 className="mt-1 truncate text-lg font-black text-white">{videoTitle.trim() || 'Novo vídeo 360'}</h2>
+              </div>
+              <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.055] px-3 text-xs font-bold text-white/70">
+                <Clock className="h-3.5 w-3.5 text-brand-200" />
+                {duration}s
+              </span>
+            </div>
+
+            <VideoPreviewFrame
+              template={selectedTemplate}
+              templateOpacity={templateOpacity}
+              effect={previewEffect}
+              label="Preview"
+              className={mobileSetupPreviewClass}
+            />
+
+            <div className="mt-3 grid grid-cols-[1fr_88px] gap-2">
+              <button
+                type="button"
+                onClick={startCamera}
+                className="group flex min-h-16 items-center justify-center gap-3 rounded-[22px] border border-brand-200/35 bg-gradient-brand px-4 text-white shadow-[0_18px_44px_rgba(70,96,255,0.34)] transition active:scale-[0.99]"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/14 ring-1 ring-white/16">
+                  <Camera className="h-5 w-5" />
+                </span>
+                <span className="text-base font-black">Gravar</span>
+              </button>
+              <label className="flex min-h-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-[22px] border border-white/[0.09] bg-white/[0.045] text-white/62 transition hover:bg-white/[0.07] hover:text-white active:scale-[0.99]">
+                <Upload className="h-5 w-5" />
+                <span className="text-xs font-bold">Enviar</span>
+                <input type="file" accept="video/*" className="hidden" onChange={handleFileUpload} />
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-[26px] border border-white/[0.08] bg-[#0b0e15] p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-white">
+                <Video className="h-4 w-4 text-brand-200" />
+                Captura
+              </div>
+              <span className="rounded-full border border-white/[0.07] bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold text-white/44">
+                {recordingOrientation === 'portrait' ? '9:16' : '16:9'}
+              </span>
+            </div>
+            <div className={captureChoiceGridClass}>
+              {(['portrait', 'landscape'] as const).map((orientation) => (
+                <button
+                  key={orientation}
+                  type="button"
+                  onClick={() => chooseRecordingOrientation(orientation)}
+                  aria-pressed={recordingOrientation === orientation}
+                  className={captureChoiceButtonClass(recordingOrientation === orientation)}
+                >
+                  {recordingOrientation === orientation && (
+                    <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm">
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className={captureChoiceIconClass(recordingOrientation === orientation)}>
+                    <span className={`rounded-md border-2 transition ${
+                      recordingOrientation === orientation ? 'border-white bg-white/10' : 'border-white/45'
+                    } ${orientation === 'portrait' ? 'h-7 w-4' : 'h-4 w-7'}`} />
+                  </span>
+                  <span className="min-w-0 flex-1 pr-3 leading-tight">
+                    <span className="block truncate text-sm font-bold">{orientation === 'portrait' ? 'Retrato' : 'Paisagem'}</span>
+                    <span className={recordingOrientation === orientation ? 'mt-1 block text-xs font-semibold text-white/70' : 'mt-1 block text-xs font-semibold text-white/35'}>
+                      {orientation === 'portrait' ? '9:16' : '16:9'}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className={`${captureChoiceGridClass} mt-2`}>
+              {(['user', 'environment'] as const).map((facing) => (
+                <button
+                  key={facing}
+                  type="button"
+                  onClick={() => setCameraFacing(facing)}
+                  aria-pressed={cameraFacing === facing}
+                  className={captureChoiceButtonClass(cameraFacing === facing)}
+                >
+                  {cameraFacing === facing && (
+                    <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm">
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className={captureChoiceIconClass(cameraFacing === facing)}>
+                    <Camera className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 pr-3 leading-tight">
+                    <span className="block truncate text-sm font-bold">{cameraFacingLabel(facing)}</span>
+                    <span className={cameraFacing === facing ? 'mt-1 block text-xs font-semibold text-white/70' : 'mt-1 block text-xs font-semibold text-white/35'}>
+                      {cameraFacingHint(facing)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <details className="group rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-sm font-bold text-white">
+                <Film className="h-4 w-4 text-brand-200" />
+                Detalhes
+              </span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="max-w-[130px] truncate rounded-full border border-white/[0.07] bg-black/20 px-2.5 py-1 text-[11px] font-bold text-white/45">
+                  {selectedEvent?.name || 'Sem evento'}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-white/42 transition group-open:rotate-180" />
+              </span>
+            </summary>
+            <div className="mt-3 space-y-3 border-t border-white/[0.06] pt-3">
+              <Input
+                label="Nome"
+                value={videoTitle}
+                onChange={(event) => setVideoTitle(event.target.value)}
+                maxLength={90}
+                placeholder={defaultVideoTitle}
+              />
+              <Select label="Evento" options={eventOptions} value={selectedEventId}
+                onChange={e => setSelectedEventId(e.target.value)} />
+            </div>
+          </details>
+
+          <details className="group rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-sm font-bold text-white">
+                <Wand2 className="h-4 w-4 text-brand-200" />
+                Visual
+              </span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="max-w-[150px] truncate rounded-full border border-white/[0.07] bg-black/20 px-2.5 py-1 text-[11px] font-bold text-white/45">
+                  {selectedTemplate?.name || effectMeta?.name || 'Padrão'}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-white/42 transition group-open:rotate-180" />
+              </span>
+            </summary>
+            <div className="mt-3 space-y-3 border-t border-white/[0.06] pt-3">
+              <button
+                type="button"
+                onClick={enableAiAutoEdit}
+                className={`flex min-h-[54px] w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${
+                  aiAutoSelected
+                    ? 'border-brand-300/45 bg-brand-500/16'
+                    : canUseAiAuto
+                      ? 'border-white/10 bg-white/[0.04]'
+                      : 'border-white/10 bg-white/[0.03] opacity-65'
+                }`}
+              >
+                <Sparkles className="h-4 w-4 shrink-0 text-brand-200" />
+                <span className="min-w-0 flex-1 text-sm font-bold text-white">IA automática</span>
+                {!canUseAiAuto && <Lock className="h-4 w-4 shrink-0 text-white/35" />}
+              </button>
+              <TemplatePicker
+                templates={filteredTemplates}
+                selectedId={selectedTemplateId}
+                onChange={setSelectedTemplateId}
+                videoOrientation={templateOrientation}
+                favoriteTemplateIds={favoriteTemplateIds}
+                onToggleFavorite={handleToggleTemplateFavorite}
+              />
+              <TemplateFineControls
+                template={selectedTemplate}
+                opacity={templateOpacity}
+                onOpacityChange={setTemplateOpacity}
+                onRemove={() => setSelectedTemplateId('')}
+              />
+              <EffectSelector
+                value={effect}
+                onChange={applyEffectSelection}
+                isEffectLocked={isEffectLocked}
+                compact
+                minimal
+                onApply={(selected) => toast.success(`${selected.name} aplicado ao editor.`)}
+              />
+              <Select label="Trilha" options={resolvedMusicOptions} value={musicTheme} onChange={e => setMusicTheme(e.target.value)} />
+              {selectedMusicTrack && (
+                <button
+                  type="button"
+                  onClick={handleToggleSelectedMusicFavorite}
+                  className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-bold transition-all ${
+                    selectedMusicFavorite
+                      ? 'border-amber-300/35 bg-amber-400/12 text-amber-100'
+                      : 'border-white/10 bg-white/[0.045] text-white/52'
+                  }`}
+                >
+                  <Star className="h-4 w-4" fill={selectedMusicFavorite ? 'currentColor' : 'none'} />
+                  Favorita
+                </button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={generatingAiMusic}
+                disabled={!canUseAiAuto}
+                onClick={generateAiMusicFromContext}
+                icon={<Music2 className="h-4 w-4" />}
+                className="w-full justify-center"
+              >
+                Trilha IA
+              </Button>
+              {aiMusicStatus && (
+                <p className="rounded-xl border border-brand-300/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-100">
+                  {aiMusicStatus}
+                </p>
+              )}
+              {(!canUseEffect || !canUseTemplate) && (
+                <div className="flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  Recurso bloqueado pelo plano atual.
+                </div>
+              )}
+            </div>
+          </details>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="hidden gap-3 sm:gap-4 lg:grid lg:grid-cols-[1fr_0.82fr]">
           <div className="space-y-4 rounded-2xl border border-white/[0.08] bg-gradient-glass p-4 sm:space-y-5 sm:p-6">
             <Input
               label="Nome do vídeo"
@@ -2522,6 +2924,7 @@ export default function OperatorPage() {
             </div>
           </div>
         </motion.div>
+        </>
       )}
 
       {step === 'capture' && (
@@ -2603,13 +3006,32 @@ export default function OperatorPage() {
               ))}
             </div>
 
-            <div className="flex items-center gap-3">
-              <Select label="" options={durationOptions}
-                value={String(duration)} onChange={e => setDuration(Number(e.target.value))} className="w-24" />
-              <Button className="flex-1 justify-center" size="xl" onClick={startCountdown} disabled={recording}
-                icon={<Video className="w-5 h-5" />}>
-                {recording ? 'Gravando...' : 'Iniciar gravação'}
-              </Button>
+            <div className="rounded-[24px] border border-white/[0.08] bg-[#0b0e15] p-2 lg:border-0 lg:bg-transparent lg:p-0">
+              <div className="grid grid-cols-5 gap-1.5 lg:hidden">
+                {DURATION_OPTIONS.map((seconds) => (
+                  <button
+                    key={seconds}
+                    type="button"
+                    disabled={recording}
+                    onClick={() => setDuration(seconds)}
+                    className={`h-10 rounded-2xl border text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      duration === seconds
+                        ? 'border-brand-200/45 bg-brand-500/24 text-white shadow-[0_10px_24px_rgba(67,95,255,0.2)]'
+                        : 'border-white/[0.08] bg-white/[0.035] text-white/42'
+                    }`}
+                  >
+                    {seconds}s
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-3 lg:mt-0">
+                <Select label="" options={durationOptions}
+                  value={String(duration)} onChange={e => setDuration(Number(e.target.value))} className="hidden w-24 lg:block" />
+                <Button className="flex-1 justify-center" size="xl" onClick={startCountdown} disabled={recording}
+                  icon={<Video className="w-5 h-5" />}>
+                  {recording ? 'Gravando...' : 'Iniciar gravação'}
+                </Button>
+              </div>
             </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => {
               if (recordingTimeoutRef.current) {

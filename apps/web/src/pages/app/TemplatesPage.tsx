@@ -12,14 +12,13 @@ import { canUseTransparentMotionOverlay } from '@/services/browserVideoRenderer'
 import { TemplateOverlayRenderer } from '@/components/templates/TemplateOverlayRenderer';
 import { isTemplateAnimated } from '@/services/templateStorage';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { toast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { hasFeature } from '@/config/plans';
-import { canUseTemplateForPlan } from '@/services/templateAccess';
+import { canUseTemplateForPlan, templateRequiresPremiumTemplates } from '@/services/templateAccess';
 import type { AppMusic, AppTemplate, MusicLibraryProvider, MusicLibraryProviderId, MusicLicenseEvaluation, MusicLicenseStatus } from '@/types';
 
 const INITIAL_TEMPLATE_COUNT = 32;
@@ -231,14 +230,18 @@ function TemplateCard({
   activeMotionId,
   setActiveMotionId,
   isFavorite,
+  isSpotlight,
   onToggleFavorite,
+  onSpotlight,
   onUse,
 }: {
   template: AppTemplate;
   activeMotionId: string | null;
   setActiveMotionId: Dispatch<SetStateAction<string | null>>;
   isFavorite: boolean;
+  isSpotlight: boolean;
   onToggleFavorite: (id: string) => void;
+  onSpotlight: (id: string) => void;
   onUse: (template: AppTemplate) => void;
 }) {
   const primary = template.colors?.primary || '#7c3aed';
@@ -246,29 +249,42 @@ function TemplateCard({
   const motionVideoUrl = template.animationUrl && /\.(webm|mp4|mov)(\?|$)/i.test(template.animationUrl) ? template.animationUrl : '';
   const isMotionActive = Boolean(motionVideoUrl && activeMotionId === template.id && canUseTransparentMotionOverlay());
   const animated = isTemplateAnimated(template);
+  const premium = templateRequiresPremiumTemplates(template);
 
   return (
     <div
-      className="group cursor-pointer animate-fade-in"
+      className="group animate-fade-in cursor-pointer"
       role="button"
       tabIndex={0}
       aria-label={`Usar moldura ${template.name} na gravação`}
       onClick={() => onUse(template)}
       onKeyDown={(event) => runOnUseKey(event, () => onUse(template))}
-      onMouseEnter={() => template.animationUrl && setActiveMotionId(template.id)}
+      onFocus={() => onSpotlight(template.id)}
+      onMouseEnter={() => {
+        onSpotlight(template.id);
+        if (template.animationUrl) setActiveMotionId(template.id);
+      }}
       onMouseLeave={() => template.animationUrl && setActiveMotionId(null)}
-      onTouchStart={() => template.animationUrl && setActiveMotionId((current) => current === template.id ? null : template.id)}
+      onTouchStart={() => {
+        onSpotlight(template.id);
+        if (template.animationUrl) setActiveMotionId((current) => current === template.id ? null : template.id);
+      }}
     >
-      <div className="overflow-hidden rounded-2xl border border-white/[0.08] transition-all hover:border-brand-500/30">
+      <div className={`overflow-hidden rounded-[28px] border bg-[#10131c] shadow-[0_18px_55px_rgba(0,0,0,0.24)] transition-all duration-300 group-hover:-translate-y-1 group-hover:border-brand-300/35 group-hover:shadow-[0_28px_75px_rgba(0,0,0,0.38)] ${
+        isSpotlight
+          ? 'border-brand-200/70 ring-2 ring-brand-500/18'
+          : 'border-white/[0.08]'
+      }`}>
         <div
-          className="relative flex max-h-56 items-center justify-center overflow-hidden"
-          style={{ aspectRatio: templateAspectRatio(template.aspectRatio), background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
+          className="relative flex min-h-[220px] items-center justify-center overflow-hidden sm:min-h-[260px]"
+          style={{ aspectRatio: templateAspectRatio(template.aspectRatio), background: `radial-gradient(circle at 28% 18%, ${primary}55, transparent 34%), linear-gradient(135deg, ${primary}30, ${secondary}1f 48%, rgba(0,0,0,0.78))` }}
         >
-          <BrandWordmark className="text-3xl drop-shadow-lg" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_34%,rgba(0,0,0,0.38))]" />
+          <BrandWordmark className="relative text-3xl opacity-80 drop-shadow-lg" />
           {isMotionActive && motionVideoUrl ? (
             <video
               src={motionVideoUrl}
-              className="absolute inset-0 h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-contain p-2"
               autoPlay
               muted
               loop
@@ -278,6 +294,22 @@ function TemplateCard({
           ) : (
             <TemplateOverlayRenderer template={template} preferPreview />
           )}
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase backdrop-blur-md ${
+              animated
+                ? 'border-cyan-200/35 bg-cyan-400/16 text-cyan-50'
+                : 'border-white/12 bg-black/35 text-white/72'
+            }`}>
+              {animated ? 'Animado' : 'Estático'}
+            </span>
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase backdrop-blur-md ${
+              premium
+                ? 'border-amber-200/35 bg-amber-400/16 text-amber-50'
+                : 'border-emerald-200/25 bg-emerald-400/12 text-emerald-50'
+            }`}>
+              {premium ? 'Premium' : 'Grátis'}
+            </span>
+          </div>
           <button
             type="button"
             onClick={(event) => {
@@ -294,23 +326,20 @@ function TemplateCard({
           >
             <Star className="h-4 w-4" fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
-            <span className="rounded-full bg-black/45 px-3 py-1.5 text-xs font-medium text-white">Usar template</span>
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/82 via-black/28 to-transparent" />
+          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 opacity-0 transition-all duration-300 group-hover:opacity-100">
+            <span className="rounded-full border border-white/12 bg-black/50 px-3 py-1.5 text-xs font-black text-white backdrop-blur-md">Usar moldura</span>
+            <span className="rounded-full border border-brand-200/30 bg-brand-500/22 px-2.5 py-1 text-[11px] font-bold text-brand-50 backdrop-blur-md">{template.aspectRatio}</span>
           </div>
         </div>
-        <div className="bg-surface-50 p-3">
-          <p className="truncate text-sm font-semibold text-white">{template.name}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge variant="purple">{templateCategoryLabel(template.category)}</Badge>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-white/55">
-              {template.aspectRatio}
+        <div className="border-t border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] p-4">
+          <p className="line-clamp-2 min-h-[2.5rem] text-sm font-black leading-tight text-white">{template.name}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-brand-200/18 bg-brand-500/10 px-2.5 py-1 text-[11px] font-bold text-brand-100">
+              {templateCategoryLabel(template.category)}
             </span>
-            <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${
-              animated
-                ? 'border-cyan-300/25 bg-cyan-500/12 text-cyan-100'
-                : 'border-white/10 bg-white/[0.04] text-white/55'
-            }`}>
-              {animated ? 'Animado' : 'Estático'}
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/55">
+              {template.aspectRatio}
             </span>
           </div>
         </div>
@@ -335,12 +364,14 @@ export default function TemplatesPage() {
   const [musicProgress, setMusicProgress] = useState(0);
   const [visibleCount, setVisibleCount] = useState(INITIAL_TEMPLATE_COUNT);
   const [activeMotionId, setActiveMotionId] = useState<string | null>(null);
+  const [spotlightTemplateId, setSpotlightTemplateId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [musicCategoryFilter, setMusicCategoryFilter] = useState<'all' | AppMusic['category']>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [aspectFilter, setAspectFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [accessFilter, setAccessFilter] = useState<'all' | 'free' | 'premium'>('all');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favorites, setFavorites] = useState<MediaFavorites>(() => getMediaFavorites(user?.uid));
   const [motionOnly, setMotionOnly] = useState(false);
@@ -388,6 +419,16 @@ export default function TemplatesPage() {
     () => templates.filter((template) => canUseTemplateForPlan(template, user?.planId, isAdmin)),
     [isAdmin, templates, user?.planId]
   );
+  const premiumTemplateCount = useMemo(
+    () => availableTemplates.filter((template) => templateRequiresPremiumTemplates(template)).length,
+    [availableTemplates]
+  );
+  const animatedTemplateCount = useMemo(
+    () => availableTemplates.filter((template) => isTemplateAnimated(template)).length,
+    [availableTemplates]
+  );
+  const staticTemplateCount = Math.max(0, availableTemplates.length - animatedTemplateCount);
+  const freeTemplateCount = Math.max(0, availableTemplates.length - premiumTemplateCount);
   const templateCategoryOptions = useMemo(() => {
     const categories = Array.from(new Set(availableTemplates.map((template) => template.category)))
       .sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b), 'pt-BR'));
@@ -406,12 +447,14 @@ export default function TemplatesPage() {
       if (sourceFilter !== 'all' && (template.source || 'generated') !== sourceFilter) return false;
       if (typeFilter === 'static' && animated) return false;
       if (typeFilter === 'animated' && !animated) return false;
+      if (accessFilter === 'free' && templateRequiresPremiumTemplates(template)) return false;
+      if (accessFilter === 'premium' && !templateRequiresPremiumTemplates(template)) return false;
       if (favoritesOnly && !favoriteTemplateIds.has(template.id)) return false;
       if (motionOnly && !animated) return false;
       return true;
     });
     return sortFavoritesFirst(filtered, favoriteTemplateIds);
-  }, [aspectFilter, availableTemplates, categoryFilter, favoriteTemplateIds, favoritesOnly, motionOnly, searchTerm, sourceFilter, typeFilter]);
+  }, [accessFilter, aspectFilter, availableTemplates, categoryFilter, favoriteTemplateIds, favoritesOnly, motionOnly, searchTerm, sourceFilter, typeFilter]);
   const sortedMusic = useMemo(
     () => sortFavoritesFirst(music, favoriteMusicIds),
     [favoriteMusicIds, music]
@@ -423,6 +466,10 @@ export default function TemplatesPage() {
   const visibleTemplates = useMemo(
     () => filteredTemplates.slice(0, visibleCount),
     [filteredTemplates, visibleCount]
+  );
+  const spotlightTemplate = useMemo(
+    () => visibleTemplates.find((template) => template.id === spotlightTemplateId) || visibleTemplates[0],
+    [spotlightTemplateId, visibleTemplates]
   );
   const sectionTabs = useMemo(() => [
     { id: 'frames' as const, label: 'Molduras', count: availableTemplates.length, icon: <Layers className="h-4 w-4" /> },
@@ -436,6 +483,7 @@ export default function TemplatesPage() {
     || aspectFilter !== 'all'
     || sourceFilter !== 'all'
     || typeFilter !== 'all'
+    || accessFilter !== 'all'
     || favoritesOnly
     || motionOnly;
 
@@ -546,6 +594,7 @@ export default function TemplatesPage() {
     setAspectFilter('all');
     setSourceFilter('all');
     setTypeFilter('all');
+    setAccessFilter('all');
     setFavoritesOnly(false);
     setMotionOnly(false);
   }
@@ -974,110 +1023,156 @@ export default function TemplatesPage() {
         </div>
 
         {activeSection === 'frames' && (
-        <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-2.5">
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar por nome, tema, efeito..."
-                className="h-11 w-full rounded-[18px] border border-white/10 bg-white/[0.055] pl-9 pr-10 text-sm font-medium text-white placeholder-white/30 outline-none transition-all focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/15"
-              />
-              {searchTerm && (
+          <div className="overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#090c13] shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
+            <div className="bg-[radial-gradient(circle_at_top_left,rgba(69,92,255,0.22),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.058),rgba(255,255,255,0.018))] p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-200/75">Galeria de molduras</p>
+                  <h2 className="mt-1 text-2xl font-black text-white">Escolha sua moldura</h2>
+                  <p className="mt-1 text-sm text-white/45">Selecione uma moldura para aplicar ao vídeo.</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 sm:flex">
+                  <span className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-center">
+                    <span className="block text-base font-black text-white">{filteredTemplates.length}</span>
+                    <span className="text-[11px] font-bold text-white/38">resultados</span>
+                  </span>
+                  <span className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-center">
+                    <span className="block text-base font-black text-white">{staticTemplateCount}</span>
+                    <span className="text-[11px] font-bold text-white/38">estáticas</span>
+                  </span>
+                  <span className="rounded-2xl border border-white/[0.08] bg-black/22 px-3 py-2 text-center">
+                    <span className="block text-base font-black text-white">{animatedTemplateCount}</span>
+                    <span className="text-[11px] font-bold text-white/38">animadas</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="relative min-w-0">
+                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+                  <input
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Buscar por nome, tema, efeito..."
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-black/24 pl-10 pr-10 text-sm font-semibold text-white placeholder-white/30 outline-none transition-all focus:border-brand-400/60 focus:ring-2 focus:ring-brand-500/15"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      aria-label="Limpar busca"
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-white/45 transition hover:bg-white/[0.08] hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
                 <button
                   type="button"
-                  aria-label="Limpar busca"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/45 hover:bg-white/[0.08] hover:text-white"
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  className={`flex h-12 shrink-0 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-black transition-all ${
+                    filtersOpen || hasActiveFilters
+                      ? 'border-brand-400/45 bg-brand-500/15 text-brand-100'
+                      : 'border-white/10 bg-black/22 text-white/68 hover:bg-white/[0.055] hover:text-white'
+                  }`}
                 >
-                  <X className="h-4 w-4" />
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Ajustes
                 </button>
-              )}
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((open) => !open)}
-              className={`flex h-11 shrink-0 items-center gap-2 rounded-[18px] border px-3 text-sm font-bold transition-all md:hidden ${
-                filtersOpen || hasActiveFilters
-                  ? 'border-brand-400/45 bg-brand-500/15 text-brand-100'
-                  : 'border-white/10 bg-white/[0.055] text-white/68'
-              }`}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filtros
-            </button>
-          </div>
 
-          <div className={`${filtersOpen ? 'grid' : 'hidden'} mt-2 gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_1fr_auto_auto_auto]`}>
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
-            >
-              {templateCategoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select
-              value={aspectFilter}
-              onChange={(event) => setAspectFilter(event.target.value)}
-              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
-            >
-              {aspectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select
-              value={sourceFilter}
-              onChange={(event) => setSourceFilter(event.target.value)}
-              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
-            >
-              {sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <select
-              value={typeFilter}
-              onChange={(event) => {
-                setTypeFilter(event.target.value);
-                if (event.target.value !== 'all') setMotionOnly(false);
-              }}
-              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
-            >
-              <option value="all">{canUseAnimatedTemplates ? 'Estáticos e animados' : 'Estáticos'}</option>
-              <option value="static">Estáticos</option>
-              {canUseAnimatedTemplates && <option value="animated">Animados</option>}
-            </select>
-            <button
-              type="button"
-              onClick={() => setFavoritesOnly((current) => !current)}
-              className={`h-10 rounded-[16px] border px-3 text-sm font-bold transition-all ${
-                favoritesOnly
-                  ? 'border-amber-300/50 bg-amber-400/15 text-amber-100'
-                  : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
-              }`}
-            >
-              Favoritos
-            </button>
-            {canUseAnimatedTemplates && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMotionOnly((current) => !current);
-                  setTypeFilter('all');
-                }}
-                className={`h-10 rounded-[16px] border px-3 text-sm font-bold transition-all ${
-                  motionOnly ? 'border-cyan-300/50 bg-cyan-400/15 text-cyan-100' : 'border-white/10 bg-white/[0.055] text-white/60 hover:text-white'
-                }`}
-              >
-                Animados
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-              className="h-10 rounded-[16px] border border-white/10 bg-white/[0.045] px-3 text-sm font-bold text-white/58 transition-all hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Limpar
-            </button>
+            <div className="space-y-3 p-3 sm:p-4">
+              <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1">
+                {[
+                  { label: 'Todos', active: accessFilter === 'all' && !motionOnly && !favoritesOnly, onClick: () => { setAccessFilter('all'); setMotionOnly(false); setFavoritesOnly(false); }, count: availableTemplates.length },
+                  { label: 'Grátis', active: accessFilter === 'free', onClick: () => setAccessFilter('free'), count: freeTemplateCount },
+                  { label: 'Premium', active: accessFilter === 'premium', onClick: () => setAccessFilter('premium'), count: premiumTemplateCount },
+                ].map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={chip.onClick}
+                    className={`h-10 shrink-0 rounded-full border px-3.5 text-xs font-black transition-all ${
+                      chip.active
+                        ? 'border-brand-300/50 bg-brand-500/18 text-white shadow-[0_0_28px_rgba(90,108,255,0.16)]'
+                        : 'border-white/[0.09] bg-white/[0.045] text-white/56 hover:border-white/[0.18] hover:bg-white/[0.075] hover:text-white'
+                    }`}
+                  >
+                    {chip.label}<span className="ml-1.5 text-white/38">{chip.count}</span>
+                  </button>
+                ))}
+                {canUseAnimatedTemplates && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMotionOnly((current) => !current);
+                      setTypeFilter('all');
+                    }}
+                    className={`h-10 shrink-0 rounded-full border px-3.5 text-xs font-black transition-all ${
+                      motionOnly
+                        ? 'border-cyan-300/45 bg-cyan-400/14 text-cyan-100 shadow-[0_0_26px_rgba(34,211,238,0.12)]'
+                        : 'border-white/[0.09] bg-white/[0.045] text-white/56 hover:border-white/[0.18] hover:bg-white/[0.075] hover:text-white'
+                    }`}
+                  >
+                    Animados<span className="ml-1.5 text-white/38">{animatedTemplateCount}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFavoritesOnly((current) => !current)}
+                  className={`h-10 shrink-0 rounded-full border px-3.5 text-xs font-black transition-all ${
+                    favoritesOnly
+                      ? 'border-amber-300/45 bg-amber-400/16 text-amber-100 shadow-[0_0_26px_rgba(251,191,36,0.14)]'
+                      : 'border-white/[0.09] bg-white/[0.045] text-white/56 hover:border-white/[0.18] hover:bg-white/[0.075] hover:text-white'
+                  }`}
+                >
+                  Favoritos<span className="ml-1.5 text-white/38">{favoriteTemplateIds.size}</span>
+                </button>
+              </div>
+
+              <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1">
+                {templateCategoryOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setCategoryFilter(option.value)}
+                    className={`h-9 shrink-0 rounded-full border px-3 text-xs font-bold transition-all ${
+                      categoryFilter === option.value
+                        ? 'border-brand-300/50 bg-brand-500/18 text-white'
+                        : 'border-white/[0.08] bg-white/[0.04] text-white/52 hover:bg-white/[0.07] hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className={`${filtersOpen ? 'grid' : 'hidden'} gap-2 md:grid md:grid-cols-[1fr_1fr_1fr_auto]`}>
+                <select value={aspectFilter} onChange={(event) => setAspectFilter(event.target.value)} className="h-10 rounded-[16px] border border-white/10 bg-[#151823] px-3 text-sm font-medium text-white outline-none">
+                  {aspectOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} className="h-10 rounded-[16px] border border-white/10 bg-[#151823] px-3 text-sm font-medium text-white outline-none">
+                  {sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+                <select
+                  value={typeFilter}
+                  onChange={(event) => {
+                    setTypeFilter(event.target.value);
+                    if (event.target.value !== 'all') setMotionOnly(false);
+                  }}
+                  className="h-10 rounded-[16px] border border-white/10 bg-[#151823] px-3 text-sm font-medium text-white outline-none"
+                >
+                  <option value="all">{canUseAnimatedTemplates ? 'Estáticos e animados' : 'Estáticos'}</option>
+                  <option value="static">Estáticos</option>
+                  {canUseAnimatedTemplates && <option value="animated">Animados</option>}
+                </select>
+                <button type="button" onClick={clearFilters} disabled={!hasActiveFilters} className="h-10 rounded-[16px] border border-white/10 bg-white/[0.045] px-3 text-sm font-bold text-white/58 transition-all hover:text-white disabled:cursor-not-allowed disabled:opacity-40">
+                  Limpar
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
         )}
       </div>
 
@@ -1375,7 +1470,77 @@ export default function TemplatesPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          {spotlightTemplate && (() => {
+            const primary = spotlightTemplate.colors?.primary || '#7c3aed';
+            const secondary = spotlightTemplate.colors?.secondary || '#00d4ff';
+            const animated = isTemplateAnimated(spotlightTemplate);
+            const premium = templateRequiresPremiumTemplates(spotlightTemplate);
+
+            return (
+              <section className="overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#080b12] shadow-[0_24px_90px_rgba(0,0,0,0.34)]">
+                <div className="grid gap-0 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1fr)]">
+                  <div
+                    className="relative min-h-[300px] overflow-hidden lg:min-h-[420px]"
+                    style={{ background: `radial-gradient(circle at 25% 20%, ${primary}55, transparent 32%), radial-gradient(circle at 78% 80%, ${secondary}38, transparent 34%), linear-gradient(135deg, rgba(12,15,25,0.98), rgba(4,6,10,0.96))` }}
+                  >
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.35))]" />
+                    <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
+                      <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase backdrop-blur-md ${animated ? 'border-cyan-200/35 bg-cyan-400/16 text-cyan-50' : 'border-white/12 bg-black/35 text-white/72'}`}>
+                        {animated ? 'Animado' : 'Estático'}
+                      </span>
+                      <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase backdrop-blur-md ${premium ? 'border-amber-200/35 bg-amber-400/16 text-amber-50' : 'border-emerald-200/25 bg-emerald-400/12 text-emerald-50'}`}>
+                        {premium ? 'Premium' : 'Grátis'}
+                      </span>
+                    </div>
+                    <BrandWordmark className="absolute left-1/2 top-1/2 text-5xl opacity-35 -translate-x-1/2 -translate-y-1/2 drop-shadow-lg" />
+                    <div className="absolute inset-5 rounded-[28px] border border-white/[0.08] bg-black/18 shadow-inner">
+                      <TemplateOverlayRenderer template={spotlightTemplate} preferPreview />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-between gap-6 border-t border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.018))] p-5 lg:border-l lg:border-t-0 lg:p-7">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-brand-200/75">Preview da moldura</p>
+                      <h3 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">{spotlightTemplate.name}</h3>
+                      <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/48">
+                        Visualize a moldura antes de aplicar no vídeo. Passe pelos cards abaixo para trocar este preview.
+                      </p>
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-brand-200/18 bg-brand-500/10 px-3 py-1.5 text-xs font-bold text-brand-100">
+                          {templateCategoryLabel(spotlightTemplate.category)}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs font-bold text-white/55">
+                          {spotlightTemplate.aspectRatio}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs font-bold text-white/55">
+                          {(spotlightTemplate.source || 'generated') === 'custom' ? 'Enviada' : 'SIX3'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                      <Button onClick={() => openRecorderWithTemplate(spotlightTemplate)} className="justify-center">
+                        Usar na gravação
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTemplateFavorite(spotlightTemplate.id)}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-bold transition-all ${
+                          favoriteTemplateIds.has(spotlightTemplate.id)
+                            ? 'border-amber-200/45 bg-amber-400/16 text-amber-100'
+                            : 'border-white/10 bg-white/[0.055] text-white/62 hover:bg-white/[0.08] hover:text-white'
+                        }`}
+                      >
+                        <Star className="h-4 w-4" fill={favoriteTemplateIds.has(spotlightTemplate.id) ? 'currentColor' : 'none'} />
+                        Favorito
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleTemplates.map((template) => (
               <TemplateCard
                 key={template.id}
@@ -1383,7 +1548,9 @@ export default function TemplatesPage() {
                 activeMotionId={activeMotionId}
                 setActiveMotionId={setActiveMotionId}
                 isFavorite={favoriteTemplateIds.has(template.id)}
+                isSpotlight={spotlightTemplate?.id === template.id}
                 onToggleFavorite={handleToggleTemplateFavorite}
+                onSpotlight={setSpotlightTemplateId}
                 onUse={openRecorderWithTemplate}
               />
             ))}

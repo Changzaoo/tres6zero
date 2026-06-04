@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import {
   Activity,
-  AlertTriangle,
   Ban,
   CalendarDays,
   CheckCircle2,
@@ -30,12 +29,20 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
+  addAdminUserNote,
+  adjustAdminUserPlanDays,
   banAdminUser,
   createSupportUser,
   getAdminOverview,
   getAdminUserDetails,
+  grantAdminUserLifetime,
+  grantAdminUserTrial,
+  reactivateAdminUser,
   setAdminUserRole,
+  suspendAdminUser,
   unbanAdminUser,
+  updateAdminUserPlan,
+  type AdminPlanOrigin,
 } from '@/services/adminService';
 import { getAdminSession } from '@/services/authService';
 import { getPaidCustomers } from '@/services/billingService';
@@ -44,7 +51,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { StatCard } from '@/components/ui/StatCard';
 import { toast } from '@/components/ui/Toast';
 import { AdminSupportPanel } from '@/components/support/AdminSupportPanel';
-import type { PlanId } from '@/config/plans';
+import { PLAN_ENTITLEMENTS, PLANS, type PlanId } from '@/config/plans';
 import type {
   AdminAuditLog,
   AdminMediaItem,
@@ -67,9 +74,38 @@ type PaidCustomer = {
 };
 
 type AdminSection = 'users' | 'events' | 'media' | 'logins' | 'customers';
-type AdminDrawerTab = 'summary' | 'logins' | 'devices' | 'security' | 'audit';
+type AdminDrawerTab = 'summary' | 'billing' | 'usage' | 'logins' | 'devices' | 'security' | 'audit' | 'notes';
 type LoginFilter = 'all' | '24h' | '7d' | '30d' | 'suspicious' | 'failed' | 'success';
 type BanDuration = 'permanent' | '1d' | '7d' | '30d' | 'custom';
+type UserStatusFilter = 'all' | 'active' | 'inactive' | 'expired' | 'trial' | 'lifetime' | 'banned' | 'suspended' | 'expiring';
+type UserSort = 'recent' | 'oldest' | 'expiration_asc' | 'expiration_desc' | 'last_login' | 'usage_desc';
+type DayAdjustMode = 'add' | 'remove' | 'set_expiration' | 'expire_now';
+
+type PlanFormState = {
+  planId: PlanId;
+  startsImmediately: boolean;
+  expiresAt: string;
+  keepCurrentExpiration: boolean;
+  lifetime: boolean;
+  special: boolean;
+  origin: AdminPlanOrigin;
+  resetLimits: boolean;
+  applyPlanLimits: boolean;
+  reason: string;
+};
+
+type DaysFormState = {
+  mode: DayAdjustMode;
+  days: number;
+  expiresAt: string;
+  reason: string;
+};
+
+type TrialFormState = {
+  planId: PlanId;
+  days: number;
+  reason: string;
+};
 
 const mediaKindLabels: Record<string, string> = {
   event_cover: 'Capa do evento',
@@ -88,6 +124,52 @@ const authTypeLabels: Record<string, string> = {
   password_reset: 'Reset de senha',
   logout: 'Logout',
 };
+
+const planOriginLabels: Record<string, string> = {
+  payment: 'Pagamento',
+  manual_admin: 'Manual pelo admin',
+  affiliate: 'Afiliado',
+  coupon: 'Cupom',
+  trial: 'Teste grátis',
+  promotion: 'Promoção',
+  support: 'Suporte',
+};
+
+const planStatusLabels: Record<string, string> = {
+  active: 'Ativo',
+  inactive: 'Sem plano ativo',
+  expired: 'Assinatura expirada',
+  trial: 'Teste grátis',
+  lifetime: 'Vitalício',
+  banned: 'Banido',
+  suspended: 'Suspenso',
+};
+
+const planFeatureLabels: Record<string, string> = {
+  basic_templates: 'Templates essenciais',
+  premium_templates: 'Templates premium e animados',
+  custom_template_upload: 'Upload de template',
+  offline_recent: 'Sessões recentes offline',
+  offline_sync: 'Sincronização offline',
+  public_gallery: 'Galeria pública',
+  qr_code: 'QR Code',
+  basic_leads: 'Leads básicos',
+  csv_export: 'Exportação CSV',
+  basic_effects: 'Efeitos básicos',
+  popular_effects: 'Efeitos populares',
+  ai_auto_edit: 'Edição com IA',
+  brand_customization: 'Personalização de marca',
+  advanced_analytics: 'Analytics avançado',
+  priority_support: 'Suporte prioritário',
+};
+
+function safePlanId(value?: string | null): PlanId {
+  return value === 'pro' || value === 'unlimited' ? value : 'starter';
+}
+
+function planName(value?: string | null) {
+  return PLANS.find((plan) => plan.id === value)?.name || (value ? value : 'Sem plano');
+}
 
 function parseDate(value?: string | null) {
   if (!value) return null;
@@ -112,6 +194,105 @@ function formatDateTimeInput(value?: string | null) {
   if (!date) return '';
   const offsetMs = date.getTimezoneOffset() * 60 * 1000;
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function dateTimeInputToIso(value: string) {
+  const date = parseDate(value);
+  return date ? date.toISOString() : null;
+}
+
+function addDaysIso(days: number, base = new Date()) {
+  return new Date(base.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function planExpiryText(user: Pick<AdminUserOverview, 'planLifetime' | 'currentPeriodEnd' | 'planExpiresAt' | 'daysRemaining' | 'planId' | 'subscriptionStatus'>) {
+  if (user.planLifetime) return 'Plano vitalício';
+  if (!user.planId || user.subscriptionStatus !== 'active') return 'Sem plano ativo';
+  const end = user.currentPeriodEnd || user.planExpiresAt;
+  const date = parseDate(end);
+  if (!date) return 'Sem expiração';
+  const days = typeof user.daysRemaining === 'number'
+    ? user.daysRemaining
+    : Math.ceil((date.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  if (days > 1) return `Expira em ${days} dias`;
+  if (days === 1) return 'Expira amanhã';
+  if (days === 0) return 'Expira hoje';
+  if (days === -1) return 'Expirado há 1 dia';
+  return `Expirado há ${Math.abs(days)} dias`;
+}
+
+function planExpiryBadgeClass(user: Pick<AdminUserOverview, 'planLifetime' | 'daysRemaining' | 'currentPeriodEnd' | 'planExpiresAt' | 'planId' | 'subscriptionStatus'>) {
+  if (user.planLifetime) return 'bg-brand-500/14 text-brand-100 ring-brand-300/25';
+  if (!user.planId || user.subscriptionStatus !== 'active') return 'bg-white/[0.06] text-white/50 ring-white/10';
+  const end = parseDate(user.currentPeriodEnd || user.planExpiresAt);
+  if (!end) return 'bg-blue-500/12 text-blue-100 ring-blue-400/20';
+  const days = typeof user.daysRemaining === 'number'
+    ? user.daysRemaining
+    : Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  if (days > 15) return 'bg-green-500/12 text-green-100 ring-green-400/20';
+  if (days > 0) return 'bg-yellow-500/12 text-yellow-100 ring-yellow-400/20';
+  return 'bg-red-500/14 text-red-100 ring-red-400/25';
+}
+
+function planStatusLabel(user: AdminUserOverview) {
+  return planStatusLabels[user.planStatus || ''] || banLabel(user);
+}
+
+function defaultPlanForm(user?: AdminUserOverview | null): PlanFormState {
+  return {
+    planId: safePlanId(user?.planId),
+    startsImmediately: true,
+    expiresAt: formatDateTimeInput(user?.currentPeriodEnd || user?.planExpiresAt || addDaysIso(30)),
+    keepCurrentExpiration: Boolean(user?.currentPeriodEnd || user?.planExpiresAt),
+    lifetime: Boolean(user?.planLifetime),
+    special: Boolean(user?.planSpecial),
+    origin: (user?.planOrigin as AdminPlanOrigin) || 'manual_admin',
+    resetLimits: false,
+    applyPlanLimits: true,
+    reason: '',
+  };
+}
+
+function defaultDaysForm(user?: AdminUserOverview | null): DaysFormState {
+  return {
+    mode: 'add',
+    days: 30,
+    expiresAt: formatDateTimeInput(user?.currentPeriodEnd || user?.planExpiresAt || addDaysIso(30)),
+    reason: '',
+  };
+}
+
+function defaultTrialForm(user?: AdminUserOverview | null): TrialFormState {
+  return {
+    planId: safePlanId(user?.planId),
+    days: 7,
+    reason: '',
+  };
+}
+
+function recalcSummaryFromUsers(summary: AdminOverview['summary'], users: AdminUserOverview[]) {
+  const expiringWithin = (days: number) => users.filter((user) => {
+    if (user.planLifetime || user.planStatus !== 'active' || typeof user.daysRemaining !== 'number') return false;
+    return user.daysRemaining >= 0 && user.daysRemaining <= days;
+  }).length;
+
+  return {
+    ...summary,
+    totalUsers: users.length,
+    supportUsers: users.filter((user) => user.role === 'support').length,
+    disabledUsers: users.filter((user) => user.disabled).length,
+    activeUsers: users.filter((user) => ['active', 'trial', 'lifetime'].includes(user.planStatus || '')).length,
+    expiredUsers: users.filter((user) => user.planStatus === 'expired').length,
+    trialUsers: users.filter((user) => user.planStatus === 'trial').length,
+    bannedOrSuspendedUsers: users.filter((user) => user.planStatus === 'banned' || user.planStatus === 'suspended').length,
+    lifetimeUsers: users.filter((user) => user.planStatus === 'lifetime').length,
+    expiringIn7Days: expiringWithin(7),
+    expiringIn30Days: expiringWithin(30),
+    usersByPlan: PLANS.reduce((acc, plan) => {
+      acc[plan.id] = users.filter((user) => user.planId === plan.id).length;
+      return acc;
+    }, {} as Record<string, number>),
+  };
 }
 
 function shortId(value?: string | null, size = 8) {
@@ -163,7 +344,16 @@ function auditActionLabel(action: string) {
   if (action === 'USER_UNBANNED') return 'Usuário desbanido';
   if (action === 'USER_ROLE_UPDATED') return 'Cargo alterado';
   if (action === 'SUPPORT_USER_CREATED') return 'Conta de suporte criada';
-  return action || 'Acao administrativa';
+  if (action === 'PLAN_CHANGED') return 'Plano alterado';
+  if (action === 'DAYS_ADDED') return 'Dias adicionados';
+  if (action === 'DAYS_REMOVED') return 'Dias removidos';
+  if (action === 'PLAN_EXPIRED') return 'Plano expirado';
+  if (action === 'USER_SUSPENDED') return 'Usuário suspenso';
+  if (action === 'USER_REACTIVATED') return 'Usuário reativado';
+  if (action === 'TRIAL_GRANTED') return 'Teste grátis liberado';
+  if (action === 'LIFETIME_GRANTED') return 'Plano vitalício liberado';
+  if (action === 'MANUAL_NOTE_ADDED') return 'Nota interna adicionada';
+  return action || 'Ação administrativa';
 }
 
 function accessLabel(role?: AdminUserOverview['role']) {
@@ -266,6 +456,15 @@ export default function AdminPage() {
   const [supportFormOpen, setSupportFormOpen] = useState(false);
   const [supportForm, setSupportForm] = useState({ name: '', email: '', password: '' });
   const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userPlanFilter, setUserPlanFilter] = useState<'all' | PlanId>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>('all');
+  const [userSort, setUserSort] = useState<UserSort>('recent');
+  const [planForm, setPlanForm] = useState<PlanFormState>(() => defaultPlanForm());
+  const [daysForm, setDaysForm] = useState<DaysFormState>(() => defaultDaysForm());
+  const [trialForm, setTrialForm] = useState<TrialFormState>(() => defaultTrialForm());
+  const [noteText, setNoteText] = useState('');
+  const [adminActionSubmitting, setAdminActionSubmitting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -329,6 +528,40 @@ export default function AdminPage() {
     return map;
   }, [overview?.videos]);
 
+  const usageScoreByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    (overview?.events || []).forEach((event) => map.set(event.ownerId, (map.get(event.ownerId) || 0) + 2));
+    (overview?.videos || []).forEach((video) => map.set(video.ownerId, (map.get(video.ownerId) || 0) + 3));
+    (overview?.media || []).forEach((item) => map.set(item.ownerId, (map.get(item.ownerId) || 0) + 1));
+    return map;
+  }, [overview?.events, overview?.media, overview?.videos]);
+
+  const filteredUsers = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    return [...(overview?.users || [])]
+      .filter((user) => {
+        if (query) {
+          const haystack = `${user.name} ${user.email} ${user.uid} ${user.companyName || ''}`.toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        if (userPlanFilter !== 'all' && user.planId !== userPlanFilter) return false;
+        if (userStatusFilter === 'expiring') {
+          if (user.planLifetime || user.planStatus !== 'active' || typeof user.daysRemaining !== 'number' || user.daysRemaining < 0 || user.daysRemaining > 15) return false;
+        } else if (userStatusFilter !== 'all' && user.planStatus !== userStatusFilter) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (userSort === 'oldest') return Date.parse(a.createdAt || '') - Date.parse(b.createdAt || '');
+        if (userSort === 'expiration_asc') return (Date.parse(a.currentPeriodEnd || a.planExpiresAt || '9999-12-31') || 0) - (Date.parse(b.currentPeriodEnd || b.planExpiresAt || '9999-12-31') || 0);
+        if (userSort === 'expiration_desc') return (Date.parse(b.currentPeriodEnd || b.planExpiresAt || '') || 0) - (Date.parse(a.currentPeriodEnd || a.planExpiresAt || '') || 0);
+        if (userSort === 'last_login') return (Date.parse(b.lastSignInAt || '') || 0) - (Date.parse(a.lastSignInAt || '') || 0);
+        if (userSort === 'usage_desc') return (usageScoreByUser.get(b.uid) || 0) - (usageScoreByUser.get(a.uid) || 0);
+        return (Date.parse(b.createdAt || b.lastSignInAt || '') || 0) - (Date.parse(a.createdAt || a.lastSignInAt || '') || 0);
+      });
+  }, [overview?.users, usageScoreByUser, userPlanFilter, userSearch, userSort, userStatusFilter]);
+
   function ownerFor(ownerId?: string | null) {
     return ownerId ? usersById.get(ownerId) || null : null;
   }
@@ -359,11 +592,7 @@ export default function AdminPage() {
         : [updatedUser, ...current.users];
       return {
         ...current,
-        summary: {
-          ...current.summary,
-          totalUsers: users.length,
-          supportUsers: users.filter((user) => user.role === 'support').length,
-        },
+        summary: recalcSummaryFromUsers(current.summary, users),
         users,
       };
     });
@@ -384,13 +613,23 @@ export default function AdminPage() {
   }
 
   async function openUserDetails(uid: string) {
+    const user = overview?.users.find((item) => item.uid === uid) || null;
     setDrawerUid(uid);
     setDrawerTab('summary');
     setLoginFilter('all');
+    setPlanForm(defaultPlanForm(user));
+    setDaysForm(defaultDaysForm(user));
+    setTrialForm(defaultTrialForm(user));
+    setNoteText('');
     if (selectedDetails?.user.uid !== uid) {
       setSelectedDetails(null);
     }
     await refreshUserDetails(uid);
+  }
+
+  async function openUserBilling(uid: string) {
+    await openUserDetails(uid);
+    setDrawerTab('billing');
   }
 
   async function copyText(value: string | null | undefined, label: string) {
@@ -518,6 +757,290 @@ export default function AdminPage() {
     }
   }
 
+  async function submitPlanChange(event: FormEvent<HTMLFormElement>, user: AdminUserOverview) {
+    event.preventDefault();
+    const reason = planForm.reason.trim();
+    if (reason.length < 3) {
+      toast.error('Informe o motivo da alteração do plano.');
+      return;
+    }
+
+    const expiresAt = planForm.lifetime || planForm.keepCurrentExpiration ? null : dateTimeInputToIso(planForm.expiresAt);
+    if (!planForm.lifetime && !planForm.keepCurrentExpiration && !expiresAt) {
+      toast.error('Informe uma data de expiração válida.');
+      return;
+    }
+
+    const nextExpiration = planForm.lifetime
+      ? 'Vitalício'
+      : planForm.keepCurrentExpiration
+        ? formatDateTime(user.currentPeriodEnd || user.planExpiresAt)
+        : formatDateTime(expiresAt);
+
+    const confirmed = window.confirm(
+      `Alterar plano de ${user.name || user.email || user.uid}?\n\n` +
+      `Atual: ${planName(user.planId)} - ${planExpiryText(user)}\n` +
+      `Novo: ${planName(planForm.planId)} - ${nextExpiration}\n\n` +
+      `Motivo: ${reason}`
+    );
+    if (!confirmed) return;
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await updateAdminUserPlan(user.uid, {
+        planId: planForm.planId,
+        startsImmediately: planForm.startsImmediately,
+        expiresAt,
+        keepCurrentExpiration: planForm.keepCurrentExpiration,
+        lifetime: planForm.lifetime,
+        special: planForm.special,
+        origin: planForm.origin,
+        resetLimits: planForm.resetLimits,
+        applyPlanLimits: planForm.applyPlanLimits,
+        reason,
+      });
+      mergeUserDetails(details);
+      setPlanForm(defaultPlanForm(details.user));
+      toast.success('Plano atualizado.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o plano.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  async function submitDaysAdjustment(event: FormEvent<HTMLFormElement>, user: AdminUserOverview) {
+    event.preventDefault();
+    const reason = daysForm.reason.trim();
+    if (reason.length < 3) {
+      toast.error('Informe o motivo do ajuste.');
+      return;
+    }
+
+    const expiresAt = daysForm.mode === 'set_expiration' ? dateTimeInputToIso(daysForm.expiresAt) : null;
+    if (daysForm.mode === 'set_expiration' && !expiresAt) {
+      toast.error('Informe uma nova expiração válida.');
+      return;
+    }
+
+    const currentEnd = parseDate(user.currentPeriodEnd || user.planExpiresAt);
+    const base = currentEnd && currentEnd.getTime() > Date.now() ? currentEnd : new Date();
+    const previewEnd = daysForm.mode === 'expire_now'
+      ? new Date(Date.now() - 60 * 1000)
+      : daysForm.mode === 'set_expiration'
+        ? parseDate(expiresAt)
+        : new Date(base.getTime() + (daysForm.mode === 'add' ? daysForm.days : -daysForm.days) * 24 * 60 * 60 * 1000);
+
+    const confirmed = window.confirm(
+      `Confirmar ajuste de dias para ${user.name || user.email || user.uid}?\n\n` +
+      `Expiração atual: ${formatDateTime(user.currentPeriodEnd || user.planExpiresAt)}\n` +
+      `Nova expiração: ${formatDateTime(previewEnd?.toISOString())}\n\n` +
+      `Motivo: ${reason}`
+    );
+    if (!confirmed) return;
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await adjustAdminUserPlanDays(user.uid, {
+        mode: daysForm.mode,
+        days: daysForm.mode === 'add' || daysForm.mode === 'remove' ? daysForm.days : undefined,
+        expiresAt,
+        reason,
+      });
+      mergeUserDetails(details);
+      setDaysForm(defaultDaysForm(details.user));
+      toast.success('Dias do plano ajustados.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível ajustar os dias.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  async function submitTrialGrant(event: FormEvent<HTMLFormElement>, user: AdminUserOverview) {
+    event.preventDefault();
+    const reason = trialForm.reason.trim();
+    if (reason.length < 3) {
+      toast.error('Informe o motivo do teste grátis.');
+      return;
+    }
+
+    const end = addDaysIso(trialForm.days);
+    const confirmed = window.confirm(
+      `Liberar teste grátis para ${user.name || user.email || user.uid}?\n\n` +
+      `Plano: ${planName(trialForm.planId)}\n` +
+      `Duração: ${trialForm.days} dia(s)\n` +
+      `Expira em: ${formatDateTime(end)}\n\n` +
+      `Motivo: ${reason}`
+    );
+    if (!confirmed) return;
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await grantAdminUserTrial(user.uid, {
+        planId: trialForm.planId,
+        days: trialForm.days,
+        reason,
+      });
+      mergeUserDetails(details);
+      setTrialForm(defaultTrialForm(details.user));
+      toast.success('Teste grátis liberado.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível liberar teste grátis.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  async function submitLifetimeGrant(user: AdminUserOverview) {
+    const reason = planForm.reason.trim();
+    if (reason.length < 3) {
+      toast.error('Informe o motivo no formulário de plano antes de tornar vitalício.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Tornar o plano de ${user.name || user.email || user.uid} vitalício?\n\n` +
+      `Plano: ${planName(planForm.planId)}\n` +
+      `Motivo: ${reason}`
+    );
+    if (!confirmed) return;
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await grantAdminUserLifetime(user.uid, {
+        planId: planForm.planId,
+        special: planForm.special,
+        reason,
+      });
+      mergeUserDetails(details);
+      setPlanForm(defaultPlanForm(details.user));
+      toast.success('Plano vitalício aplicado.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível tornar o plano vitalício.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  async function submitSuspend(user: AdminUserOverview) {
+    const reason = window.prompt(`Motivo para suspender ${user.name || user.email || user.uid}:`)?.trim();
+    if (!reason) return;
+    if (!window.confirm(`Suspender acesso de ${user.name || user.email || user.uid}?\n\nMotivo: ${reason}`)) return;
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await suspendAdminUser(user.uid, reason);
+      mergeUserDetails(details);
+      toast.success('Usuário suspenso.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível suspender usuário.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  async function submitReactivate(user: AdminUserOverview) {
+    const reason = window.prompt(`Motivo para reativar ${user.name || user.email || user.uid}:`)?.trim();
+    if (!reason) return;
+    if (!window.confirm(`Reativar acesso de ${user.name || user.email || user.uid}?\n\nMotivo: ${reason}`)) return;
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await reactivateAdminUser(user.uid, reason);
+      mergeUserDetails(details);
+      toast.success('Usuário reativado.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível reativar usuário.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  async function submitInternalNote(event: FormEvent<HTMLFormElement>, user: AdminUserOverview) {
+    event.preventDefault();
+    const note = noteText.trim();
+    if (note.length < 2) {
+      toast.error('Escreva uma nota interna.');
+      return;
+    }
+
+    setAdminActionSubmitting(true);
+    try {
+      const details = await addAdminUserNote(user.uid, note);
+      mergeUserDetails(details);
+      setNoteText('');
+      toast.success('Nota interna salva.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar a nota.');
+    } finally {
+      setAdminActionSubmitting(false);
+    }
+  }
+
+  function renderUserActions(user: AdminUserOverview, compact = false) {
+    const buttonBase = compact
+      ? 'inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-2xl border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50'
+      : 'inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50';
+
+    return (
+      <div className={compact ? 'mt-3 flex flex-wrap gap-2' : 'flex flex-wrap gap-2'}>
+        <button
+          type="button"
+          onClick={() => void openUserDetails(user.uid)}
+          className={`${buttonBase} border-white/10 bg-white/[0.04] text-white/65 hover:border-brand-300/30 hover:bg-brand-500/10 hover:text-white`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Detalhes
+        </button>
+        <button
+          type="button"
+          onClick={() => void openUserBilling(user.uid)}
+          className={`${buttonBase} border-brand-300/20 bg-brand-500/10 text-brand-100 hover:bg-brand-500/15`}
+        >
+          <UserCheck className="h-3.5 w-3.5" />
+          Plano
+        </button>
+        {user.role !== 'admin' && (
+          <button
+            type="button"
+            onClick={() => void updateSupportRole(user)}
+            disabled={roleUpdatingUid === user.uid}
+            className={`${buttonBase} border-cyan-300/20 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/15`}
+          >
+            <UserCog className="h-3.5 w-3.5" />
+            {roleUpdatingUid === user.uid
+              ? 'Alterando...'
+              : user.role === 'support'
+                ? 'Remover'
+                : 'Suporte'}
+          </button>
+        )}
+        {user.banned ? (
+          <button
+            type="button"
+            onClick={() => void submitUnban(user)}
+            disabled={banSubmitting}
+            className={`${buttonBase} border-green-400/25 bg-green-500/10 text-green-100 hover:bg-green-500/15`}
+          >
+            <Unlock className="h-3.5 w-3.5" />
+            Desbanir
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openBanDialog(user)}
+            disabled={banSubmitting}
+            className={`${buttonBase} border-red-400/20 bg-red-500/10 text-red-100 hover:bg-red-500/15`}
+          >
+            <Ban className="h-3.5 w-3.5" />
+            Banir
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const sections: { id: AdminSection; label: string; icon: ReactNode; count: string | number }[] = [
     { id: 'users', label: 'Usuários', icon: <Users className="h-4 w-4" />, count: overview?.summary.totalUsers ?? '-' },
     { id: 'events', label: 'Eventos', icon: <CalendarDays className="h-4 w-4" />, count: overview?.summary.totalEvents ?? '-' },
@@ -530,6 +1053,74 @@ export default function AdminPage() {
     return <LoadingState message="Validando acesso administrativo..." />;
   }
 
+  const renderUserFilters = () => (
+    <div className="mb-4 rounded-2xl border border-white/[0.08] bg-[#0d1017] p-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_12rem_13rem_13rem]">
+        <label className="block">
+          <span className="sr-only">Buscar usuário</span>
+          <input
+            value={userSearch}
+            onChange={(event) => setUserSearch(event.target.value)}
+            className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-brand-300/45"
+            placeholder="Buscar por nome, e-mail ou UID..."
+          />
+        </label>
+        <select
+          value={userPlanFilter}
+          onChange={(event) => setUserPlanFilter(event.target.value as 'all' | PlanId)}
+          className="h-11 rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none transition focus:border-brand-300/45"
+        >
+          <option value="all">Todos os planos</option>
+          {PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+        </select>
+        <select
+          value={userStatusFilter}
+          onChange={(event) => setUserStatusFilter(event.target.value as UserStatusFilter)}
+          className="h-11 rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none transition focus:border-brand-300/45"
+        >
+          <option value="all">Todos status</option>
+          <option value="active">Ativos</option>
+          <option value="expiring">Expirando em breve</option>
+          <option value="expired">Expirados</option>
+          <option value="trial">Teste grátis</option>
+          <option value="lifetime">Vitalícios</option>
+          <option value="banned">Banidos</option>
+          <option value="suspended">Suspensos</option>
+          <option value="inactive">Sem plano ativo</option>
+        </select>
+        <select
+          value={userSort}
+          onChange={(event) => setUserSort(event.target.value as UserSort)}
+          className="h-11 rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none transition focus:border-brand-300/45"
+        >
+          <option value="recent">Mais recentes</option>
+          <option value="oldest">Mais antigos</option>
+          <option value="expiration_asc">Expira primeiro</option>
+          <option value="expiration_desc">Mais dias restantes</option>
+          <option value="last_login">Último login</option>
+          <option value="usage_desc">Maior uso</option>
+        </select>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/38">
+        <span>{filteredUsers.length} de {overview?.users.length || 0} usuário(s) exibido(s)</span>
+        {(userSearch || userPlanFilter !== 'all' || userStatusFilter !== 'all' || userSort !== 'recent') && (
+          <button
+            type="button"
+            onClick={() => {
+              setUserSearch('');
+              setUserPlanFilter('all');
+              setUserStatusFilter('all');
+              setUserSort('recent');
+            }}
+            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-bold text-white/55 transition hover:text-white"
+          >
+            Limpar filtros
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   const renderUsers = () => {
     if (loadingOverview) {
       return <EmptyState>Carregando usuários e dispositivos...</EmptyState>;
@@ -539,89 +1130,91 @@ export default function AdminPage() {
       return <EmptyState>Nenhum usuário encontrado.</EmptyState>;
     }
 
+    if (filteredUsers.length === 0) {
+      return (
+        <>
+          {renderUserFilters()}
+          <EmptyState>Nenhum usuário encontrado para os filtros atuais.</EmptyState>
+        </>
+      );
+    }
+
     return (
       <div className="space-y-3">
-        <div className="space-y-3 md:hidden">
-          {overview.users.map((user) => {
+        {renderUserFilters()}
+        <div className="space-y-3 xl:hidden">
+          {filteredUsers.map((user) => {
             const mainDevice = user.devices[0];
+            const planText = planName(user.planId);
             return (
-              <div key={user.uid} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+              <div key={user.uid} className="rounded-[24px] border border-white/[0.08] bg-[#0d1017] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.18)]">
                 <div className="flex items-start justify-between gap-3">
                   <button type="button" onClick={() => void openUserDetails(user.uid)} className="min-w-0 text-left">
                     <p className="truncate text-sm font-semibold text-white">{user.name || user.email || 'Usuário'}</p>
                     <p className="mt-0.5 truncate text-xs text-white/42">{user.email || 'Sem e-mail'}</p>
                     <p className="mt-1 text-[11px] text-white/28">UID {shortId(user.uid, 12)}</p>
                   </button>
-                  <StatusBadge user={user} />
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <StatusBadge user={user} />
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${user.emailVerified ? 'bg-blue-500/12 text-blue-100' : 'bg-yellow-500/12 text-yellow-100'}`}>
+                      {user.emailVerified ? 'E-mail ok' : 'E-mail pendente'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 text-xs text-white/45">
-                  <p>Acesso: <span className="text-white/70">{accessLabel(user.role)}</span></p>
-                  <p>Plano: <span className="text-white/70">{user.planId || user.subscriptionStatus || 'Sem plano'}</span></p>
-                  <p>Último login: <span className="text-white/70">{formatDateTime(user.lastSignInAt)}</span></p>
-                  <p>Dispositivo: <span className="text-white/70">{mainDevice ? `${mainDevice.name} - ${mainDevice.ip || 'sem IP'}` : 'Sem dispositivo registrado'}</span></p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <DetailField label="Acesso" value={accessLabel(user.role)} />
+                  <DetailField label="Plano" value={planText} />
+                  <DetailField label="Vencimento" value={planExpiryText(user)} />
+                  <DetailField label="Origem" value={planOriginLabels[user.planOrigin || ''] || 'Não informada'} />
+                  <DetailField label="Último login" value={formatDateTime(user.lastSignInAt)} />
+                  <DetailField label="Criado em" value={formatDate(user.createdAt)} />
+                  <DetailField
+                    label="Dispositivo"
+                    value={mainDevice ? mainDevice.name : 'Sem dispositivo registrado'}
+                    wide
+                  />
+                  <DetailField
+                    label="IP e local"
+                    value={mainDevice ? `${mainDevice.ip || 'Sem IP'} - ${mainDevice.location || 'Sem localização'}` : 'Sem registro'}
+                    wide
+                    mono
+                  />
+                  <DetailField
+                    label="Dispositivos"
+                    value={mainDevice ? `${user.devices.length} dispositivo(s), último em ${formatDateTime(mainDevice.lastSeenAt)}` : '0 dispositivo'}
+                    wide
+                  />
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void openUserDetails(user.uid)}
-                    className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-bold text-white/65"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Detalhes
-                  </button>
-                  {user.role !== 'admin' && (
-                    <button
-                      type="button"
-                      onClick={() => void updateSupportRole(user)}
-                      disabled={roleUpdatingUid === user.uid}
-                      className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 text-xs font-bold text-cyan-100 disabled:opacity-50"
-                    >
-                      <UserCog className="h-3.5 w-3.5" />
-                      {user.role === 'support' ? 'Remover suporte' : 'Suporte'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => user.banned ? void submitUnban(user) : openBanDialog(user)}
-                    disabled={banSubmitting}
-                    className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-bold disabled:opacity-50 ${
-                      user.banned
-                        ? 'border-green-400/25 bg-green-500/10 text-green-100'
-                        : 'border-red-400/20 bg-red-500/10 text-red-100'
-                    }`}
-                  >
-                    {user.banned ? <Unlock className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-                    {user.banned ? 'Desbanir' : 'Banir'}
-                  </button>
-                </div>
+                {renderUserActions(user, true)}
               </div>
             );
           })}
         </div>
-        <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-[86rem] w-full text-left">
-          <thead className="border-b border-white/10 text-xs uppercase text-white/35">
-            <tr>
-              <th className="pb-3 pr-4 font-semibold">Usuário</th>
-              <th className="pb-3 pr-4 font-semibold">Acesso</th>
-              <th className="pb-3 pr-4 font-semibold">Último login</th>
-              <th className="pb-3 pr-4 font-semibold">Dispositivos recentes</th>
-              <th className="pb-3 pr-4 font-semibold">Status</th>
-              <th className="pb-3 font-semibold">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.06]">
-            {overview.users.map((user) => {
+        <div className="hidden xl:block">
+          <div className="grid grid-cols-[minmax(0,1.12fr)_minmax(0,0.7fr)_minmax(0,0.86fr)_minmax(0,1.32fr)_minmax(0,1.02fr)_minmax(0,1.12fr)] gap-3 border-b border-white/10 pb-3 text-[11px] font-semibold uppercase text-white/35">
+            <div>Usuário</div>
+            <div>Acesso</div>
+            <div>Último login</div>
+            <div>Dispositivos recentes</div>
+            <div>Status</div>
+            <div>Ações</div>
+          </div>
+          <div className="divide-y divide-white/[0.06]">
+            {filteredUsers.map((user) => {
               const mainDevice = user.devices[0];
+              const planText = planName(user.planId);
               return (
-                <tr key={user.uid} className="align-top">
-                  <td className="py-4 pr-4">
+                <div
+                  key={user.uid}
+                  className="grid grid-cols-[minmax(0,1.12fr)_minmax(0,0.7fr)_minmax(0,0.86fr)_minmax(0,1.32fr)_minmax(0,1.02fr)_minmax(0,1.12fr)] gap-3 py-4 align-top"
+                >
+                  <div className="min-w-0">
                     <button
                       type="button"
                       onClick={() => void openUserDetails(user.uid)}
-                      className="group block max-w-[16rem] text-left"
+                      className="group block min-w-0 text-left"
                     >
                       <span className="block truncate text-sm font-semibold text-white transition group-hover:text-brand-200">
                         {user.name || user.email || 'Usuário'}
@@ -630,22 +1223,23 @@ export default function AdminPage() {
                         Ver detalhes
                       </span>
                     </button>
-                    <p className="max-w-[16rem] truncate text-xs text-white/42">{user.email || 'Sem e-mail'}</p>
+                    <p className="truncate text-xs text-white/42">{user.email || 'Sem e-mail'}</p>
                     <p className="mt-1 text-[11px] text-white/28">UID {shortId(user.uid, 12)}</p>
-                  </td>
-                  <td className="py-4 pr-4">
+                  </div>
+                  <div className="min-w-0">
                     <p className="text-sm text-white/70">{accessLabel(user.role)}</p>
-                    <p className="text-xs text-white/40">{user.planId || user.subscriptionStatus || 'Sem plano'}</p>
-                  </td>
-                  <td className="py-4 pr-4">
+                    <p className="truncate text-xs text-white/40">{planText}</p>
+                    <p className="mt-1 truncate text-[11px] text-white/30">{planOriginLabels[user.planOrigin || ''] || 'Origem não informada'}</p>
+                  </div>
+                  <div className="min-w-0">
                     <p className="text-sm text-white/70">{formatDateTime(user.lastSignInAt)}</p>
                     <p className="text-xs text-white/35">Criado em {formatDate(user.createdAt)}</p>
-                  </td>
-                  <td className="py-4 pr-4">
+                  </div>
+                  <div className="min-w-0">
                     {mainDevice ? (
                       <div className="space-y-1">
-                        <p className="max-w-[20rem] truncate text-sm text-white/76">{mainDevice.name}</p>
-                        <p className="max-w-[20rem] truncate text-xs text-white/42">
+                        <p className="truncate text-sm text-white/76">{mainDevice.name}</p>
+                        <p className="truncate font-mono text-[11px] text-white/42">
                           {mainDevice.ip} - {mainDevice.location || 'Sem localização'}
                         </p>
                         <p className="text-[11px] text-white/30">
@@ -655,73 +1249,28 @@ export default function AdminPage() {
                     ) : (
                       <p className="text-sm text-white/40">Sem dispositivo registrado</p>
                     )}
-                  </td>
-                  <td className="py-4 pr-4">
+                  </div>
+                  <div className="min-w-0">
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge user={user} />
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${planExpiryBadgeClass(user)}`}>
+                        {planExpiryText(user)}
+                      </span>
                       <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${user.emailVerified ? 'bg-blue-500/12 text-blue-100' : 'bg-yellow-500/12 text-yellow-100'}`}>
                         {user.emailVerified ? 'E-mail verificado' : 'E-mail pendente'}
                       </span>
-                      {!user.planId && (
-                        <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-white/45">
-                          Sem plano
-                        </span>
-                      )}
+                      <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-white/45">
+                        {planStatusLabel(user)}
+                      </span>
                     </div>
-                  </td>
-                  <td className="py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void openUserDetails(user.uid)}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-bold text-white/65 transition hover:border-brand-300/30 hover:bg-brand-500/10 hover:text-white"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        Detalhes
-                      </button>
-                      {user.role !== 'admin' && (
-                        <button
-                          type="button"
-                          onClick={() => void updateSupportRole(user)}
-                          disabled={roleUpdatingUid === user.uid}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 text-xs font-bold text-cyan-100 transition hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <UserCog className="h-3.5 w-3.5" />
-                          {roleUpdatingUid === user.uid
-                            ? 'Alterando...'
-                            : user.role === 'support'
-                              ? 'Remover suporte'
-                              : 'Tornar suporte'}
-                        </button>
-                      )}
-                      {user.banned ? (
-                        <button
-                          type="button"
-                          onClick={() => void submitUnban(user)}
-                          disabled={banSubmitting}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-green-400/25 bg-green-500/10 px-3 text-xs font-bold text-green-100 transition hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Unlock className="h-3.5 w-3.5" />
-                          Desbanir
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => openBanDialog(user)}
-                          disabled={banSubmitting}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-red-400/20 bg-red-500/10 px-3 text-xs font-bold text-red-100 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          Banir
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                  </div>
+                  <div className="min-w-0">
+                    {renderUserActions(user)}
+                  </div>
+                </div>
               );
             })}
-          </tbody>
-        </table>
+          </div>
         </div>
       </div>
     );
@@ -989,6 +1538,9 @@ export default function AdminPage() {
     const filteredLogins = filterLoginEvents(loginEvents, loginFilter);
     const successfulLogins = loginEvents.filter((event) => event.success);
     const failedLogins = loginEvents.filter((event) => !event.success);
+    const usage = details?.usage;
+    const billingPayments = details?.billingPayments || [];
+    const adminNotes = details?.adminNotes || [];
     const suspicious7d = details?.user.suspiciousEvents7d ?? filterLoginEvents(loginEvents, '7d').filter((event) => event.suspicious).length;
     const loginTabs: { id: LoginFilter; label: string }[] = [
       { id: 'all', label: 'Todos' },
@@ -1001,10 +1553,13 @@ export default function AdminPage() {
     ];
     const drawerTabs: { id: AdminDrawerTab; label: string; icon: ReactNode }[] = [
       { id: 'summary', label: 'Resumo', icon: <FileText className="h-4 w-4" /> },
+      { id: 'billing', label: 'Plano', icon: <UserCheck className="h-4 w-4" /> },
+      { id: 'usage', label: 'Uso', icon: <Activity className="h-4 w-4" /> },
       { id: 'logins', label: 'Histórico', icon: <Clock className="h-4 w-4" /> },
       { id: 'devices', label: 'Dispositivos', icon: <Smartphone className="h-4 w-4" /> },
       { id: 'security', label: 'Segurança', icon: <ShieldAlert className="h-4 w-4" /> },
       { id: 'audit', label: 'Auditoria', icon: <Database className="h-4 w-4" /> },
+      { id: 'notes', label: 'Notas', icon: <FileText className="h-4 w-4" /> },
     ];
 
     return (
@@ -1056,7 +1611,10 @@ export default function AdminPage() {
                   {accessLabel(drawerUser.role)}
                 </span>
                 <span className="rounded-full bg-brand-500/12 px-2.5 py-1 text-[11px] font-bold text-brand-100">
-                  {drawerUser.planId || drawerUser.subscriptionStatus || 'Sem plano'}
+                  {planName(drawerUser.planId)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${planExpiryBadgeClass(drawerUser)}`}>
+                  {planExpiryText(drawerUser)}
                 </span>
               </div>
             )}
@@ -1147,8 +1705,14 @@ export default function AdminPage() {
                   <DetailField label="E-mail" value={drawerUser.email || 'Sem e-mail'} />
                   <DetailField label="UID completo" value={drawerUser.uid} mono wide />
                   <DetailField label="Tipo de acesso" value={accessLabel(drawerUser.role)} />
-                  <DetailField label="Plano atual" value={drawerUser.planId || drawerUser.subscriptionStatus || 'Sem plano'} />
-                  <DetailField label="Status" value={banLabel(drawerUser)} />
+                  <DetailField label="Plano atual" value={planName(drawerUser.planId)} />
+                  <DetailField label="Status da conta" value={banLabel(drawerUser)} />
+                  <DetailField label="Status do plano" value={planStatusLabel(drawerUser)} />
+                  <DetailField label="Origem do plano" value={planOriginLabels[drawerUser.planOrigin || ''] || 'Não informada'} />
+                  <DetailField label="Início do plano" value={formatDateTime(drawerUser.planStartedAt)} />
+                  <DetailField label="Vencimento" value={drawerUser.planLifetime ? 'Vitalício' : formatDateTime(drawerUser.currentPeriodEnd || drawerUser.planExpiresAt)} />
+                  <DetailField label="Dias restantes" value={planExpiryText(drawerUser)} />
+                  <DetailField label="Provedor de cobrança" value={drawerUser.billingProvider || 'Não informado'} />
                   <DetailField label="Criado em" value={formatDateTime(drawerUser.createdAt)} />
                   <DetailField label="Último login" value={formatDateTime(details?.user.lastLoginAt || drawerUser.lastSignInAt)} />
                   <DetailField label="Último IP conhecido" value={details?.user.lastIp || devices[0]?.ip || 'Sem IP'} />
@@ -1160,6 +1724,322 @@ export default function AdminPage() {
                   <DetailField label="Provedor de login" value={details?.user.loginMethod || drawerUser.provider || 'password'} />
                   <DetailField label="Verificacao de e-mail" value={drawerUser.emailVerified ? 'Verificado' : 'Não verificado'} />
                   <DetailField label="Último user-agent" value={details?.user.lastUserAgent || devices[0]?.userAgent || 'Sem user-agent'} mono wide />
+                </div>
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <p className="mb-3 text-sm font-semibold text-white">Recursos liberados</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(details?.user.entitlements?.features || PLAN_ENTITLEMENTS[safePlanId(drawerUser.planId)]).map((feature) => (
+                      <span key={feature} className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs font-bold text-white/55">
+                        {planFeatureLabels[feature] || feature}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {drawerUser && drawerTab === 'billing' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <DetailField label="Plano atual" value={planName(drawerUser.planId)} />
+                  <DetailField label="Status do plano" value={planStatusLabel(drawerUser)} />
+                  <DetailField label="Expiração" value={drawerUser.planLifetime ? 'Vitalício' : formatDateTime(drawerUser.currentPeriodEnd || drawerUser.planExpiresAt)} />
+                  <DetailField label="Dias restantes" value={planExpiryText(drawerUser)} />
+                  <DetailField label="Origem" value={planOriginLabels[drawerUser.planOrigin || ''] || 'Não informada'} />
+                  <DetailField label="Última alteração" value={formatDateTime(drawerUser.lastPlanChangeAt)} />
+                </div>
+
+                <form onSubmit={(event) => void submitPlanChange(event, drawerUser)} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-white">Alterar plano manualmente</p>
+                    <p className="mt-1 text-xs text-white/42">A alteração grava custom claims, documento do usuário e log administrativo.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-white/35">Novo plano</span>
+                      <select
+                        value={planForm.planId}
+                        onChange={(event) => setPlanForm((current) => ({ ...current, planId: event.target.value as PlanId }))}
+                        className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none"
+                      >
+                        {PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-white/35">Origem</span>
+                      <select
+                        value={planForm.origin}
+                        onChange={(event) => setPlanForm((current) => ({ ...current, origin: event.target.value as AdminPlanOrigin }))}
+                        className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none"
+                      >
+                        {Object.entries(planOriginLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-white/35">Expiração</span>
+                      <input
+                        type="datetime-local"
+                        value={planForm.expiresAt}
+                        disabled={planForm.lifetime || planForm.keepCurrentExpiration}
+                        onChange={(event) => setPlanForm((current) => ({ ...current, expiresAt: event.target.value }))}
+                        className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none disabled:opacity-45"
+                      />
+                    </label>
+                    <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/15 p-3">
+                      <label className="flex items-center gap-2 text-sm text-white/65">
+                        <input
+                          type="checkbox"
+                          checked={planForm.keepCurrentExpiration}
+                          onChange={(event) => setPlanForm((current) => ({ ...current, keepCurrentExpiration: event.target.checked }))}
+                          className="h-4 w-4 accent-brand-400"
+                        />
+                        Manter expiração atual
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-white/65">
+                        <input
+                          type="checkbox"
+                          checked={planForm.lifetime}
+                          onChange={(event) => setPlanForm((current) => ({ ...current, lifetime: event.target.checked, keepCurrentExpiration: event.target.checked ? false : current.keepCurrentExpiration }))}
+                          className="h-4 w-4 accent-brand-400"
+                        />
+                        Plano vitalício
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-white/65">
+                        <input
+                          type="checkbox"
+                          checked={planForm.special}
+                          onChange={(event) => setPlanForm((current) => ({ ...current, special: event.target.checked }))}
+                          className="h-4 w-4 accent-brand-400"
+                        />
+                        Plano especial
+                      </label>
+                    </div>
+                    <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/15 p-3 sm:col-span-2">
+                      <label className="flex items-center gap-2 text-sm text-white/65">
+                        <input
+                          type="checkbox"
+                          checked={planForm.startsImmediately}
+                          onChange={(event) => setPlanForm((current) => ({ ...current, startsImmediately: event.target.checked }))}
+                          className="h-4 w-4 accent-brand-400"
+                        />
+                        Começar imediatamente
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-white/65">
+                        <input
+                          type="checkbox"
+                          checked={planForm.applyPlanLimits}
+                          onChange={(event) => setPlanForm((current) => ({ ...current, applyPlanLimits: event.target.checked }))}
+                          className="h-4 w-4 accent-brand-400"
+                        />
+                        Aplicar limites do novo plano
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-white/65">
+                        <input
+                          type="checkbox"
+                          checked={planForm.resetLimits}
+                          onChange={(event) => setPlanForm((current) => ({ ...current, resetLimits: event.target.checked }))}
+                          className="h-4 w-4 accent-brand-400"
+                        />
+                        Resetar limites usados
+                      </label>
+                    </div>
+                    <label className="block sm:col-span-2">
+                      <span className="text-xs font-semibold uppercase text-white/35">Motivo obrigatório</span>
+                      <textarea
+                        value={planForm.reason}
+                        onChange={(event) => setPlanForm((current) => ({ ...current, reason: event.target.value }))}
+                        rows={3}
+                        className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none"
+                        placeholder="Ex.: pagamento confirmado manualmente, benefício comercial, cupom, suporte..."
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void submitLifetimeGrant(drawerUser)}
+                      disabled={adminActionSubmitting}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-brand-300/25 bg-brand-500/10 px-4 text-xs font-bold text-brand-100 transition hover:bg-brand-500/15 disabled:opacity-50"
+                    >
+                      Tornar vitalício
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={adminActionSubmitting}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-brand-500 px-4 text-xs font-bold text-white transition hover:bg-brand-400 disabled:opacity-50"
+                    >
+                      {adminActionSubmitting ? 'Salvando...' : 'Salvar plano'}
+                    </button>
+                  </div>
+                </form>
+
+                <form onSubmit={(event) => void submitDaysAdjustment(event, drawerUser)} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-white">Adicionar ou remover dias</p>
+                    <p className="mt-1 text-xs text-white/42">Atual: {formatDateTime(drawerUser.currentPeriodEnd || drawerUser.planExpiresAt)} - {planExpiryText(drawerUser)}</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+                    <select
+                      value={daysForm.mode}
+                      onChange={(event) => setDaysForm((current) => ({ ...current, mode: event.target.value as DayAdjustMode }))}
+                      className="h-11 rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none"
+                    >
+                      <option value="add">Adicionar dias</option>
+                      <option value="remove">Remover dias</option>
+                      <option value="set_expiration">Definir vencimento</option>
+                      <option value="expire_now">Expirar agora</option>
+                    </select>
+                    {daysForm.mode === 'set_expiration' ? (
+                      <input
+                        type="datetime-local"
+                        value={daysForm.expiresAt}
+                        onChange={(event) => setDaysForm((current) => ({ ...current, expiresAt: event.target.value }))}
+                        className="h-11 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none"
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {[1, 7, 15, 30, 90, 365].map((days) => (
+                          <button
+                            key={days}
+                            type="button"
+                            onClick={() => setDaysForm((current) => ({ ...current, days }))}
+                            className={`h-10 rounded-full border px-3 text-xs font-bold transition ${daysForm.days === days ? 'border-brand-300/35 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.04] text-white/55 hover:text-white'}`}
+                          >
+                            {days}d
+                          </button>
+                        ))}
+                        <input
+                          type="number"
+                          min={1}
+                          max={3650}
+                          value={daysForm.days}
+                          onChange={(event) => setDaysForm((current) => ({ ...current, days: Math.max(1, Number(event.target.value) || 1) }))}
+                          className="h-10 w-24 rounded-full border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none"
+                        />
+                      </div>
+                    )}
+                    <textarea
+                      value={daysForm.reason}
+                      onChange={(event) => setDaysForm((current) => ({ ...current, reason: event.target.value }))}
+                      rows={3}
+                      className="resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none sm:col-span-2"
+                      placeholder="Motivo obrigatório do ajuste de dias..."
+                    />
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={adminActionSubmitting}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-4 text-xs font-bold text-white/70 transition hover:text-white disabled:opacity-50"
+                    >
+                      Confirmar ajuste
+                    </button>
+                  </div>
+                </form>
+
+                <form onSubmit={(event) => void submitTrialGrant(event, drawerUser)} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-white">Liberar teste grátis</p>
+                    <p className="mt-1 text-xs text-white/42">Registra início, fim, admin responsável e motivo.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+                    <select
+                      value={trialForm.planId}
+                      onChange={(event) => setTrialForm((current) => ({ ...current, planId: event.target.value as PlanId }))}
+                      className="h-11 rounded-2xl border border-white/10 bg-[#11131b] px-3 text-sm text-white outline-none"
+                    >
+                      {PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={trialForm.days}
+                      onChange={(event) => setTrialForm((current) => ({ ...current, days: Math.max(1, Number(event.target.value) || 1) }))}
+                      className="h-11 rounded-2xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none"
+                    />
+                    <div className="flex flex-wrap gap-2 sm:col-span-2">
+                      {[1, 3, 7, 14, 30].map((days) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setTrialForm((current) => ({ ...current, days }))}
+                          className={`h-9 rounded-full border px-3 text-xs font-bold transition ${trialForm.days === days ? 'border-blue-300/35 bg-blue-500/15 text-white' : 'border-white/10 bg-white/[0.04] text-white/55 hover:text-white'}`}
+                        >
+                          {days} dia(s)
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={trialForm.reason}
+                      onChange={(event) => setTrialForm((current) => ({ ...current, reason: event.target.value }))}
+                      rows={3}
+                      className="resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none sm:col-span-2"
+                      placeholder="Motivo obrigatório do teste grátis..."
+                    />
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={adminActionSubmitting}
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-blue-300/20 bg-blue-500/10 px-4 text-xs font-bold text-blue-100 transition hover:bg-blue-500/15 disabled:opacity-50"
+                    >
+                      Liberar teste
+                    </button>
+                  </div>
+                </form>
+
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <p className="mb-3 text-sm font-semibold text-white">Histórico de pagamentos</p>
+                  {billingPayments.length === 0 ? (
+                    <EmptyState>Nenhum pagamento encontrado para este usuário.</EmptyState>
+                  ) : (
+                    <div className="space-y-2">
+                      {billingPayments.map((payment) => (
+                        <div key={payment.id} className="rounded-2xl border border-white/[0.08] bg-black/18 p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white">{payment.planName || planName(payment.planId)}</p>
+                              <p className="truncate text-xs text-white/40">{payment.provider} - {payment.paymentId}</p>
+                            </div>
+                            <span className="w-fit rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-bold text-white/55">{payment.status}</span>
+                          </div>
+                          <div className="mt-2 grid gap-1 text-xs text-white/42 sm:grid-cols-2">
+                            <p>Valor: <span className="text-white/70">{payment.amount ? `R$ ${payment.amount.toFixed(2).replace('.', ',')}` : 'Não informado'}</span></p>
+                            <p>Criado: <span className="text-white/70">{formatDateTime(payment.createdAt)}</span></p>
+                            <p>Pago: <span className="text-white/70">{formatDateTime(payment.paidAt)}</span></p>
+                            <p>Acesso até: <span className="text-white/70">{formatDateTime(payment.currentPeriodEnd)}</span></p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {drawerUser && drawerTab === 'usage' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {[
+                    ['Eventos', usage?.events ?? 0],
+                    ['Vídeos', usage?.videos ?? 0],
+                    ['Uploads', usage?.uploads ?? 0],
+                    ['Leads', usage?.leads ?? 0],
+                    ['Downloads', usage?.downloads ?? 0],
+                    ['Views', usage?.views ?? 0],
+                    ['Compartilhamentos', usage?.shares ?? 0],
+                    ['Publicações', usage?.publications ?? 0],
+                    ['Templates usados', usage?.templatesUsed ?? 0],
+                  ].map(([label, value]) => (
+                    <DetailField key={label as string} label={label as string} value={value as number} />
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <p className="text-sm font-semibold text-white">Limites preparados</p>
+                  <p className="mt-1 text-sm leading-relaxed text-white/45">
+                    O projeto controla acesso por recursos do plano. Quando limites numéricos forem adicionados ao produto, este painel já pode exibir o uso ao lado dos limites.
+                  </p>
                 </div>
               </div>
             )}
@@ -1326,6 +2206,38 @@ export default function AdminPage() {
                   {drawerUser.banReason && <p className="mt-3 rounded-xl bg-black/20 p-3 text-sm text-white/60">Motivo: {drawerUser.banReason}</p>}
                   {drawerUser.bannedBy && <p className="mt-2 text-xs text-white/35">Banido por UID {shortId(drawerUser.bannedBy, 16)}</p>}
                 </div>
+
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Suspensão de acesso</p>
+                      <p className="mt-1 text-xs text-white/45">
+                        {drawerUser.disabled ? 'Usuário está suspenso no Firebase Auth.' : 'Usuário não está suspenso.'}
+                      </p>
+                    </div>
+                    {drawerUser.disabled ? (
+                      <button
+                        type="button"
+                        onClick={() => void submitReactivate(drawerUser)}
+                        disabled={adminActionSubmitting}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-green-400/25 bg-green-500/10 px-4 text-xs font-bold text-green-100 transition hover:bg-green-500/15 disabled:opacity-50"
+                      >
+                        <Unlock className="h-4 w-4" />
+                        Reativar usuário
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void submitSuspend(drawerUser)}
+                        disabled={adminActionSubmitting || drawerUser.role === 'admin'}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-yellow-400/25 bg-yellow-500/10 px-4 text-xs font-bold text-yellow-100 transition hover:bg-yellow-500/15 disabled:opacity-50"
+                      >
+                        <ShieldAlert className="h-4 w-4" />
+                        Suspender usuário
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1357,11 +2269,60 @@ export default function AdminPage() {
                           <p>Admin: <span className="text-white/70">{log.performedByEmail || shortId(log.performedBy, 16)}</span></p>
                           <p>Alvo: <span className="text-white/70">{log.targetEmail || shortId(log.targetUserId, 16)}</span></p>
                           {expiresAt && <p className="sm:col-span-2">Expira em: <span className="text-white/70">{formatDateTime(expiresAt)}</span></p>}
+                          {log.origin && <p>Origem: <span className="text-white/70">{log.origin}</span></p>}
                         </div>
                         {log.reason && <p className="mt-3 rounded-xl bg-black/20 p-3 text-sm text-white/60">Motivo: {log.reason}</p>}
+                        {(log.oldValue && Object.keys(log.oldValue).length > 0 || log.newValue && Object.keys(log.newValue).length > 0) && (
+                          <details className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                            <summary className="cursor-pointer text-xs font-bold text-white/55">Valores registrados</summary>
+                            <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-white/42">
+                              {JSON.stringify({ antigo: log.oldValue || {}, novo: log.newValue || {} }, null, 2)}
+                            </pre>
+                          </details>
+                        )}
                       </div>
                     );
                   })
+                )}
+              </div>
+            )}
+
+            {drawerUser && drawerTab === 'notes' && (
+              <div className="space-y-4">
+                <form onSubmit={(event) => void submitInternalNote(event, drawerUser)} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <p className="text-sm font-semibold text-white">Nova observação interna</p>
+                  <p className="mt-1 text-xs text-white/42">Notas internas são visíveis somente para administradores.</p>
+                  <textarea
+                    value={noteText}
+                    onChange={(event) => setNoteText(event.target.value)}
+                    rows={5}
+                    className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none"
+                    placeholder="Ex.: Cliente pediu mais 7 dias de teste, pagamento confirmado manualmente, conta suspeita..."
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={adminActionSubmitting}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-brand-500 px-4 text-xs font-bold text-white transition hover:bg-brand-400 disabled:opacity-50"
+                    >
+                      Salvar nota
+                    </button>
+                  </div>
+                </form>
+
+                {adminNotes.length === 0 ? (
+                  <EmptyState>Nenhuma nota interna registrada.</EmptyState>
+                ) : (
+                  <div className="space-y-2">
+                    {adminNotes.map((note) => (
+                      <div key={note.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/72">{note.note}</p>
+                        <p className="mt-3 text-xs text-white/35">
+                          {formatDateTime(note.createdAt)} - {note.createdByEmail || shortId(note.createdBy, 16)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
@@ -1576,31 +2537,16 @@ export default function AdminPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Usuários" value={overview?.summary.totalUsers ?? '-'} icon={<Users className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
-        <StatCard title="Eventos" value={overview?.summary.totalEvents ?? '-'} icon={<CalendarDays className="h-5 w-5" />} color="text-brand-300" loading={loadingOverview} />
-        <StatCard title="Mídias" value={overview?.summary.totalMedia ?? '-'} icon={<Database className="h-5 w-5" />} color="text-green-300" loading={loadingOverview} />
-        <StatCard title="Falhas 24h" value={overview?.summary.failedLoginAttempts24h ?? '-'} icon={<ShieldAlert className="h-5 w-5" />} color="text-red-300" loading={loadingOverview} />
+        <StatCard title="Ativos" value={overview?.summary.activeUsers ?? '-'} icon={<UserCheck className="h-5 w-5" />} color="text-green-300" loading={loadingOverview} />
+        <StatCard title="Expirados" value={overview?.summary.expiredUsers ?? '-'} icon={<Clock className="h-5 w-5" />} color="text-red-300" loading={loadingOverview} />
+        <StatCard title="Expiram em 7 dias" value={overview?.summary.expiringIn7Days ?? '-'} icon={<CalendarDays className="h-5 w-5" />} color="text-yellow-300" loading={loadingOverview} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Suporte" value={overview?.summary.supportUsers ?? '-'} icon={<LifeBuoy className="h-5 w-5" />} color="text-cyan-300" loading={loadingOverview} />
-        <StatCard title="Clientes ativos" value={customers.length} icon={<UserCheck className="h-5 w-5" />} color="text-green-400" />
-        <StatCard title="Vídeos" value={overview?.summary.totalVideos ?? '-'} icon={<Video className="h-5 w-5" />} color="text-blue-300" loading={loadingOverview} />
-        <StatCard title="Logins 24h" value={overview?.summary.loginAttempts24h ?? '-'} icon={<Activity className="h-5 w-5" />} color="text-pink-300" loading={loadingOverview} />
-      </div>
-
-      <div className="rounded-2xl border border-yellow-500/20 bg-gradient-glass p-5">
-        <div className="flex gap-3">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-300" />
-          <div>
-            <p className="text-sm text-white/62">
-              Administrador logado: <span className="font-medium text-white">{adminUser.name}</span>
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-white/38">
-              MAC address não é exposto por navegadores. Para rastreio operacional, o painel usa IP, user-agent,
-              hash do dispositivo, nome/plataforma informados pelo client, horário e vínculo com UID/e-mail quando disponível.
-            </p>
-          </div>
-        </div>
+        <StatCard title="Teste grátis" value={overview?.summary.trialUsers ?? '-'} icon={<Activity className="h-5 w-5" />} color="text-blue-300" loading={loadingOverview} />
+        <StatCard title="Vitalícios" value={overview?.summary.lifetimeUsers ?? '-'} icon={<ShieldCheck className="h-5 w-5" />} color="text-brand-300" loading={loadingOverview} />
+        <StatCard title="Banidos/suspensos" value={overview?.summary.bannedOrSuspendedUsers ?? '-'} icon={<ShieldAlert className="h-5 w-5" />} color="text-red-300" loading={loadingOverview} />
+        <StatCard title="Clientes pagos" value={customers.length} icon={<UserCheck className="h-5 w-5" />} color="text-green-400" />
       </div>
 
       <div className="hide-scrollbar flex gap-2 overflow-x-auto rounded-2xl border border-white/[0.08] bg-white/[0.025] p-2">

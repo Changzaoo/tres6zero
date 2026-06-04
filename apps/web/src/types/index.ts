@@ -93,6 +93,22 @@ export interface SupportConversation {
   updatedAt: string;
 }
 
+export interface SupportUserSummary {
+  uid: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  disabled: boolean;
+  emailVerified: boolean;
+  subscriptionStatus?: string | null;
+  planId?: string | null;
+  companyName?: string;
+  avatarUrl?: string;
+  currentPeriodEnd?: string | null;
+  createdAt: string;
+  lastSignInAt?: string | null;
+}
+
 export interface SupportMessage {
   id: string;
   conversationId: string;
@@ -193,6 +209,20 @@ export interface AdminUserOverview {
   emailVerified: boolean;
   subscriptionStatus?: string | null;
   planId?: string | null;
+  billingProvider?: string | null;
+  currentPeriodEnd?: string | null;
+  planExpiresAt?: string | null;
+  planStartedAt?: string | null;
+  planOrigin?: 'payment' | 'manual_admin' | 'affiliate' | 'coupon' | 'trial' | 'promotion' | 'support' | string | null;
+  planLifetime?: boolean;
+  planSpecial?: boolean;
+  trialStartedAt?: string | null;
+  trialEndsAt?: string | null;
+  renewalDay?: number | null;
+  daysRemaining?: number | null;
+  planStatus?: 'active' | 'inactive' | 'expired' | 'trial' | 'lifetime' | 'banned' | 'suspended' | string | null;
+  lastPlanChangeAt?: string | null;
+  manualPlanReason?: string | null;
   companyName?: string;
   avatarUrl?: string;
   provider?: string;
@@ -236,14 +266,69 @@ export interface UserLoginEvent {
 
 export interface AdminAuditLog {
   id: string;
-  action: 'USER_BANNED' | 'USER_UNBANNED' | string;
+  action:
+    | 'USER_BANNED'
+    | 'USER_UNBANNED'
+    | 'USER_ROLE_UPDATED'
+    | 'SUPPORT_USER_CREATED'
+    | 'PLAN_CHANGED'
+    | 'DAYS_ADDED'
+    | 'DAYS_REMOVED'
+    | 'PLAN_EXPIRED'
+    | 'USER_SUSPENDED'
+    | 'USER_REACTIVATED'
+    | 'TRIAL_GRANTED'
+    | 'LIFETIME_GRANTED'
+    | 'MANUAL_NOTE_ADDED'
+    | string;
   targetUserId?: string | null;
   targetEmail?: string | null;
   reason?: string;
   performedBy?: string | null;
   performedByEmail?: string | null;
+  oldValue?: Record<string, unknown>;
+  newValue?: Record<string, unknown>;
+  origin?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface AdminUserUsage {
+  uploads: number;
+  videos: number;
+  events: number;
+  templatesUsed: number;
+  storageBytes: number;
+  leads: number;
+  downloads: number;
+  views: number;
+  shares: number;
+  publications: number;
+}
+
+export interface AdminBillingPayment {
+  id: string;
+  provider: string;
+  paymentId: string;
+  externalId?: string;
+  planId?: string | null;
+  planName?: string;
+  amount?: number;
+  amountCents?: number;
+  status: string;
+  paidAt?: string | null;
+  expiresAt?: string | null;
+  currentPeriodEnd?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminInternalNote {
+  id: string;
+  note: string;
+  createdAt: string;
+  createdBy?: string | null;
+  createdByEmail?: string | null;
 }
 
 export interface UserAdminDetails {
@@ -257,10 +342,18 @@ export interface UserAdminDetails {
     signupSource?: string | null;
     loginMethod?: string | null;
     suspiciousEvents7d?: number;
+    entitlements?: {
+      planId: 'starter' | 'pro' | 'unlimited';
+      features: string[];
+      effects: string[];
+    };
   };
   loginEvents: UserLoginEvent[];
   devices: AdminUserDevice[];
   auditLogs: AdminAuditLog[];
+  usage?: AdminUserUsage;
+  billingPayments?: AdminBillingPayment[];
+  adminNotes?: AdminInternalNote[];
 }
 
 export type AdminMediaKind =
@@ -320,6 +413,14 @@ export interface AdminOverviewSummary {
   failedLoginAttempts24h: number;
   disabledUsers: number;
   supportUsers?: number;
+  activeUsers?: number;
+  expiredUsers?: number;
+  trialUsers?: number;
+  bannedOrSuspendedUsers?: number;
+  lifetimeUsers?: number;
+  expiringIn7Days?: number;
+  expiringIn30Days?: number;
+  usersByPlan?: Record<string, number>;
 }
 
 export interface AdminOverview {

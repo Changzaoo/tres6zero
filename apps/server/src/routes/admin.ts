@@ -5,6 +5,9 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { requireAdmin } from './auth';
+import { getPlan, BILLING_PLANS, type BillingPlanId } from '../services/stripeBilling';
+import { getPlanEntitlements } from '../services/planEntitlements';
+import { createNotification } from '../services/notifications';
 
 export const adminRouter = Router();
 
@@ -27,7 +30,50 @@ const createSupportUserSchema = z.object({
   password: z.string().min(8).max(128),
 });
 
+const adminPlanOriginSchema = z.enum(['payment', 'manual_admin', 'affiliate', 'coupon', 'trial', 'promotion', 'support']);
+
+const manualPlanSchema = z.object({
+  planId: z.enum(['starter', 'pro', 'unlimited']),
+  startsImmediately: z.boolean().optional().default(true),
+  expiresAt: z.string().datetime().optional().nullable(),
+  keepCurrentExpiration: z.boolean().optional().default(false),
+  lifetime: z.boolean().optional().default(false),
+  special: z.boolean().optional().default(false),
+  origin: adminPlanOriginSchema.optional().default('manual_admin'),
+  resetLimits: z.boolean().optional().default(false),
+  applyPlanLimits: z.boolean().optional().default(true),
+  reason: z.string().trim().min(3).max(500),
+});
+
+const adjustPlanDaysSchema = z.object({
+  mode: z.enum(['add', 'remove', 'set_expiration', 'expire_now']),
+  days: z.number().int().positive().max(3650).optional(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  reason: z.string().trim().min(3).max(500),
+});
+
+const trialSchema = z.object({
+  planId: z.enum(['starter', 'pro', 'unlimited']).optional().default('starter'),
+  days: z.number().int().positive().max(365).default(7),
+  reason: z.string().trim().min(3).max(500),
+});
+
+const lifetimeSchema = z.object({
+  planId: z.enum(['starter', 'pro', 'unlimited']),
+  special: z.boolean().optional().default(false),
+  reason: z.string().trim().min(3).max(500),
+});
+
+const suspendSchema = z.object({
+  reason: z.string().trim().min(3).max(500),
+});
+
+const noteSchema = z.object({
+  note: z.string().trim().min(2).max(2000),
+});
+
 type ManagedUserRole = 'admin' | 'support' | 'user';
+type AdminPlanOrigin = z.infer<typeof adminPlanOriginSchema>;
 type AdminDevice = {
   id: string;
   name: string;
@@ -135,6 +181,83 @@ function activeBanFromData(data: RecordData) {
   };
 }
 
+function planDateFromClaimsAndStored(claims: Record<string, unknown>, stored: RecordData, field: string) {
+  return stringOrNull(claims[field]) || stringOrNull(stored[field]);
+}
+
+function parseIsoDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function daysUntil(value?: string | null) {
+  const date = parseIsoDate(value);
+  if (!date) return null;
+  return Math.ceil((date.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function computedPlanStatus(input: {
+  disabled?: boolean;
+  banned?: boolean;
+  subscriptionStatus?: string | null;
+  planId?: string | null;
+  currentPeriodEnd?: string | null;
+  planLifetime?: boolean;
+  trialEndsAt?: string | null;
+}) {
+  if (input.banned) return 'banned';
+  if (input.disabled) return 'suspended';
+  if (input.planLifetime) return 'lifetime';
+  const trialEnd = parseIsoDate(input.trialEndsAt);
+  if (trialEnd && trialEnd.getTime() > Date.now()) return 'trial';
+  if (!input.planId || input.subscriptionStatus !== 'active') return 'inactive';
+  const expiresAt = parseIsoDate(input.currentPeriodEnd);
+  if (expiresAt && expiresAt.getTime() <= Date.now()) return 'expired';
+  return 'active';
+}
+
+function planOriginLabel(origin?: string | null): AdminPlanOrigin | null {
+  return adminPlanOriginSchema.safeParse(origin).success ? origin as AdminPlanOrigin : null;
+}
+
+function planAccessSummary(authUser: UserRecord | null | undefined, stored: RecordData) {
+  const claims = authUser?.customClaims || {};
+  const planId = stringOrNull(claims.planId) || stringOrNull(stored.planId);
+  const currentPeriodEnd = planDateFromClaimsAndStored(claims, stored, 'currentPeriodEnd')
+    || planDateFromClaimsAndStored(claims, stored, 'planExpiresAt');
+  const planLifetime = booleanValue(claims.planLifetime) || booleanValue(stored.planLifetime);
+  const subscriptionStatus = stringOrNull(claims.subscriptionStatus) || stringOrNull(stored.subscriptionStatus);
+  const trialEndsAt = planDateFromClaimsAndStored(claims, stored, 'trialEndsAt');
+
+  return {
+    subscriptionStatus,
+    planId,
+    billingProvider: stringOrNull(claims.billingProvider) || stringOrNull(stored.billingProvider),
+    currentPeriodEnd: planLifetime ? null : currentPeriodEnd,
+    planExpiresAt: planLifetime ? null : currentPeriodEnd,
+    planStartedAt: planDateFromClaimsAndStored(claims, stored, 'planStartedAt'),
+    planOrigin: planOriginLabel(stringOrNull(claims.planOrigin) || stringOrNull(stored.planOrigin)) || 'payment',
+    planLifetime,
+    planSpecial: booleanValue(claims.planSpecial) || booleanValue(stored.planSpecial),
+    trialStartedAt: planDateFromClaimsAndStored(claims, stored, 'trialStartedAt'),
+    trialEndsAt,
+    renewalDay: typeof claims.renewalDay === 'number'
+      ? claims.renewalDay
+      : numberValue(stored.renewalDay, Number(claims.renewalDay || 0) || 0) || null,
+    lastPlanChangeAt: planDateFromClaimsAndStored(claims, stored, 'lastPlanChangeAt'),
+    manualPlanReason: stringValue(stored.manualPlanReason),
+  };
+}
+
+function sanitizePlanId(planId?: string | null): BillingPlanId | null {
+  return getPlan(planId || '')?.id || null;
+}
+
 function publicDoc(doc: FirebaseFirestore.DocumentSnapshot) {
   const { _ts, ...data } = doc.data() as RecordData & { _ts?: unknown };
   return { id: doc.id, ...data };
@@ -221,21 +344,44 @@ async function loadUsers(db: Firestore, currentAdminUid?: string) {
   const users = await Promise.all([...ids].map(async (uid) => {
     const authUser = authMap.get(uid);
     const stored = storedMap.get(uid) || {};
-    const claims = authUser?.customClaims || {};
     const ban = activeBanFromData(stored);
+    const access = planAccessSummary(authUser, stored);
     const createdAt = authUser?.metadata.creationTime
       ? new Date(authUser.metadata.creationTime).toISOString()
       : isoFromValue(stored.createdAt, '');
+    const disabled = Boolean(authUser?.disabled) || booleanValue(stored.suspended);
 
     return {
       uid,
       name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuário')),
       email: authUser?.email || stringValue(stored.email, ''),
       role: roleFromAuthAndStored(authUser, stored, uid, currentAdminUid),
-      disabled: Boolean(authUser?.disabled),
+      disabled,
       emailVerified: Boolean(authUser?.emailVerified),
-      subscriptionStatus: stringOrNull(claims.subscriptionStatus) || stringOrNull(stored.subscriptionStatus),
-      planId: stringOrNull(claims.planId) || stringOrNull(stored.planId),
+      subscriptionStatus: access.subscriptionStatus,
+      planId: access.planId,
+      billingProvider: access.billingProvider,
+      currentPeriodEnd: access.currentPeriodEnd,
+      planExpiresAt: access.planExpiresAt,
+      planStartedAt: access.planStartedAt,
+      planOrigin: access.planOrigin,
+      planLifetime: access.planLifetime,
+      planSpecial: access.planSpecial,
+      trialStartedAt: access.trialStartedAt,
+      trialEndsAt: access.trialEndsAt,
+      renewalDay: access.renewalDay,
+      daysRemaining: daysUntil(access.currentPeriodEnd),
+      planStatus: computedPlanStatus({
+        disabled,
+        banned: ban.banned,
+        subscriptionStatus: access.subscriptionStatus,
+        planId: access.planId,
+        currentPeriodEnd: access.currentPeriodEnd,
+        planLifetime: access.planLifetime,
+        trialEndsAt: access.trialEndsAt,
+      }),
+      lastPlanChangeAt: access.lastPlanChangeAt,
+      manualPlanReason: access.manualPlanReason,
       ...ban,
       companyName: stringValue(stored.companyName, ''),
       avatarUrl: stringValue(stored.avatarUrl, ''),
@@ -463,10 +609,101 @@ async function loadAdminAuditLogs(db: Firestore, targetUserId?: string) {
       reason: stringValue(data.reason),
       performedBy: stringOrNull(data.performedBy),
       performedByEmail: stringOrNull(data.performedByEmail),
+      oldValue: typeof data.oldValue === 'object' && data.oldValue ? data.oldValue : {},
+      newValue: typeof data.newValue === 'object' && data.newValue ? data.newValue : {},
+      origin: stringValue(data.origin),
       metadata: typeof data.metadata === 'object' && data.metadata ? data.metadata : {},
       createdAt: isoFromValue(data.createdAt, ''),
     };
   })).slice(0, 200);
+}
+
+async function loadUserUsage(db: Firestore, uid: string) {
+  const [eventsSnap, videosSnap] = await Promise.all([
+    db.collection('events').where('ownerId', '==', uid).get().catch(() => null),
+    db.collection('videos').where('ownerId', '==', uid).get().catch(() => null),
+  ]);
+  const eventIds = (eventsSnap?.docs || []).map((doc) => doc.id);
+  const videoIds = (videosSnap?.docs || []).map((doc) => doc.id);
+  const leadIds = new Set<string>();
+  const engagementDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  const seenEngagement = new Set<string>();
+
+  async function collectByIds(collection: string, field: string, ids: string[], add: (doc: FirebaseFirestore.QueryDocumentSnapshot) => void) {
+    for (let i = 0; i < ids.length; i += 10) {
+      const chunk = ids.slice(i, i + 10);
+      if (chunk.length === 0) continue;
+      const snap = await db.collection(collection).where(field, 'in', chunk).get().catch(() => null);
+      (snap?.docs || []).forEach(add);
+    }
+  }
+
+  await Promise.all([
+    collectByIds('leads', 'eventId', eventIds, (doc) => leadIds.add(doc.id)),
+    collectByIds('leads', 'videoId', videoIds, (doc) => leadIds.add(doc.id)),
+    collectByIds('engagementEvents', 'eventId', eventIds, (doc) => {
+      if (!seenEngagement.has(doc.id)) {
+        seenEngagement.add(doc.id);
+        engagementDocs.push(doc);
+      }
+    }),
+    collectByIds('engagementEvents', 'videoId', videoIds, (doc) => {
+      if (!seenEngagement.has(doc.id)) {
+        seenEngagement.add(doc.id);
+        engagementDocs.push(doc);
+      }
+    }),
+  ]);
+
+  return {
+    uploads: videoIds.length,
+    videos: videoIds.length,
+    events: eventIds.length,
+    templatesUsed: 0,
+    storageBytes: 0,
+    leads: leadIds.size,
+    downloads: engagementDocs.filter((doc) => stringValue((doc.data() as RecordData).type) === 'download').length,
+    views: engagementDocs.filter((doc) => stringValue((doc.data() as RecordData).type) === 'view').length,
+    shares: engagementDocs.filter((doc) => ['share', 'whatsapp', 'copy_link'].includes(stringValue((doc.data() as RecordData).type))).length,
+    publications: videoIds.length,
+  };
+}
+
+async function loadUserBillingPayments(db: Firestore, uid: string) {
+  const snap = await db.collection('billingPayments').where('userId', '==', uid).get().catch(() => null);
+  return sortByNewest((snap?.docs || []).map((doc) => {
+    const data = doc.data() as RecordData;
+    return {
+      id: doc.id,
+      provider: stringValue(data.provider, 'pixgo'),
+      paymentId: stringValue(data.paymentId, doc.id),
+      externalId: stringValue(data.externalId),
+      planId: stringOrNull(data.planId),
+      planName: stringValue(data.planName),
+      amount: numberValue(data.amount),
+      amountCents: numberValue(data.amountCents),
+      status: stringValue(data.status, 'unknown'),
+      paidAt: stringOrNull(data.paidAt),
+      expiresAt: stringOrNull(data.expiresAt),
+      currentPeriodEnd: stringOrNull(data.currentPeriodEnd),
+      createdAt: isoFromValue(data.createdAt, ''),
+      updatedAt: isoFromValue(data.updatedAt, ''),
+    };
+  })).slice(0, 60);
+}
+
+async function loadUserAdminNotes(db: Firestore, uid: string) {
+  const snap = await db.collection('users').doc(uid).collection('adminNotes').get().catch(() => null);
+  return sortByNewest((snap?.docs || []).map((doc) => {
+    const data = doc.data() as RecordData;
+    return {
+      id: doc.id,
+      note: stringValue(data.note),
+      createdAt: isoFromValue(data.createdAt, ''),
+      createdBy: stringOrNull(data.createdBy),
+      createdByEmail: stringOrNull(data.createdByEmail),
+    };
+  })).slice(0, 80);
 }
 
 async function getAuthUser(uid: string) {
@@ -476,17 +713,40 @@ async function getAuthUser(uid: string) {
 }
 
 function authUserSummary(authUser: UserRecord | null, stored: RecordData, uid: string, currentAdminUid?: string) {
-  const claims = authUser?.customClaims || {};
   const ban = activeBanFromData(stored);
+  const access = planAccessSummary(authUser, stored);
+  const disabled = Boolean(authUser?.disabled) || booleanValue(stored.suspended);
   return {
     uid,
     name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuário')),
     email: authUser?.email || stringValue(stored.email, ''),
     role: roleFromAuthAndStored(authUser, stored, uid, currentAdminUid),
-    disabled: Boolean(authUser?.disabled),
+    disabled,
     emailVerified: Boolean(authUser?.emailVerified),
-    subscriptionStatus: stringOrNull(claims.subscriptionStatus) || stringOrNull(stored.subscriptionStatus),
-    planId: stringOrNull(claims.planId) || stringOrNull(stored.planId),
+    subscriptionStatus: access.subscriptionStatus,
+    planId: access.planId,
+    billingProvider: access.billingProvider,
+    currentPeriodEnd: access.currentPeriodEnd,
+    planExpiresAt: access.planExpiresAt,
+    planStartedAt: access.planStartedAt,
+    planOrigin: access.planOrigin,
+    planLifetime: access.planLifetime,
+    planSpecial: access.planSpecial,
+    trialStartedAt: access.trialStartedAt,
+    trialEndsAt: access.trialEndsAt,
+    renewalDay: access.renewalDay,
+    daysRemaining: daysUntil(access.currentPeriodEnd),
+    planStatus: computedPlanStatus({
+      disabled,
+      banned: ban.banned,
+      subscriptionStatus: access.subscriptionStatus,
+      planId: access.planId,
+      currentPeriodEnd: access.currentPeriodEnd,
+      planLifetime: access.planLifetime,
+      trialEndsAt: access.trialEndsAt,
+    }),
+    lastPlanChangeAt: access.lastPlanChangeAt,
+    manualPlanReason: access.manualPlanReason,
     provider: authUser?.providerData?.[0]?.providerId || 'password',
     companyName: stringValue(stored.companyName),
     avatarUrl: stringValue(stored.avatarUrl),
@@ -504,9 +764,12 @@ async function loadUserDetails(db: Firestore, uid: string, currentAdminUid?: str
   ]);
   const stored = storedSnap.exists ? storedSnap.data() as RecordData : {};
   const user = authUserSummary(authUser, stored, uid, currentAdminUid);
-  const [loginEvents, auditLogs] = await Promise.all([
+  const [loginEvents, auditLogs, usage, billingPayments, adminNotes] = await Promise.all([
     loadUserLoginEvents(db, uid, user.email),
     loadAdminAuditLogs(db, uid),
+    loadUserUsage(db, uid),
+    loadUserBillingPayments(db, uid),
+    loadUserAdminNotes(db, uid),
   ]);
   const devices = await loadUserDevices(db, uid, loginEvents);
   const successfulLogins = loginEvents.filter((event) => event.success);
@@ -527,10 +790,14 @@ async function loadUserDetails(db: Firestore, uid: string, currentAdminUid?: str
       signupSource: stringOrNull(stored.signupSource),
       loginMethod: successfulLogins[0]?.loginMethod || user.provider || 'unknown',
       suspiciousEvents7d: suspicious7d,
+      entitlements: getPlanEntitlements(user.planId),
     },
     loginEvents,
     devices,
     auditLogs,
+    usage,
+    billingPayments,
+    adminNotes,
   };
 }
 
@@ -568,11 +835,26 @@ async function ensureCanBanTarget(db: Firestore, target: ReturnType<typeof authU
 }
 
 async function writeAdminAudit(db: Firestore, input: {
-  action: 'USER_BANNED' | 'USER_UNBANNED' | 'USER_ROLE_UPDATED' | 'SUPPORT_USER_CREATED';
+  action:
+    | 'USER_BANNED'
+    | 'USER_UNBANNED'
+    | 'USER_ROLE_UPDATED'
+    | 'SUPPORT_USER_CREATED'
+    | 'PLAN_CHANGED'
+    | 'DAYS_ADDED'
+    | 'DAYS_REMOVED'
+    | 'PLAN_EXPIRED'
+    | 'USER_SUSPENDED'
+    | 'USER_REACTIVATED'
+    | 'TRIAL_GRANTED'
+    | 'LIFETIME_GRANTED'
+    | 'MANUAL_NOTE_ADDED';
   targetUserId: string;
   targetEmail?: string | null;
   reason?: string;
   adminUser: RecordData;
+  oldValue?: Record<string, unknown>;
+  newValue?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 }) {
   await db.collection('admin_audit_logs').add({
@@ -582,10 +864,139 @@ async function writeAdminAudit(db: Firestore, input: {
     reason: input.reason || '',
     performedBy: stringOrNull(input.adminUser.uid),
     performedByEmail: stringOrNull(input.adminUser.email),
+    oldValue: input.oldValue || {},
+    newValue: input.newValue || {},
+    origin: 'admin_panel',
     createdAt: new Date().toISOString(),
     metadata: input.metadata || {},
     _ts: FieldValue.serverTimestamp(),
   });
+}
+
+function planSnapshot(user: ReturnType<typeof authUserSummary>) {
+  return {
+    subscriptionStatus: user.subscriptionStatus || null,
+    planId: user.planId || null,
+    billingProvider: user.billingProvider || null,
+    currentPeriodEnd: user.currentPeriodEnd || null,
+    planExpiresAt: user.planExpiresAt || null,
+    planStartedAt: user.planStartedAt || null,
+    planOrigin: user.planOrigin || null,
+    planLifetime: Boolean(user.planLifetime),
+    planSpecial: Boolean(user.planSpecial),
+    trialStartedAt: user.trialStartedAt || null,
+    trialEndsAt: user.trialEndsAt || null,
+    daysRemaining: user.daysRemaining ?? null,
+    planStatus: user.planStatus || null,
+  };
+}
+
+async function getPlanMutationTarget(db: Firestore, uid: string, currentAdminUid?: string) {
+  const adminAuth = getFirebaseAdminAuth();
+  if (!adminAuth) {
+    const err = new Error('FIREBASE_ADMIN_AUTH_NOT_CONFIGURED');
+    (err as any).status = 500;
+    throw err;
+  }
+
+  const ref = db.collection('users').doc(uid);
+  const [authUser, storedSnap] = await Promise.all([getAuthUser(uid), ref.get()]);
+  if (!authUser) {
+    const err = new Error('USER_AUTH_RECORD_NOT_FOUND');
+    (err as any).status = 404;
+    throw err;
+  }
+
+  const stored = storedSnap.exists ? storedSnap.data() as RecordData : {};
+  return {
+    adminAuth,
+    ref,
+    authUser,
+    stored,
+    user: authUserSummary(authUser, stored, uid, currentAdminUid),
+  };
+}
+
+async function applyPlanAccess(db: Firestore, input: {
+  uid: string;
+  planId: BillingPlanId | null;
+  subscriptionStatus: 'active' | 'unpaid';
+  currentPeriodEnd: string | null;
+  planStartedAt?: string | null;
+  planOrigin?: AdminPlanOrigin;
+  planLifetime?: boolean;
+  planSpecial?: boolean;
+  trialStartedAt?: string | null;
+  trialEndsAt?: string | null;
+  billingProvider?: string;
+  reason?: string;
+  resetLimits?: boolean;
+  applyPlanLimits?: boolean;
+  adminUser: RecordData;
+  currentAdminUid?: string;
+}) {
+  const target = await getPlanMutationTarget(db, input.uid, input.currentAdminUid);
+  const currentClaims = target.authUser.customClaims || {};
+  const now = new Date().toISOString();
+  const renewalDay = input.currentPeriodEnd ? parseIsoDate(input.currentPeriodEnd)?.getUTCDate() || null : null;
+  const nextClaims: Record<string, unknown> = {
+    ...currentClaims,
+    subscriptionStatus: input.subscriptionStatus,
+    planId: input.planId,
+    billingProvider: input.billingProvider || 'manual',
+    currentPeriodEnd: input.currentPeriodEnd,
+    planStartedAt: input.planStartedAt || target.user.planStartedAt || now,
+    planOrigin: input.planOrigin || 'manual_admin',
+    planLifetime: Boolean(input.planLifetime),
+    planSpecial: Boolean(input.planSpecial),
+    trialStartedAt: input.trialStartedAt || null,
+    trialEndsAt: input.trialEndsAt || null,
+    renewalDay,
+    lastPlanChangeAt: now,
+  };
+
+  if (!input.planId) {
+    delete nextClaims.planId;
+  }
+
+  await target.adminAuth.setCustomUserClaims(input.uid, nextClaims);
+  await target.ref.set({
+    subscriptionStatus: input.subscriptionStatus,
+    planId: input.planId,
+    billingProvider: input.billingProvider || 'manual',
+    currentPeriodEnd: input.currentPeriodEnd,
+    planExpiresAt: input.currentPeriodEnd,
+    planStartedAt: input.planStartedAt || target.user.planStartedAt || now,
+    planOrigin: input.planOrigin || 'manual_admin',
+    planLifetime: Boolean(input.planLifetime),
+    planSpecial: Boolean(input.planSpecial),
+    trialStartedAt: input.trialStartedAt || null,
+    trialEndsAt: input.trialEndsAt || null,
+    renewalDay,
+    manualPlanReason: input.reason || '',
+    planLimitsResetAt: input.resetLimits ? now : target.stored.planLimitsResetAt || null,
+    planLimitsAppliedAt: input.applyPlanLimits ? now : target.stored.planLimitsAppliedAt || null,
+    lastPlanChangeAt: now,
+    updatedAt: now,
+    _ts: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  await createNotification({
+    recipientUid: input.uid,
+    category: 'billing',
+    title: input.subscriptionStatus === 'active' ? 'Plano atualizado' : 'Plano atualizado pelo admin',
+    body: input.planId
+      ? `Seu plano ${BILLING_PLANS[input.planId].name} foi atualizado.`
+      : 'Seu acesso de plano foi atualizado.',
+    link: '/app/billing',
+    priority: 'normal',
+    metadata: { source: 'admin_panel', planId: input.planId, currentPeriodEnd: input.currentPeriodEnd },
+  }).catch((error) => console.warn('[notifications] manual plan skipped:', error instanceof Error ? error.message : error));
+
+  return {
+    before: target.user,
+    after: await loadUserDetails(db, input.uid, input.currentAdminUid),
+  };
 }
 
 adminRouter.get('/users/:uid/details', requireAdmin, async (req, res, next) => {
@@ -738,6 +1149,380 @@ adminRouter.post('/support-users', requireAdmin, async (req, res, next) => {
   }
 });
 
+adminRouter.post('/users/:uid/plan', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = manualPlanSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    const plan = getPlan(input.planId);
+    if (!plan) {
+      const err = new Error('INVALID_PLAN');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const before = planSnapshot(target.user);
+
+    if (!input.startsImmediately) {
+      await target.ref.set({
+        pendingManualPlan: {
+          planId: plan.id,
+          requestedAt: nowIso,
+          requestedBy: res.locals.user.uid,
+          reason: input.reason,
+          origin: input.origin,
+          expiresAt: input.expiresAt || null,
+        },
+        updatedAt: nowIso,
+        _ts: FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      await writeAdminAudit(db, {
+        action: 'PLAN_CHANGED',
+        targetUserId: req.params.uid,
+        targetEmail: target.user.email,
+        reason: input.reason,
+        adminUser: res.locals.user,
+        oldValue: before,
+        newValue: { pendingPlanId: plan.id, startsImmediately: false, expiresAt: input.expiresAt || null },
+        metadata: { scheduled: true, origin: input.origin },
+      });
+
+      res.json(await loadUserDetails(db, req.params.uid, res.locals.user?.uid));
+      return;
+    }
+
+    const expiresAt = input.lifetime
+      ? null
+      : input.keepCurrentExpiration && target.user.currentPeriodEnd
+        ? target.user.currentPeriodEnd
+        : input.expiresAt || addDays(now, 30).toISOString();
+
+    if (!input.lifetime) {
+      const expirationDate = parseIsoDate(expiresAt);
+      if (!expirationDate || expirationDate.getTime() <= Date.now()) {
+        const err = new Error('PLAN_EXPIRATION_MUST_BE_FUTURE');
+        (err as any).status = 400;
+        throw err;
+      }
+    }
+
+    const result = await applyPlanAccess(db, {
+      uid: req.params.uid,
+      planId: plan.id,
+      subscriptionStatus: 'active',
+      currentPeriodEnd: expiresAt,
+      planStartedAt: nowIso,
+      planOrigin: input.origin,
+      planLifetime: input.lifetime,
+      planSpecial: input.special,
+      billingProvider: 'manual',
+      reason: input.reason,
+      resetLimits: input.resetLimits,
+      applyPlanLimits: input.applyPlanLimits,
+      adminUser: res.locals.user,
+      currentAdminUid: res.locals.user?.uid,
+    });
+
+    await writeAdminAudit(db, {
+      action: input.lifetime ? 'LIFETIME_GRANTED' : 'PLAN_CHANGED',
+      targetUserId: req.params.uid,
+      targetEmail: result.after.user.email,
+      reason: input.reason,
+      adminUser: res.locals.user,
+      oldValue: before,
+      newValue: planSnapshot(result.after.user),
+      metadata: {
+        origin: input.origin,
+        resetLimits: input.resetLimits,
+        applyPlanLimits: input.applyPlanLimits,
+      },
+    });
+
+    res.json(result.after);
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/plan/days', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = adjustPlanDaysSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    const planId = sanitizePlanId(target.user.planId);
+    if (!planId) {
+      const err = new Error('USER_HAS_NO_PLAN');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const before = planSnapshot(target.user);
+    const now = new Date();
+    const currentEnd = parseIsoDate(target.user.currentPeriodEnd);
+    const base = currentEnd && currentEnd.getTime() > now.getTime() ? currentEnd : now;
+    let nextEnd: Date;
+
+    if (input.mode === 'expire_now') {
+      nextEnd = new Date(Date.now() - 60 * 1000);
+    } else if (input.mode === 'set_expiration') {
+      const parsed = parseIsoDate(input.expiresAt);
+      if (!parsed) {
+        const err = new Error('INVALID_EXPIRATION_DATE');
+        (err as any).status = 400;
+        throw err;
+      }
+      nextEnd = parsed;
+    } else {
+      const days = input.days || 0;
+      nextEnd = addDays(base, input.mode === 'add' ? days : -days);
+    }
+
+    const result = await applyPlanAccess(db, {
+      uid: req.params.uid,
+      planId,
+      subscriptionStatus: 'active',
+      currentPeriodEnd: nextEnd.toISOString(),
+      planStartedAt: target.user.planStartedAt || new Date().toISOString(),
+      planOrigin: target.user.planOrigin || 'manual_admin',
+      planLifetime: false,
+      planSpecial: target.user.planSpecial,
+      billingProvider: target.user.billingProvider || 'manual',
+      reason: input.reason,
+      adminUser: res.locals.user,
+      currentAdminUid: res.locals.user?.uid,
+    });
+
+    const action = input.mode === 'add'
+      ? 'DAYS_ADDED'
+      : input.mode === 'expire_now'
+        ? 'PLAN_EXPIRED'
+        : 'DAYS_REMOVED';
+
+    await writeAdminAudit(db, {
+      action,
+      targetUserId: req.params.uid,
+      targetEmail: result.after.user.email,
+      reason: input.reason,
+      adminUser: res.locals.user,
+      oldValue: before,
+      newValue: planSnapshot(result.after.user),
+      metadata: { mode: input.mode, days: input.days || null, expiresAt: nextEnd.toISOString() },
+    });
+
+    res.json(result.after);
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/trial', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = trialSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    const plan = getPlan(input.planId);
+    if (!plan) {
+      const err = new Error('INVALID_PLAN');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const now = new Date();
+    const trialEndsAt = addDays(now, input.days).toISOString();
+    const before = planSnapshot(target.user);
+    const result = await applyPlanAccess(db, {
+      uid: req.params.uid,
+      planId: plan.id,
+      subscriptionStatus: 'active',
+      currentPeriodEnd: trialEndsAt,
+      planStartedAt: now.toISOString(),
+      planOrigin: 'trial',
+      planLifetime: false,
+      planSpecial: false,
+      trialStartedAt: now.toISOString(),
+      trialEndsAt,
+      billingProvider: 'manual',
+      reason: input.reason,
+      adminUser: res.locals.user,
+      currentAdminUid: res.locals.user?.uid,
+    });
+
+    await writeAdminAudit(db, {
+      action: 'TRIAL_GRANTED',
+      targetUserId: req.params.uid,
+      targetEmail: result.after.user.email,
+      reason: input.reason,
+      adminUser: res.locals.user,
+      oldValue: before,
+      newValue: planSnapshot(result.after.user),
+      metadata: { days: input.days, planId: plan.id },
+    });
+
+    res.json(result.after);
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/lifetime', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = lifetimeSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    const plan = getPlan(input.planId);
+    if (!plan) {
+      const err = new Error('INVALID_PLAN');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const before = planSnapshot(target.user);
+    const result = await applyPlanAccess(db, {
+      uid: req.params.uid,
+      planId: plan.id,
+      subscriptionStatus: 'active',
+      currentPeriodEnd: null,
+      planStartedAt: target.user.planStartedAt || new Date().toISOString(),
+      planOrigin: 'manual_admin',
+      planLifetime: true,
+      planSpecial: input.special,
+      billingProvider: 'manual',
+      reason: input.reason,
+      adminUser: res.locals.user,
+      currentAdminUid: res.locals.user?.uid,
+    });
+
+    await writeAdminAudit(db, {
+      action: 'LIFETIME_GRANTED',
+      targetUserId: req.params.uid,
+      targetEmail: result.after.user.email,
+      reason: input.reason,
+      adminUser: res.locals.user,
+      oldValue: before,
+      newValue: planSnapshot(result.after.user),
+      metadata: { planId: plan.id, special: input.special },
+    });
+
+    res.json(result.after);
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/suspend', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = suspendSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    if (target.user.role === 'admin') {
+      const err = new Error('CANNOT_SUSPEND_ADMIN');
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const now = new Date().toISOString();
+    await target.adminAuth.updateUser(req.params.uid, { disabled: true });
+    await target.ref.set({
+      suspended: true,
+      suspendedAt: now,
+      suspendedBy: res.locals.user.uid,
+      suspensionReason: input.reason,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await writeAdminAudit(db, {
+      action: 'USER_SUSPENDED',
+      targetUserId: req.params.uid,
+      targetEmail: target.user.email,
+      reason: input.reason,
+      adminUser: res.locals.user,
+      oldValue: { disabled: target.user.disabled },
+      newValue: { disabled: true },
+    });
+
+    res.json(await loadUserDetails(db, req.params.uid, res.locals.user?.uid));
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/reactivate', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = suspendSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    const now = new Date().toISOString();
+
+    await target.adminAuth.updateUser(req.params.uid, { disabled: false });
+    await target.ref.set({
+      suspended: false,
+      reactivatedAt: now,
+      reactivatedBy: res.locals.user.uid,
+      reactivationReason: input.reason,
+      banned: false,
+      banStatus: 'revoked',
+      banRevokedAt: now,
+      banRevokedBy: res.locals.user.uid,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await writeAdminAudit(db, {
+      action: 'USER_REACTIVATED',
+      targetUserId: req.params.uid,
+      targetEmail: target.user.email,
+      reason: input.reason,
+      adminUser: res.locals.user,
+      oldValue: { disabled: target.user.disabled, banned: target.user.banned },
+      newValue: { disabled: false, banned: false },
+    });
+
+    res.json(await loadUserDetails(db, req.params.uid, res.locals.user?.uid));
+  } catch (error) {
+    next(error);
+  }
+});
+
+adminRouter.post('/users/:uid/notes', requireAdmin, async (req, res, next) => {
+  try {
+    const db = getDb();
+    const input = noteSchema.parse(req.body || {});
+    const target = await getPlanMutationTarget(db, req.params.uid, res.locals.user?.uid);
+    const now = new Date().toISOString();
+
+    await target.ref.collection('adminNotes').add({
+      note: input.note,
+      createdAt: now,
+      createdBy: res.locals.user.uid,
+      createdByEmail: res.locals.user.email || '',
+      _ts: FieldValue.serverTimestamp(),
+    });
+    await target.ref.set({
+      adminNotesCount: FieldValue.increment(1),
+      lastAdminNoteAt: now,
+      updatedAt: now,
+      _ts: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await writeAdminAudit(db, {
+      action: 'MANUAL_NOTE_ADDED',
+      targetUserId: req.params.uid,
+      targetEmail: target.user.email,
+      reason: input.note.slice(0, 500),
+      adminUser: res.locals.user,
+      newValue: { note: input.note },
+    });
+
+    res.status(201).json(await loadUserDetails(db, req.params.uid, res.locals.user?.uid));
+  } catch (error) {
+    next(error);
+  }
+});
+
 adminRouter.post('/users/:uid/ban', requireAdmin, async (req, res, next) => {
   try {
     const db = getDb();
@@ -841,6 +1626,10 @@ adminRouter.get('/overview', requireAdmin, async (_req, res, next) => {
     const media = buildMediaItems(events, videos);
     const since24h = Date.now() - 24 * 60 * 60 * 1000;
     const recentLoginLogs = loginLogs.filter((log) => Date.parse(log.createdAt) >= since24h);
+    const expiringWithin = (days: number) => users.filter((user) => {
+      if (user.planLifetime || user.planStatus !== 'active' || typeof user.daysRemaining !== 'number') return false;
+      return user.daysRemaining >= 0 && user.daysRemaining <= days;
+    }).length;
 
     res.json({
       generatedAt: new Date().toISOString(),
@@ -853,6 +1642,17 @@ adminRouter.get('/overview', requireAdmin, async (_req, res, next) => {
         failedLoginAttempts24h: recentLoginLogs.filter((log) => !log.success).length,
         disabledUsers: users.filter((user) => user.disabled).length,
         supportUsers: users.filter((user) => user.role === 'support').length,
+        activeUsers: users.filter((user) => user.planStatus === 'active' || user.planStatus === 'lifetime' || user.planStatus === 'trial').length,
+        expiredUsers: users.filter((user) => user.planStatus === 'expired').length,
+        trialUsers: users.filter((user) => user.planStatus === 'trial').length,
+        bannedOrSuspendedUsers: users.filter((user) => user.planStatus === 'banned' || user.planStatus === 'suspended').length,
+        lifetimeUsers: users.filter((user) => user.planStatus === 'lifetime').length,
+        expiringIn7Days: expiringWithin(7),
+        expiringIn30Days: expiringWithin(30),
+        usersByPlan: Object.keys(BILLING_PLANS).reduce((acc, planId) => {
+          acc[planId] = users.filter((user) => user.planId === planId).length;
+          return acc;
+        }, {} as Record<string, number>),
       },
       users,
       events,

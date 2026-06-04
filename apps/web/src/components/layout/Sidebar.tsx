@@ -57,12 +57,12 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const content = (
     <div className="flex h-full w-64 flex-col border-r border-white/[0.08] bg-[#0e1016]/90 backdrop-blur-2xl">
-      <div className="flex h-[68px] items-center overflow-hidden border-b border-white/[0.08] px-5">
+      <div className="flex h-[84px] items-center overflow-hidden border-b border-white/[0.08] px-5">
         <div className="relative h-full w-full overflow-hidden">
           <img
             src="/brand/six3.png"
             alt="SIX3"
-            className="absolute left-1/2 top-[58%] w-[430px] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+            className="absolute left-1/2 top-[60%] w-[430px] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
             draggable={false}
           />
         </div>

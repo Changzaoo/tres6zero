@@ -1,5 +1,5 @@
 import { apiRequest } from '@/services/authService';
-import type { SupportConversation, SupportMessage } from '@/types';
+import type { SupportConversation, SupportMessage, SupportUserSummary } from '@/types';
 
 type ConversationResponse = {
   conversation: SupportConversation;
@@ -15,6 +15,15 @@ type MessagesResponse = {
 };
 
 type MessageResponse = {
+  message: SupportMessage;
+};
+
+type AdminUsersResponse = {
+  users: SupportUserSummary[];
+};
+
+type AdminConversationCreateResponse = {
+  conversation: SupportConversation;
   message: SupportMessage;
 };
 
@@ -72,6 +81,17 @@ export function sendAnonymousSupportMessage(conversationId: string, visitorId: s
 
 export function listAdminSupportConversations() {
   return apiRequest<ConversationsResponse>('/api/support/admin/conversations');
+}
+
+export function listAdminSupportUsers() {
+  return apiRequest<AdminUsersResponse>('/api/support/admin/users');
+}
+
+export function createAdminSupportConversation(data: { ownerUid: string; subject?: string; message: string }) {
+  return apiRequest<AdminConversationCreateResponse>('/api/support/admin/conversations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
 export function getAdminSupportMessages(conversationId: string) {

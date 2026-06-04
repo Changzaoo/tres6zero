@@ -61,7 +61,7 @@ const statusTone: Record<string, string> = {
 };
 
 const visibilityLabel: Record<VideoVisibility, string> = {
-  public: 'PÃºblico',
+  public: 'Público',
   private: 'Privado',
 };
 
@@ -478,8 +478,8 @@ export default function VideosPage() {
 
     if (targetIds.length === 0) {
       toast.info(visibility === 'public'
-        ? 'Os vÃ­deos selecionados jÃ¡ estÃ£o pÃºblicos.'
-        : 'Os vÃ­deos selecionados jÃ¡ estÃ£o privados.');
+        ? 'Os vídeos selecionados já estão públicos.'
+        : 'Os vídeos selecionados já estão privados.');
       return;
     }
 
@@ -504,14 +504,14 @@ export default function VideosPage() {
         return next;
       });
       toast.success(updatedIds.length === 1
-        ? (visibility === 'public' ? 'VÃ­deo tornado pÃºblico.' : 'VÃ­deo tornado privado.')
-        : (visibility === 'public' ? `${updatedIds.length} vÃ­deos tornados pÃºblicos.` : `${updatedIds.length} vÃ­deos tornados privados.`));
+        ? (visibility === 'public' ? 'Vídeo tornado público.' : 'Vídeo tornado privado.')
+        : (visibility === 'public' ? `${updatedIds.length} vídeos tornados públicos.` : `${updatedIds.length} vídeos tornados privados.`));
     }
 
     if (failedCount) {
       toast.error(failedCount === 1
-        ? 'NÃ£o foi possÃ­vel alterar a visibilidade de 1 vÃ­deo.'
-        : `NÃ£o foi possÃ­vel alterar a visibilidade de ${failedCount} vÃ­deos.`);
+        ? 'Não foi possível alterar a visibilidade de 1 vídeo.'
+        : `Não foi possível alterar a visibilidade de ${failedCount} vídeos.`);
     }
 
     setUpdatingVisibility(false);
@@ -520,7 +520,7 @@ export default function VideosPage() {
   async function copyLink(video: AppVideo) {
     const url = publicVideoShareUrl(video);
     if (!url) {
-      toast.info('Este vÃ­deo estÃ¡ privado. Torne pÃºblico para compartilhar o link.');
+      toast.info('Este vídeo está privado. Torne público para compartilhar o link.');
       return;
     }
 
@@ -536,7 +536,7 @@ export default function VideosPage() {
     closeVideoMenu();
     const url = publicVideoShareUrl(video);
     if (!url) {
-      toast.info('Este vÃ­deo estÃ¡ privado. Torne pÃºblico para compartilhar.');
+      toast.info('Este vídeo está privado. Torne público para compartilhar.');
       return;
     }
 
@@ -559,7 +559,7 @@ export default function VideosPage() {
     closeVideoMenu();
     const url = publicVideoShareUrl(video);
     if (!url) {
-      toast.info('Este vÃ­deo estÃ¡ privado. Torne pÃºblico para enviar pelo WhatsApp.');
+      toast.info('Este vídeo está privado. Torne público para enviar pelo WhatsApp.');
       return;
     }
 
@@ -652,7 +652,7 @@ export default function VideosPage() {
                   icon={<Eye className="h-4 w-4" />}
                   onClick={() => updateVideosVisibility([...selectedIds], 'public')}
                 >
-                  Tornar pÃºblico
+                  Tornar público
                 </Button>
                 <Button
                   size="sm"
@@ -882,7 +882,7 @@ export default function VideosPage() {
                           onClick={() => updateVideosVisibility([video.id], visibility === 'public' ? 'private' : 'public')}
                           icon={visibility === 'public' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         >
-                          {visibility === 'public' ? 'Tornar privado' : 'Tornar pÃºblico'}
+                          {visibility === 'public' ? 'Tornar privado' : 'Tornar público'}
                         </MenuAction>
                         <MenuAction onClick={() => openRenameModal(video)} icon={<Edit3 className="h-4 w-4" />}>
                           Editar nome
@@ -933,7 +933,7 @@ export default function VideosPage() {
             </div>
             <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 sm:flex-row sm:items-center">
               <span className="min-w-0 flex-1 truncate text-xs text-white/40">
-                {publicVideoShareUrl(previewVideo) || 'VÃ­deo privado: link pÃºblico desativado.'}
+                {publicVideoShareUrl(previewVideo) || 'Vídeo privado: link público desativado.'}
               </span>
               <button
                 type="button"

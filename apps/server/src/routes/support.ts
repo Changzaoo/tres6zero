@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import type { UserRecord } from 'firebase-admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { getAuthenticatedUser, requireSupportStaff } from './auth';
-import { getFirebaseAdminFirestore } from '../services/firebaseAdmin';
+import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification, createSupportStaffNotification } from '../services/notifications';
 
 export const supportRouter = Router();
@@ -24,9 +25,17 @@ const messageSchema = z.object({
   message: z.string().min(1).max(5000),
 });
 
+const adminConversationSchema = z.object({
+  ownerUid: z.string().min(1).max(128).regex(/^[^/]+$/),
+  subject: z.string().trim().min(3).max(160).optional(),
+  message: z.string().trim().min(1).max(5000),
+});
+
 const anonymousMessageSchema = messageSchema.extend({
   visitorId: z.string().min(16).max(96).regex(/^[a-zA-Z0-9._-]+$/),
 });
+
+type RecordData = Record<string, unknown>;
 
 function getDb() {
   const db = getFirebaseAdminFirestore();
@@ -51,6 +60,101 @@ function nowIso() {
 
 function preview(message: string) {
   return message.replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
+function stringValue(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function stringOrNull(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function isoFromValue(value: unknown, fallback = '') {
+  if (typeof value === 'string' && value) return value;
+  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    try {
+      return (value as { toDate: () => Date }).toDate().toISOString();
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+function roleFromAuthAndStored(authUser: UserRecord | null | undefined, stored: RecordData) {
+  const claims = authUser?.customClaims || {};
+  if (claims.role === 'admin' || stored.role === 'admin') return 'admin';
+  if (claims.role === 'support' || stored.role === 'support') return 'support';
+  return 'user';
+}
+
+function supportUserSummary(authUser: UserRecord | null | undefined, stored: RecordData, uid: string) {
+  const claims = authUser?.customClaims || {};
+  return {
+    uid,
+    name: authUser?.displayName || stringValue(stored.name, stringValue(stored.companyName, 'Usuário')),
+    email: authUser?.email || stringValue(stored.email),
+    role: roleFromAuthAndStored(authUser, stored),
+    disabled: Boolean(authUser?.disabled),
+    emailVerified: Boolean(authUser?.emailVerified),
+    subscriptionStatus: stringOrNull(claims.subscriptionStatus) || stringOrNull(stored.subscriptionStatus),
+    planId: stringOrNull(claims.planId) || stringOrNull(stored.planId),
+    companyName: stringValue(stored.companyName),
+    avatarUrl: stringValue(stored.avatarUrl),
+    currentPeriodEnd: stringOrNull(claims.currentPeriodEnd) || stringOrNull(stored.currentPeriodEnd),
+    createdAt: authUser?.metadata.creationTime ? new Date(authUser.metadata.creationTime).toISOString() : isoFromValue(stored.createdAt, ''),
+    lastSignInAt: authUser?.metadata.lastSignInTime ? new Date(authUser.metadata.lastSignInTime).toISOString() : null,
+  };
+}
+
+async function listAuthUsers() {
+  const adminAuth = getFirebaseAdminAuth();
+  if (!adminAuth) return [];
+
+  const users: UserRecord[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const page = await adminAuth.listUsers(1000, pageToken);
+    users.push(...page.users);
+    pageToken = page.pageToken;
+  } while (pageToken && users.length < 5000);
+
+  return users;
+}
+
+async function listSupportUsers() {
+  const db = getDb();
+  const [authUsers, storedSnap] = await Promise.all([
+    listAuthUsers(),
+    db.collection('users').get(),
+  ]);
+
+  const authMap = new Map(authUsers.map((user) => [user.uid, user]));
+  const storedMap = new Map(storedSnap.docs.map((doc) => [doc.id, doc.data() as RecordData]));
+  const ids = new Set<string>([...authMap.keys(), ...storedMap.keys()]);
+
+  return [...ids]
+    .map((uid) => supportUserSummary(authMap.get(uid), storedMap.get(uid) || {}, uid))
+    .sort((a, b) => {
+      const bDate = Date.parse(b.lastSignInAt || b.createdAt || '');
+      const aDate = Date.parse(a.lastSignInAt || a.createdAt || '');
+      return (Number.isFinite(bDate) ? bDate : 0) - (Number.isFinite(aDate) ? aDate : 0);
+    });
+}
+
+async function loadSupportUser(uid: string) {
+  const db = getDb();
+  const adminAuth = getFirebaseAdminAuth();
+  const [authUser, storedSnap] = await Promise.all([
+    adminAuth ? adminAuth.getUser(uid).catch(() => null) : Promise.resolve(null),
+    db.collection('users').doc(uid).get(),
+  ]);
+
+  if (!authUser && !storedSnap.exists) supportError('SUPPORT_USER_NOT_FOUND', 404);
+
+  return supportUserSummary(authUser, storedSnap.exists ? storedSnap.data() as RecordData : {}, uid);
 }
 
 function conversationFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
@@ -374,6 +478,75 @@ supportRouter.get('/admin/conversations', requireSupportStaff, async (_req, res,
     const db = getDb();
     const snap = await db.collection('supportConversations').orderBy('lastMessageAt', 'desc').limit(100).get();
     res.json({ conversations: snap.docs.map(conversationFromDoc) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+supportRouter.get('/admin/users', requireSupportStaff, async (_req, res, next) => {
+  try {
+    res.json({ users: await listSupportUsers() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+supportRouter.post('/admin/conversations', requireSupportStaff, async (req, res, next) => {
+  try {
+    const adminUser = res.locals.user;
+    const data = adminConversationSchema.parse(req.body || {});
+    const target = await loadSupportUser(data.ownerUid);
+    const db = getDb();
+    const createdAt = nowIso();
+    const subject = data.subject?.trim() || 'Mensagem do suporte';
+    const senderRole = adminUser.role === 'support' ? 'support' : 'admin';
+    const senderName = adminUser.name || (senderRole === 'support' ? 'Suporte' : 'Admin');
+    const conversationRef = db.collection('supportConversations').doc();
+    const conversation = {
+      ownerUid: target.uid,
+      accessLevel: 'authenticated',
+      source: 'app',
+      userName: target.name || target.email || 'Usuário',
+      userEmail: target.email,
+      contactEmail: target.email,
+      subject,
+      status: 'answered',
+      lastMessagePreview: preview(data.message),
+      lastMessageAt: createdAt,
+      unreadForAdmin: 0,
+      unreadForUser: 1,
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    await conversationRef.set({
+      ...conversation,
+      _ts: FieldValue.serverTimestamp(),
+    });
+
+    const messageRef = await conversationRef.collection('messages').add({
+      conversationId: conversationRef.id,
+      senderUid: adminUser.uid,
+      senderRole,
+      senderName,
+      body: data.message,
+      createdAt,
+    });
+
+    await createNotification({
+      recipientUid: target.uid,
+      category: 'support',
+      title: 'Nova mensagem do suporte',
+      body: preview(data.message),
+      link: '/app/support',
+      priority: 'high',
+      metadata: { conversationId: conversationRef.id, startedBy: adminUser.uid },
+    }).catch((error) => console.warn('[notifications] support user skipped:', error instanceof Error ? error.message : error));
+
+    res.status(201).json({
+      conversation: { id: conversationRef.id, ...conversation },
+      message: messageFromDoc(await messageRef.get()),
+    });
   } catch (error) {
     next(error);
   }

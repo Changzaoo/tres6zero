@@ -141,16 +141,18 @@ function normalizeGeneratedTemplateAssetUrls(template: AppTemplate) {
   const baseId = generatedTemplateBaseId(template);
   if (!baseId) return template;
 
-  const overlayUrl = `${API_URL}/api/templates/render/${encodeURIComponent(baseId)}.png`;
+  const renderUrl = `${API_URL}/api/templates/render/${encodeURIComponent(baseId)}.png`;
   const animationUrl = template.animationUrl && !/render-motion/i.test(template.animationUrl)
     ? template.animationUrl
     : undefined;
+  const overlayUrl = template.overlayUrl || template.frameUrl || template.previewUrl || renderUrl;
+  const previewUrl = template.previewUrl || overlayUrl;
 
   return {
     ...template,
-    previewUrl: overlayUrl,
+    previewUrl,
     overlayUrl,
-    frameUrl: overlayUrl,
+    frameUrl: template.frameUrl || overlayUrl,
     animationUrl,
   };
 }
