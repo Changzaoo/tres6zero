@@ -22,21 +22,20 @@ import { currentPlanLabel, planExpirationLabel } from '@/utils/subscriptionDispl
 import { getStoredMenuOrder, sortMenuItems, subscribeMenuOrder } from '@/services/menuOrderService';
 
 const mobileItems = [
+  { id: 'dashboard' as const, to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'events' as const, to: '/app/events', label: 'Eventos', icon: Calendar },
   { id: 'videos' as const, to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
   { id: 'gravar' as const, to: '/app/gravar', label: 'Gravar', icon: Camera },
   { id: 'templates' as const, to: '/app/templates', label: 'Templates', icon: Layers },
+  { id: 'billing' as const, to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
+  { id: 'settings' as const, to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
+  { id: 'support' as const, to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
+
+const adminMobileItem = { id: 'admin' as const, to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true };
 
 const supportMobileItems = [
   { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true },
-];
-
-const accountItems = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
-  { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
-  { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
 function ProfileBubble({ avatarUrl, initial, size = 'sm' }: { avatarUrl?: string; initial: string; size?: 'sm' | 'md' }) {
@@ -59,17 +58,18 @@ export function MobileBottomNav() {
   const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
   const location = useLocation();
   const navigate = useNavigate();
-  const items = isSupport
+  const sortedMenuItems = isSupport
     ? []
     : isAdmin
-    ? [...accountItems, { to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true }]
-    : accountItems;
-  const visibleMobileItems = isSupport ? supportMobileItems : sortMenuItems(mobileItems, menuOrder);
+    ? sortMenuItems([...mobileItems, adminMobileItem], menuOrder)
+    : sortMenuItems(mobileItems, menuOrder);
+  const visibleMobileItems = isSupport ? supportMobileItems : sortedMenuItems.slice(0, 4);
+  const accountItems = sortedMenuItems.slice(4);
   const initial = user?.name?.charAt(0).toUpperCase() || 'U';
   const accountPlan = currentPlanLabel(user);
   const accountExpiration = planExpirationLabel(user);
   const accountExpirationClass = isSupport || hasActiveSubscription ? 'text-emerald-300/75' : 'text-white/35';
-  const accountActive = accountOpen || items.some((item) => routeMatches(location.pathname, item.to));
+  const accountActive = accountOpen || accountItems.some((item) => routeMatches(location.pathname, item.to));
 
   useEffect(() => {
     setAccountOpen(false);
@@ -119,9 +119,9 @@ export function MobileBottomNav() {
               </button>
             </div>
 
-            {items.length > 0 && (
+            {accountItems.length > 0 && (
               <div className="grid grid-cols-2 gap-1.5">
-                {items.map(({ to, label, icon: Icon, unlocked }) => {
+                {accountItems.map(({ to, label, icon: Icon, unlocked }) => {
                   const locked = isLocked(unlocked);
                   return (
                     <NavLink

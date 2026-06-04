@@ -1,6 +1,6 @@
-export type MenuItemId = 'events' | 'videos' | 'gravar' | 'templates';
+export type MenuItemId = 'dashboard' | 'events' | 'videos' | 'gravar' | 'templates' | 'billing' | 'settings' | 'support' | 'admin';
 
-export const DEFAULT_MENU_ORDER: MenuItemId[] = ['events', 'videos', 'gravar', 'templates'];
+export const DEFAULT_MENU_ORDER: MenuItemId[] = ['dashboard', 'events', 'videos', 'gravar', 'templates', 'billing', 'settings', 'support', 'admin'];
 
 const MENU_ORDER_STORAGE_KEY = 'six3:menu-order:v1';
 const MENU_ORDER_EVENT = 'six3:menu-order-changed';

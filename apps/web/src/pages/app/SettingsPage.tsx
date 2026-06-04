@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   BellRing,
   Building,
@@ -10,9 +11,12 @@ import {
   Camera,
   ChevronRight,
   Clock3,
+  CreditCard,
   GripVertical,
   KeyRound,
   Layers,
+  LayoutDashboard,
+  LifeBuoy,
   LogOut,
   MapPin,
   Monitor,
@@ -20,6 +24,8 @@ import {
   Moon,
   Palette,
   RotateCcw,
+  Settings as SettingsIcon,
+  Shield,
   ShieldCheck,
   Sun,
   Trash2,
@@ -51,11 +57,18 @@ interface PasswordFormData {
   newPassword: string;
 }
 
+type SettingsPanelId = 'conta' | 'aparencia' | 'menu' | 'notificacoes' | 'seguranca';
+
 const menuItemMeta: Record<MenuItemId, { label: string; description: string; icon: ReactNode }> = {
+  dashboard: { label: 'Dashboard', description: 'Resumo geral da plataforma.', icon: <LayoutDashboard className="h-4 w-4" /> },
   events: { label: 'Eventos', description: 'Páginas e links criados.', icon: <Calendar className="h-4 w-4" /> },
   videos: { label: 'Vídeos', description: 'Biblioteca de vídeos prontos.', icon: <Video className="h-4 w-4" /> },
   gravar: { label: 'Gravar', description: 'Atalho para criar vídeo.', icon: <Camera className="h-4 w-4" /> },
   templates: { label: 'Templates', description: 'Molduras e músicas.', icon: <Layers className="h-4 w-4" /> },
+  billing: { label: 'Planos', description: 'Assinatura e cobrança.', icon: <CreditCard className="h-4 w-4" /> },
+  settings: { label: 'Configurações', description: 'Preferências da conta.', icon: <SettingsIcon className="h-4 w-4" /> },
+  support: { label: 'Suporte', description: 'Mensagens e atendimento.', icon: <LifeBuoy className="h-4 w-4" /> },
+  admin: { label: 'Admin', description: 'Área administrativa.', icon: <Shield className="h-4 w-4" /> },
 };
 
 function formatDate(value?: string) {
@@ -178,9 +191,21 @@ function ToggleRow({
   );
 }
 
-function SettingsNavLink({ href, icon, title, description }: { href: string; icon: ReactNode; title: string; description: string }) {
-  return (
-    <a href={href} className="group flex min-w-0 items-center gap-3 border-b border-white/[0.08] px-4 py-4 text-left transition hover:bg-white/[0.045]">
+function SettingsNavLink({
+  href,
+  icon,
+  title,
+  description,
+  onOpen,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  description: string;
+  onOpen: () => void;
+}) {
+  const content = (
+    <>
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.055] text-white/62 transition group-hover:bg-white/[0.08] group-hover:text-white">
         {icon}
       </span>
@@ -189,7 +214,18 @@ function SettingsNavLink({ href, icon, title, description }: { href: string; ico
         <span className="mt-0.5 block truncate text-xs text-white/38">{description}</span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-white/28" />
-    </a>
+    </>
+  );
+
+  return (
+    <>
+      <button type="button" onClick={onOpen} className="group flex w-full min-w-0 items-center gap-3 border-b border-white/[0.08] px-4 py-4 text-left transition hover:bg-white/[0.045] lg:hidden">
+        {content}
+      </button>
+      <a href={href} className="group hidden min-w-0 items-center gap-3 border-b border-white/[0.08] px-4 py-4 text-left transition hover:bg-white/[0.045] lg:flex">
+        {content}
+      </a>
+    </>
   );
 }
 
@@ -206,7 +242,7 @@ function SettingsSection({ id, title, description, children }: { id: string; tit
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
@@ -218,9 +254,21 @@ export default function SettingsPage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarProgress, setAvatarProgress] = useState(0);
   const [menuOrder, setMenuOrder] = useState<MenuItemId[]>(() => getStoredMenuOrder());
+  const [activeMobilePanel, setActiveMobilePanel] = useState<SettingsPanelId | null>(null);
   const setGlobalNotificationPrefs = useNotificationStore((state) => state.setPreferences);
   const devices = user?.trustedDevices || [];
-  const menuIsDefault = DEFAULT_MENU_ORDER.every((item, index) => menuOrder[index] === item);
+  const editableMenuOrder = menuOrder.filter((itemId) => isAdmin || itemId !== 'admin');
+  const visibleDefaultMenuOrder = DEFAULT_MENU_ORDER.filter((itemId) => isAdmin || itemId !== 'admin');
+  const menuIsDefault = visibleDefaultMenuOrder.length === editableMenuOrder.length
+    && visibleDefaultMenuOrder.every((item, index) => editableMenuOrder[index] === item);
+  const settingsNavItems: Array<{ id: SettingsPanelId; icon: ReactNode; title: string; description: string }> = [
+    { id: 'conta', icon: <User className="h-5 w-5" />, title: 'Sua conta', description: 'Perfil, foto e senha' },
+    { id: 'aparencia', icon: <Palette className="h-5 w-5" />, title: 'Aparência', description: 'Tema do aplicativo' },
+    { id: 'menu', icon: <GripVertical className="h-5 w-5" />, title: 'Menu', description: 'Ordem dos atalhos' },
+    { id: 'notificacoes', icon: <BellRing className="h-5 w-5" />, title: 'Notificações', description: 'Avisos, som e horário' },
+    { id: 'seguranca', icon: <ShieldCheck className="h-5 w-5" />, title: 'Segurança', description: `${devices.length} dispositivo(s)` },
+  ];
+  const activeMobileItem = settingsNavItems.find((item) => item.id === activeMobilePanel) || null;
 
   useEffect(() => {
     if (user) profileForm.reset({ name: user.name, companyName: user.companyName || '', avatarUrl: user.avatarUrl || '' });
@@ -378,26 +426,53 @@ export default function SettingsPage() {
     toast.success('Ordem original restaurada.');
   }
 
+  function sectionVisibility(panelId: SettingsPanelId) {
+    return activeMobilePanel === panelId ? 'block' : 'hidden lg:block';
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <div className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#050608] shadow-2xl shadow-black/35">
         <div className="grid min-h-[calc(100dvh-8rem)] lg:grid-cols-[21rem_minmax(0,1fr)]">
-          <aside className="border-b border-white/[0.08] lg:border-b-0 lg:border-r">
+          <aside className={`${activeMobilePanel ? 'hidden lg:block' : 'block'} border-b border-white/[0.08] lg:border-b-0 lg:border-r`}>
             <div className="border-b border-white/[0.08] px-4 py-4">
               <h1 className="text-2xl font-black leading-tight text-white">Configurações</h1>
               <p className="mt-1 truncate text-sm text-white/42">{user?.email}</p>
             </div>
             <nav className="divide-y divide-white/[0.08]">
-              <SettingsNavLink href="#conta" icon={<User className="h-5 w-5" />} title="Sua conta" description="Perfil, foto e senha" />
-              <SettingsNavLink href="#aparencia" icon={<Palette className="h-5 w-5" />} title="Aparência" description="Tema do aplicativo" />
-              <SettingsNavLink href="#menu" icon={<GripVertical className="h-5 w-5" />} title="Menu" description="Ordem dos atalhos" />
-              <SettingsNavLink href="#notificacoes" icon={<BellRing className="h-5 w-5" />} title="Notificações" description="Avisos, som e horário" />
-              <SettingsNavLink href="#seguranca" icon={<ShieldCheck className="h-5 w-5" />} title="Segurança" description={`${devices.length} dispositivo(s)`} />
+              {settingsNavItems.map((item) => (
+                <SettingsNavLink
+                  key={item.id}
+                  href={`#${item.id}`}
+                  icon={item.icon}
+                  title={item.title}
+                  description={item.description}
+                  onOpen={() => setActiveMobilePanel(item.id)}
+                />
+              ))}
             </nav>
           </aside>
 
-          <div className="min-w-0 bg-[#07080c]">
-            <SettingsSection id="conta" title="Sua conta" description="Atualize os dados principais e a senha de acesso.">
+          <div className={`${activeMobilePanel ? 'block' : 'hidden'} min-w-0 bg-[#07080c] lg:block`}>
+            {activeMobileItem && (
+              <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/[0.08] bg-[#07080c]/95 px-3 py-3 backdrop-blur-xl lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => setActiveMobilePanel(null)}
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+                  aria-label="Voltar para configurações"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-black text-white">{activeMobileItem.title}</p>
+                  <p className="truncate text-xs text-white/38">{activeMobileItem.description}</p>
+                </div>
+              </div>
+            )}
+
+            <div className={sectionVisibility('conta')}>
+              <SettingsSection id="conta" title="Sua conta" description="Atualize os dados principais e a senha de acesso.">
               <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
                 <input type="hidden" {...profileForm.register('avatarUrl')} />
                 <div className="flex flex-col gap-3 border-b border-white/[0.08] pb-4 sm:flex-row sm:items-center">
@@ -449,19 +524,23 @@ export default function SettingsPage() {
                   <Button type="submit" size="sm" loading={passwordForm.formState.isSubmitting}>Alterar senha</Button>
                 </div>
               </form>
-            </SettingsSection>
+              </SettingsSection>
+            </div>
 
-            <SettingsSection id="aparencia" title="Aparência" description="Escolha como a interface aparece neste dispositivo.">
+            <div className={sectionVisibility('aparencia')}>
+              <SettingsSection id="aparencia" title="Aparência" description="Escolha como a interface aparece neste dispositivo.">
               <div className="grid gap-2 sm:grid-cols-3">
                 <SegmentedButton active={theme === 'dark'} label="Escuro" icon={<Moon className="h-4 w-4" />} onClick={() => handleThemeChange('dark')} />
                 <SegmentedButton active={theme === 'light'} label="Claro" icon={<Sun className="h-4 w-4" />} onClick={() => handleThemeChange('light')} />
                 <SegmentedButton active={theme === 'system'} label="Sistema" icon={<Monitor className="h-4 w-4" />} onClick={() => handleThemeChange('system')} />
               </div>
-            </SettingsSection>
+              </SettingsSection>
+            </div>
 
-            <SettingsSection id="menu" title="Menu" description="Organize os atalhos principais do app.">
+            <div className={sectionVisibility('menu')}>
+              <SettingsSection id="menu" title="Menu" description="Organize os atalhos principais do app.">
               <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
-                {menuOrder.map((itemId, index) => {
+                {editableMenuOrder.map((itemId, index) => {
                   const item = menuItemMeta[itemId];
                   return (
                     <div key={itemId} className="flex min-w-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.025] px-3 py-3 last:border-b-0">
@@ -488,7 +567,7 @@ export default function SettingsPage() {
                           type="button"
                           title="Descer"
                           aria-label={`Descer ${item.label}`}
-                          disabled={index === menuOrder.length - 1}
+                          disabled={index === editableMenuOrder.length - 1}
                           onClick={() => moveMenuItem(itemId, 1)}
                           className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-white/55 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
                         >
@@ -508,9 +587,11 @@ export default function SettingsPage() {
                 <RotateCcw className="h-4 w-4" />
                 Restaurar ordem
               </button>
-            </SettingsSection>
+              </SettingsSection>
+            </div>
 
-            <SettingsSection id="notificacoes" title="Notificações" description="Controle onde e quando os avisos aparecem.">
+            <div className={sectionVisibility('notificacoes')}>
+              <SettingsSection id="notificacoes" title="Notificações" description="Controle onde e quando os avisos aparecem.">
               <div className="mb-3 flex justify-end">
                 {notificationSaving && <span className="text-xs font-bold text-white/35">Salvando...</span>}
               </div>
@@ -594,9 +675,11 @@ export default function SettingsPage() {
                   />
                 ))}
               </div>
-            </SettingsSection>
+              </SettingsSection>
+            </div>
 
-            <SettingsSection id="seguranca" title="Segurança" description="Veja e remova dispositivos conectados à conta.">
+            <div className={sectionVisibility('seguranca')}>
+              <SettingsSection id="seguranca" title="Segurança" description="Veja e remova dispositivos conectados à conta.">
               <div className="mb-3 flex justify-end">
                 <Button type="button" variant="secondary" size="sm" disabled={devices.length === 0} onClick={handleDisconnectAll} icon={<Trash2 className="h-4 w-4" />}>
                   Desconectar todos
@@ -611,7 +694,8 @@ export default function SettingsPage() {
                   <DeviceRow key={device.id} device={device} onDisconnect={handleDisconnectDevice} />
                 ))}
               </div>
-            </SettingsSection>
+              </SettingsSection>
+            </div>
           </div>
         </div>
       </div>

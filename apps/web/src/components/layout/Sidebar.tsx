@@ -25,22 +25,18 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const fixedNavStart = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard, unlocked: false },
-];
-
 const orderedNavItems = [
+  { id: 'dashboard' as const, to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard, unlocked: false },
   { id: 'events' as const, to: '/app/events', label: 'Eventos', icon: Calendar, unlocked: false },
   { id: 'videos' as const, to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
   { id: 'gravar' as const, to: '/app/gravar', label: 'Gravar', icon: Camera, unlocked: false },
   { id: 'templates' as const, to: '/app/templates', label: 'Templates', icon: Layers, unlocked: false },
+  { id: 'billing' as const, to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
+  { id: 'settings' as const, to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
+  { id: 'support' as const, to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
-const fixedNavEnd = [
-  { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
-  { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
-  { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
-];
+const adminNavItem = { id: 'admin' as const, to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true, admin: true };
 
 const supportNavItems = [
   { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true },
@@ -51,7 +47,9 @@ export function Sidebar({ onClose }: SidebarProps) {
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
   const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
-  const visibleNavItems = isSupport ? supportNavItems : [...fixedNavStart, ...sortMenuItems(orderedNavItems, menuOrder), ...fixedNavEnd];
+  const visibleNavItems = isSupport
+    ? supportNavItems
+    : sortMenuItems(isAdmin ? [...orderedNavItems, adminNavItem] : orderedNavItems, menuOrder);
   const planLabel = currentPlanLabel(user);
   const expirationLabel = planExpirationLabel(user);
   const showExpirationLabel = expirationLabel !== planLabel;
@@ -80,7 +78,9 @@ export function Sidebar({ onClose }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        {visibleNavItems.map(({ to, label, icon: Icon, unlocked }) => {
+        {visibleNavItems.map((item) => {
+          const { to, label, icon: Icon, unlocked } = item;
+          const admin = 'admin' in item && item.admin;
           const locked = !hasActiveSubscription && !unlocked;
           return (
             <NavLink
@@ -89,7 +89,9 @@ export function Sidebar({ onClose }: SidebarProps) {
               onClick={onClose}
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
-                  isActive
+                  isActive && admin
+                    ? 'border border-yellow-500/25 bg-yellow-500/[0.14] text-yellow-200'
+                    : isActive
                     ? 'border border-brand-400/30 bg-brand-500/[0.18] text-white shadow-[0_0_0_1px_rgba(59,109,255,.15)_inset,0_18px_44px_-28px_rgba(59,109,255,.75)]'
                     : 'text-white/45 hover:bg-white/[0.055] hover:text-white/90'
                 } ${locked ? 'opacity-60' : ''}`
@@ -101,21 +103,6 @@ export function Sidebar({ onClose }: SidebarProps) {
             </NavLink>
           );
         })}
-
-        {!isSupport && isAdmin && (
-          <NavLink
-            to="/app/admin"
-            onClick={onClose}
-            className={({ isActive }) =>
-              `mt-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
-                isActive ? 'border border-yellow-500/25 bg-yellow-500/[0.14] text-yellow-200' : 'text-white/45 hover:bg-white/[0.055] hover:text-white/90'
-              }`
-            }
-          >
-            <Shield className="h-[18px] w-[18px]" />
-            <span className="flex-1">Admin</span>
-          </NavLink>
-        )}
       </nav>
 
       <div className="border-t border-white/[0.08] p-3">
