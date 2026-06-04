@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BarChart2,
   Calendar,
   Camera,
   CreditCard,
@@ -35,7 +34,6 @@ const supportMobileItems = [
 const accountItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
-  { to: '/app/leads', label: 'Resultados', icon: BarChart2 },
   { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
   { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
