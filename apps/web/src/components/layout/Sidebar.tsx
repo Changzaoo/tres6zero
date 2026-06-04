@@ -62,7 +62,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <img
             src="/brand/six3.png"
             alt="SIX3"
-            className="absolute left-1/2 top-[55%] w-[430px] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
+            className="absolute left-1/2 top-[58%] w-[430px] max-w-none -translate-x-1/2 -translate-y-1/2 select-none"
             draggable={false}
           />
         </div>
