@@ -150,6 +150,7 @@ export default function VideosPage() {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [inlinePreviewId, setInlinePreviewId] = useState<string | null>(null);
   const [previewVideo, setPreviewVideo] = useState<AppVideo | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
@@ -246,6 +247,7 @@ export default function VideosPage() {
 
   function openPreview(video: AppVideo) {
     setOpenMenuId(null);
+    setInlinePreviewId(null);
     setPreviewVideo(video);
   }
 
@@ -345,6 +347,7 @@ export default function VideosPage() {
 
   function openVideo(video: AppVideo) {
     setOpenMenuId(null);
+    setInlinePreviewId(null);
     const url = video.status === 'published' ? videoShareUrl(video) : video.videoUrl;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
@@ -439,6 +442,7 @@ export default function VideosPage() {
             const event = eventForVideo(video, eventMap);
             const eventName = eventNameForVideo(video, eventMap);
             const menuOpen = openMenuId === video.id;
+            const showInlinePreview = canPlay && inlinePreviewId === video.id;
 
             return (
               <motion.article
@@ -447,7 +451,23 @@ export default function VideosPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="group relative min-w-0"
               >
-                <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-white/[0.08]">
+                <div
+                  className="relative overflow-hidden rounded-xl bg-black ring-1 ring-white/[0.08]"
+                  onMouseEnter={() => {
+                    if (canPlay) setInlinePreviewId(video.id);
+                  }}
+                  onMouseLeave={() => {
+                    setInlinePreviewId((current) => current === video.id ? null : current);
+                  }}
+                  onFocus={() => {
+                    if (canPlay) setInlinePreviewId(video.id);
+                  }}
+                  onBlur={(eventBlur) => {
+                    if (!eventBlur.currentTarget.contains(eventBlur.relatedTarget)) {
+                      setInlinePreviewId((current) => current === video.id ? null : current);
+                    }
+                  }}
+                >
                   <button
                     type="button"
                     disabled={!canPlay}
@@ -458,17 +478,36 @@ export default function VideosPage() {
                     {video.thumbnailUrl ? (
                       <img
                         src={video.thumbnailUrl}
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                        className={`h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] ${showInlinePreview ? 'opacity-0' : 'opacity-100'}`}
                         alt=""
                         loading="lazy"
+                      />
+                    ) : canPlay ? (
+                      <video
+                        src={video.videoUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className={`h-full w-full object-cover transition duration-300 ${showInlinePreview ? 'opacity-0' : 'opacity-100'}`}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/[0.06] to-white/[0.015] text-white/28">
                         <Video className="h-10 w-10" />
                       </div>
                     )}
+                    {showInlinePreview && (
+                      <video
+                        src={video.videoUrl}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="auto"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    )}
                     {canPlay && (
-                      <span className="absolute inset-0 grid place-items-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100">
+                      <span className={`absolute inset-0 grid place-items-center text-white transition ${showInlinePreview ? 'bg-black/0 opacity-0' : 'bg-black/0 opacity-0 group-hover:bg-black/20 group-hover:opacity-100'}`}>
                         <PlayCircle className="h-12 w-12 drop-shadow" />
                       </span>
                     )}
@@ -497,6 +536,12 @@ export default function VideosPage() {
                   {duration && (
                     <span className="absolute bottom-2 right-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-bold text-white">
                       {duration}
+                    </span>
+                  )}
+
+                  {showInlinePreview && (
+                    <span className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-0.5 text-[11px] font-bold uppercase tracking-normal text-white/90">
+                      Preview
                     </span>
                   )}
                 </div>
@@ -536,6 +581,7 @@ export default function VideosPage() {
                       className="grid h-9 w-9 place-items-center rounded-full text-white/58 transition hover:bg-white/[0.08] hover:text-white"
                       onClick={(eventClick) => {
                         eventClick.stopPropagation();
+                        setInlinePreviewId(null);
                         setOpenMenuId((current) => current === video.id ? null : video.id);
                       }}
                       aria-label="Abrir ações do vídeo"
