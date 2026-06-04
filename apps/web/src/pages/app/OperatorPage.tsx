@@ -186,12 +186,29 @@ function orientationFromViewport(): VideoOrientation {
   return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
 }
 
-function cameraVideoConstraints(orientation: VideoOrientation, facingMode: CameraFacing, strictFacing = false): MediaTrackConstraints {
+function isMobileCaptureDevice() {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  return /Android|iPhone|iPad|iPod/i.test(userAgent)
+    || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function cameraSizeForOrientation(orientation: VideoOrientation, portraitSide: number, landscapeSide: number) {
   const portrait = orientation === 'portrait';
+  const usePortraitDimensions = isMobileCaptureDevice() ? !portrait : portrait;
+  return {
+    width: usePortraitDimensions ? portraitSide : landscapeSide,
+    height: usePortraitDimensions ? landscapeSide : portraitSide,
+  };
+}
+
+function cameraVideoConstraints(orientation: VideoOrientation, facingMode: CameraFacing, strictFacing = false): MediaTrackConstraints {
+  const size = cameraSizeForOrientation(orientation, 1080, 1920);
   const constraints: MediaTrackConstraints = {
     facingMode: strictFacing ? { exact: facingMode } : { ideal: facingMode },
-    width: { ideal: portrait ? 1080 : 1920 },
-    height: { ideal: portrait ? 1920 : 1080 },
+    width: { ideal: size.width },
+    height: { ideal: size.height },
   };
   return constraints;
 }
@@ -203,11 +220,11 @@ async function requestCameraStream(orientation: VideoOrientation, facingMode: Ca
 
   const strictVideo = cameraVideoConstraints(orientation, facingMode, true);
   const preferredVideo = cameraVideoConstraints(orientation, facingMode);
-  const portrait = orientation === 'portrait';
+  const simpleSize = cameraSizeForOrientation(orientation, 720, 1280);
   const simpleVideo: MediaTrackConstraints = {
     facingMode: { ideal: facingMode },
-    width: { ideal: portrait ? 720 : 1280 },
-    height: { ideal: portrait ? 1280 : 720 },
+    width: { ideal: simpleSize.width },
+    height: { ideal: simpleSize.height },
   };
   const fallbackVideo: MediaTrackConstraints = { facingMode: { ideal: facingMode } };
   const attempts: MediaStreamConstraints[] = [
@@ -1297,6 +1314,7 @@ export default function OperatorPage() {
   const [videoOrientation, setVideoOrientation] = useState<VideoOrientation | null>(null);
   const [recordingOrientation, setRecordingOrientation] = useState<VideoOrientation>(() => orientationFromViewport());
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>('user');
+  const [lockPreviewOrientation, setLockPreviewOrientation] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState<number>(operatorPreferences.defaultDuration);
   const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
@@ -1584,6 +1602,7 @@ export default function OperatorPage() {
 
     setSourceDuration(0);
     setVideoOrientation(null);
+    setLockPreviewOrientation(false);
     setTrimStart(0);
     setTrimEnd(duration);
     setPreviewCurrentTime(0);
@@ -1765,6 +1784,7 @@ export default function OperatorPage() {
       setPreviewCurrentTime(0);
       setEffectSegmentsDraft([]);
       setActiveEffectSegmentId(null);
+      setLockPreviewOrientation(true);
       setVideoOrientation(recordingOrientation);
       setStep('preview');
       readVideoMetadata(url).then((metadata) => {
@@ -1794,7 +1814,11 @@ export default function OperatorPage() {
       setPreviewCurrentTime(0);
     }
     const nextOrientation = videoOrientationFromSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight);
-    if (nextOrientation) setVideoOrientation(nextOrientation);
+    if (lockPreviewOrientation) {
+      setVideoOrientation(recordingOrientation);
+    } else if (nextOrientation) {
+      setVideoOrientation(nextOrientation);
+    }
   }
 
   function handlePreviewTimeUpdate(event: SyntheticEvent<HTMLVideoElement>) {
@@ -2207,6 +2231,7 @@ export default function OperatorPage() {
     setVideoBlob(null);
     setVideoUrl('');
     setVideoOrientation(null);
+    setLockPreviewOrientation(false);
     setTrimStart(0);
     setTrimEnd(duration);
     setPreviewCurrentTime(0);
