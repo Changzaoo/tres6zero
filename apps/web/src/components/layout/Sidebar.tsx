@@ -39,12 +39,26 @@ const supportNavItems = [
   { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
+function formatSubscriptionDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' }).format(date);
+}
+
 export function Sidebar({ onClose }: SidebarProps) {
   const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
   const visibleNavItems = isSupport ? supportNavItems : navItems;
-  const statusLabel = isSupport ? 'Suporte' : hasActiveSubscription ? 'Ativo' : 'Sem assinatura';
+  const expirationDate = formatSubscriptionDate(user?.currentPeriodEnd);
+  const statusLabel = isSupport
+    ? 'Suporte'
+    : hasActiveSubscription && expirationDate
+      ? `Expira em: ${expirationDate}`
+      : hasActiveSubscription
+        ? 'Ativo'
+        : 'Sem assinatura';
   const statusClass = isSupport || hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35';
 
   async function handleLogout() {

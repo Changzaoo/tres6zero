@@ -13,7 +13,9 @@ import type { PlanId } from '@/config/plans';
 
 function formatDate(value?: string | null) {
   if (!value) return null;
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' }).format(date);
 }
 
 function formatPaymentDeadline(value?: string | null) {
@@ -62,7 +64,7 @@ export default function BillingPage() {
   const selectedDescription = isAdmin
     ? 'Seu acesso administrativo e ilimitado.'
     : hasActiveSubscription && periodEnd
-      ? `Seu acesso esta liberado ate ${periodEnd}. A renovacao mantem o mesmo dia da assinatura.`
+      ? `Expira em: ${periodEnd}`
       : hasActiveSubscription
         ? 'Sua plataforma esta liberada para operar.'
         : null;
