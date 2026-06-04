@@ -120,9 +120,31 @@ function cameraFacingLabel(facing: CameraFacing) {
   return facing === 'environment' ? 'Traseira' : 'Frontal';
 }
 
+function cameraFacingHint(facing: CameraFacing) {
+  return facing === 'environment' ? 'Principal' : 'Selfie';
+}
+
 function cameraFacingFromStream(stream: MediaStream, fallback: CameraFacing): CameraFacing {
   const facingMode = stream.getVideoTracks()[0]?.getSettings().facingMode;
   return facingMode === 'environment' || facingMode === 'user' ? facingMode : fallback;
+}
+
+const captureChoiceGridClass = 'grid grid-cols-2 gap-2';
+
+function captureChoiceButtonClass(active: boolean) {
+  return `group relative flex min-h-[76px] items-center gap-3 overflow-hidden rounded-[20px] border p-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300/55 disabled:cursor-not-allowed disabled:opacity-55 ${
+    active
+      ? 'border-brand-200/50 bg-[linear-gradient(145deg,rgba(65,105,255,0.28),rgba(124,87,255,0.16))] text-white shadow-[0_18px_36px_rgba(67,95,255,0.18),inset_0_1px_0_rgba(255,255,255,0.08)]'
+      : 'border-white/[0.08] bg-[#0d1017] text-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] hover:border-white/16 hover:bg-white/[0.045] hover:text-white'
+  }`;
+}
+
+function captureChoiceIconClass(active: boolean) {
+  return `flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
+    active
+      ? 'border-white/18 bg-white/14 text-white'
+      : 'border-white/[0.07] bg-black/18 text-white/45 group-hover:text-white/70'
+  }`;
 }
 
 function readVideoMetadata(url: string) {
@@ -2277,41 +2299,63 @@ export default function OperatorPage() {
               onChange={e => setSelectedEventId(e.target.value)} />
             <div className="space-y-2">
               <p className="text-sm font-semibold text-white">Formato da gravação</p>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+              <div className={captureChoiceGridClass}>
                 {(['portrait', 'landscape'] as const).map((orientation) => (
                   <button
                     key={orientation}
                     type="button"
                     onClick={() => chooseRecordingOrientation(orientation)}
-                    className={`min-h-11 rounded-xl px-3 text-sm font-bold transition ${
-                      recordingOrientation === orientation
-                        ? 'bg-brand-500 text-white shadow-glow'
-                        : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
-                    }`}
+                    aria-pressed={recordingOrientation === orientation}
+                    className={captureChoiceButtonClass(recordingOrientation === orientation)}
                   >
-                    {orientation === 'portrait' ? 'Retrato 9:16' : 'Paisagem 16:9'}
+                    {recordingOrientation === orientation && (
+                      <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                    <span className={captureChoiceIconClass(recordingOrientation === orientation)}>
+                      <span className={`rounded-md border-2 transition ${
+                        recordingOrientation === orientation ? 'border-white bg-white/10' : 'border-white/45'
+                      } ${orientation === 'portrait' ? 'h-7 w-4' : 'h-4 w-7'}`} />
+                    </span>
+                    <span className="min-w-0 flex-1 pr-3 leading-tight">
+                      <span className="block truncate text-sm font-bold">{orientation === 'portrait' ? 'Retrato' : 'Paisagem'}</span>
+                      <span className={recordingOrientation === orientation ? 'mt-1 block text-xs font-semibold text-white/70' : 'mt-1 block text-xs font-semibold text-white/35'}>
+                        {orientation === 'portrait' ? '9:16' : '16:9'}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-white/40">
+              <p className="rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3 py-2 text-xs leading-relaxed text-white/42">
                 No iOS/Android, escolha aqui antes de abrir a câmera para gravar em pé ou deitado.
               </p>
             </div>
             <div className="space-y-2">
               <p className="text-sm font-semibold text-white">Câmera</p>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+              <div className={captureChoiceGridClass}>
                 {(['user', 'environment'] as const).map((facing) => (
                   <button
                     key={facing}
                     type="button"
                     onClick={() => setCameraFacing(facing)}
-                    className={`min-h-11 rounded-xl px-3 text-sm font-bold transition ${
-                      cameraFacing === facing
-                        ? 'bg-brand-500 text-white shadow-glow'
-                        : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
-                    }`}
+                    aria-pressed={cameraFacing === facing}
+                    className={captureChoiceButtonClass(cameraFacing === facing)}
                   >
-                    {cameraFacingLabel(facing)}
+                    {cameraFacing === facing && (
+                      <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                    <span className={captureChoiceIconClass(cameraFacing === facing)}>
+                      <Camera className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1 pr-3 leading-tight">
+                      <span className="block truncate text-sm font-bold">{cameraFacingLabel(facing)}</span>
+                      <span className={cameraFacing === facing ? 'mt-1 block text-xs font-semibold text-white/70' : 'mt-1 block text-xs font-semibold text-white/35'}>
+                        {cameraFacingHint(facing)}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -2501,38 +2545,60 @@ export default function OperatorPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+            <div className={captureChoiceGridClass}>
               {(['portrait', 'landscape'] as const).map((orientation) => (
                 <button
                   key={orientation}
                   type="button"
                   disabled={recording}
                   onClick={() => restartCameraWithOrientation(orientation)}
-                  className={`min-h-10 rounded-xl px-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                    recordingOrientation === orientation
-                      ? 'bg-brand-500 text-white'
-                      : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
-                  }`}
+                  aria-pressed={recordingOrientation === orientation}
+                  className={captureChoiceButtonClass(recordingOrientation === orientation)}
                 >
-                  {orientation === 'portrait' ? 'Retrato' : 'Paisagem'}
+                  {recordingOrientation === orientation && (
+                    <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm">
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className={captureChoiceIconClass(recordingOrientation === orientation)}>
+                    <span className={`rounded-md border-2 transition ${
+                      recordingOrientation === orientation ? 'border-white bg-white/10' : 'border-white/45'
+                    } ${orientation === 'portrait' ? 'h-7 w-4' : 'h-4 w-7'}`} />
+                  </span>
+                  <span className="min-w-0 flex-1 pr-3 leading-tight">
+                    <span className="block truncate text-sm font-bold">{orientation === 'portrait' ? 'Retrato' : 'Paisagem'}</span>
+                    <span className={recordingOrientation === orientation ? 'mt-1 block text-xs font-semibold text-white/70' : 'mt-1 block text-xs font-semibold text-white/35'}>
+                      {orientation === 'portrait' ? '9:16' : '16:9'}
+                    </span>
+                  </span>
                 </button>
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
+            <div className={captureChoiceGridClass}>
               {(['user', 'environment'] as const).map((facing) => (
                 <button
                   key={facing}
                   type="button"
                   disabled={recording}
                   onClick={() => restartCameraWithFacing(facing)}
-                  className={`min-h-10 rounded-xl px-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                    cameraFacing === facing
-                      ? 'bg-brand-500 text-white'
-                      : 'text-white/55 hover:bg-white/[0.07] hover:text-white'
-                  }`}
+                  aria-pressed={cameraFacing === facing}
+                  className={captureChoiceButtonClass(cameraFacing === facing)}
                 >
-                  {cameraFacingLabel(facing)}
+                  {cameraFacing === facing && (
+                    <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm">
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className={captureChoiceIconClass(cameraFacing === facing)}>
+                    <Camera className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 pr-3 leading-tight">
+                    <span className="block truncate text-sm font-bold">{cameraFacingLabel(facing)}</span>
+                    <span className={cameraFacing === facing ? 'mt-1 block text-xs font-semibold text-white/70' : 'mt-1 block text-xs font-semibold text-white/35'}>
+                      {cameraFacingHint(facing)}
+                    </span>
+                  </span>
                 </button>
               ))}
             </div>
