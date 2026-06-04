@@ -84,6 +84,13 @@ const musicCategoryOptions: { value: AppMusic['category']; label: string }[] = [
   { value: 'premium', label: 'Luxo' },
 ];
 
+type LibrarySection = 'frames' | 'music' | 'libraries' | 'ai';
+
+const musicCategoryFilterOptions: { value: 'all' | AppMusic['category']; label: string }[] = [
+  { value: 'all', label: 'Todas' },
+  ...musicCategoryOptions,
+];
+
 const licenseStatusLabels: Record<MusicLicenseStatus, string> = {
   allowed: 'Liberada',
   requires_attribution: 'Crédito obrigatório',
@@ -307,6 +314,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<AppTemplate[]>([]);
   const [music, setMusic] = useState<AppMusic[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState<LibrarySection>('frames');
   const [uploading, setUploading] = useState(false);
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -316,6 +324,7 @@ export default function TemplatesPage() {
   const [visibleCount, setVisibleCount] = useState(INITIAL_TEMPLATE_COUNT);
   const [activeMotionId, setActiveMotionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [musicCategoryFilter, setMusicCategoryFilter] = useState<'all' | AppMusic['category']>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [aspectFilter, setAspectFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -387,10 +396,20 @@ export default function TemplatesPage() {
     () => sortFavoritesFirst(music, favoriteMusicIds),
     [favoriteMusicIds, music]
   );
+  const filteredMusic = useMemo(
+    () => sortedMusic.filter((track) => musicCategoryFilter === 'all' || track.category === musicCategoryFilter),
+    [musicCategoryFilter, sortedMusic]
+  );
   const visibleTemplates = useMemo(
     () => filteredTemplates.slice(0, visibleCount),
     [filteredTemplates, visibleCount]
   );
+  const sectionTabs = useMemo(() => [
+    { id: 'frames' as const, label: 'Molduras', count: availableTemplates.length, icon: <Layers className="h-4 w-4" /> },
+    { id: 'music' as const, label: 'Músicas', count: music.length, icon: <Music2 className="h-4 w-4" /> },
+    { id: 'libraries' as const, label: 'Bibliotecas', count: undefined, icon: <Library className="h-4 w-4" /> },
+    { id: 'ai' as const, label: 'IA', count: undefined, icon: <Wand2 className="h-4 w-4" /> },
+  ], [availableTemplates.length, music.length]);
   const hasMoreTemplates = visibleCount < filteredTemplates.length;
   const hasActiveFilters = Boolean(searchTerm.trim())
     || categoryFilter !== 'all'
@@ -445,7 +464,7 @@ export default function TemplatesPage() {
   }, [canUseAnimatedTemplates, motionOnly, typeFilter]);
 
   useEffect(() => {
-    if (!librariesOpen || libraryProviders.length > 0) return;
+    if ((activeSection !== 'libraries' && !librariesOpen) || libraryProviders.length > 0) return;
 
     let active = true;
     setLibrariesLoading(true);
@@ -476,7 +495,7 @@ export default function TemplatesPage() {
     return () => {
       active = false;
     };
-  }, [librariesOpen, libraryProviders.length, selectedProviderId]);
+  }, [activeSection, librariesOpen, libraryProviders.length, selectedProviderId]);
 
   function selectLibraryProvider(provider: MusicLibraryProvider) {
     setSelectedProviderId(provider.id);
@@ -794,9 +813,12 @@ export default function TemplatesPage() {
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Templates</h1>
+            <h1 className="text-2xl font-bold text-white">Biblioteca</h1>
             <p className="text-sm text-white/40">
-              {filteredTemplates.length} de {availableTemplates.length} templates
+              {activeSection === 'frames' && `${filteredTemplates.length} de ${availableTemplates.length} molduras`}
+              {activeSection === 'music' && `${filteredMusic.length} de ${music.length} músicas`}
+              {activeSection === 'libraries' && 'Importe músicas licenciadas de forma rápida'}
+              {activeSection === 'ai' && 'Crie músicas originais com IA'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
@@ -812,12 +834,12 @@ export default function TemplatesPage() {
                 Salvar biblioteca 360
               </Button>
             )}
-            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+            <label className={`hidden min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer bg-gradient-brand text-white shadow-glow' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Upload className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
               <span className="truncate">{uploading ? `${progress}%` : 'Template'}</span>
               <input type="file" accept="image/png,image/svg+xml,image/webp,image/gif,video/webm" className="hidden" disabled={!canUpload || uploading} onChange={handleUpload} />
             </label>
-            <label className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
+            <label className={`hidden min-h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all sm:px-5 ${canUpload ? 'cursor-pointer border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.1]' : 'cursor-not-allowed border border-white/10 bg-white/[0.055] text-white/40'}`}>
               {canUpload ? <Music2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
               <span className="truncate">{uploadingMusic ? `${musicProgress}%` : 'Música'}</span>
               <input type="file" accept="audio/mpeg,audio/wav,audio/aac,audio/mp4,audio/ogg,audio/webm" className="hidden" disabled={!canUpload || uploadingMusic} onChange={handleMusicUpload} />
@@ -826,9 +848,9 @@ export default function TemplatesPage() {
               variant="secondary"
               size="sm"
               disabled={!canUpload}
-              onClick={() => setLibrariesOpen(true)}
+              onClick={() => setActiveSection('libraries')}
               icon={canUpload ? <Library className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              className="col-span-2 sm:col-span-1"
+              className="hidden"
               title={canUpload ? 'Importar trilha licenciada' : 'Liberado nos planos Profissional e Ilimitado'}
             >
               Bibliotecas
@@ -837,9 +859,9 @@ export default function TemplatesPage() {
               variant="secondary"
               size="sm"
               disabled={!canGenerateSuno}
-              onClick={() => setSunoOpen(true)}
+              onClick={() => setActiveSection('ai')}
               icon={canGenerateSuno ? <Wand2 className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              className="col-span-2 sm:col-span-1"
+              className="hidden"
               title={canGenerateSuno ? 'Gerar música original pela Suno' : 'Liberado no plano Ilimitado'}
             >
               Gerar IA
@@ -847,6 +869,33 @@ export default function TemplatesPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {sectionTabs.map((tab) => {
+            const active = activeSection === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSection(tab.id)}
+                className={`flex min-h-[64px] items-center gap-3 rounded-2xl border px-4 text-left transition-all ${
+                  active
+                    ? 'border-brand-300/60 bg-brand-500/20 text-white shadow-glow'
+                    : 'border-white/10 bg-white/[0.045] text-white/62 hover:bg-white/[0.07] hover:text-white'
+                }`}
+              >
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? 'bg-brand-400/22 text-brand-100' : 'bg-white/[0.06] text-white/45'}`}>
+                  {tab.icon}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold">{tab.label}</span>
+                  {typeof tab.count === 'number' && <span className="mt-0.5 block text-xs text-white/38">{tab.count} item(s)</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeSection === 'frames' && (
         <div className="rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-2.5">
           <div className="flex gap-2">
             <div className="relative min-w-0 flex-1">
@@ -951,15 +1000,16 @@ export default function TemplatesPage() {
             </button>
           </div>
         </div>
+        )}
       </div>
 
-      {!canUpload && (
+      {activeSection === 'frames' && !canUpload && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/55">
           Upload de templates personalizados fica liberado nos planos Profissional e Ilimitado.
         </div>
       )}
 
-      {!canUseAnimatedTemplates && (
+      {activeSection === 'frames' && !canUseAnimatedTemplates && (
         <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.06] p-4 text-sm text-cyan-50/72">
           O plano Essencial exibe apenas molduras estáticas. Molduras animadas e com movimento ficam liberadas nos planos Profissional e Ilimitado.
         </div>
@@ -971,7 +1021,7 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {sortedMusic.length > 0 && (
+      {activeSection === 'music' && sortedMusic.length > 0 && (
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -984,8 +1034,24 @@ export default function TemplatesPage() {
               </span>
             )}
           </div>
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {musicCategoryFilterOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setMusicCategoryFilter(option.value)}
+                className={`h-9 shrink-0 rounded-full border px-3 text-xs font-bold transition-all ${
+                  musicCategoryFilter === option.value
+                    ? 'border-brand-300/60 bg-brand-500/22 text-white'
+                    : 'border-white/10 bg-white/[0.045] text-white/55 hover:text-white'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sortedMusic.map((track) => {
+            {filteredMusic.map((track) => {
               const trackFavorite = favoriteMusicIds.has(track.id);
               return (
               <div key={track.id} className={`rounded-xl border p-3 transition-all ${trackFavorite ? 'border-amber-300/20 bg-amber-400/[0.07]' : 'border-white/[0.08] bg-black/20'}`}>
@@ -1031,7 +1097,164 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {templates.length === 0 ? (
+      {activeSection === 'music' && sortedMusic.length === 0 && (
+        <EmptyState icon={<Music2 className="h-8 w-8" />} title="Nenhuma música" description="Envie uma trilha, importe de uma biblioteca ou gere uma música com IA." />
+      )}
+
+      {activeSection === 'music' && sortedMusic.length > 0 && filteredMusic.length === 0 && (
+        <EmptyState icon={<Search className="h-8 w-8" />} title="Nenhuma música nessa categoria" description="Escolha outra categoria de música para continuar." />
+      )}
+
+      {activeSection === 'libraries' && (
+        <div className="space-y-4">
+          {!canUpload && (
+            <div className="rounded-2xl border border-amber-300/20 bg-amber-500/10 p-4 text-sm text-amber-50/75">
+              Importar músicas de bibliotecas externas fica liberado nos planos Profissional e Ilimitado.
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.045] p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white">Importar música licenciada</h2>
+                <p className="mt-1 text-sm text-white/45">Escolha a biblioteca, copie a URL direta do áudio e salve na sua conta.</p>
+              </div>
+              {selectedProvider?.browseUrl && (
+                <a href={selectedProvider.browseUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-4 text-sm font-bold text-white/70 hover:text-white">
+                  Abrir catálogo <ExternalLink className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {librariesLoading ? (
+                Array.from({ length: 3 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-2xl bg-white/[0.06]" />)
+              ) : libraryProviders.map((provider) => (
+                <button
+                  key={provider.id}
+                  type="button"
+                  onClick={() => selectLibraryProvider(provider)}
+                  className={`rounded-2xl border p-3 text-left transition-all ${
+                    selectedProviderId === provider.id
+                      ? 'border-brand-300/70 bg-brand-500/18'
+                      : 'border-white/10 bg-black/20 hover:border-white/18 hover:bg-white/[0.06]'
+                  }`}
+                >
+                  <p className="truncate text-sm font-bold text-white">{provider.name}</p>
+                  <p className="mt-1 text-xs text-white/38">{provider.requiresLicenseProof ? 'Pede comprovante' : 'Uso direto com licença'}</p>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-white/70">Nome da música</span>
+                <input value={libraryForm.name} onChange={(event) => updateLibraryForm('name', event.target.value)} placeholder="Ex: Festa Neon 360" className="h-11 w-full rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white placeholder-white/30 outline-none" />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-white/70">Categoria</span>
+                <select value={libraryForm.category} onChange={(event) => updateLibraryForm('category', event.target.value as AppMusic['category'])} className="h-11 w-full rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white outline-none">
+                  {musicCategoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-2 lg:col-span-2">
+                <span className="text-sm font-semibold text-white/70">URL direta do áudio</span>
+                <input value={libraryForm.audioUrl} onChange={(event) => updateLibraryForm('audioUrl', event.target.value)} placeholder="https://.../musica.mp3" className="h-11 w-full rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white placeholder-white/30 outline-none" />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-white/70">Artista ou fonte</span>
+                <input value={libraryForm.artist} onChange={(event) => updateLibraryForm('artist', event.target.value)} placeholder="Opcional" className="h-11 w-full rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white placeholder-white/30 outline-none" />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-white/70">Comprovante ou página da faixa</span>
+                <input value={libraryForm.licenseProofUrl || libraryForm.pageUrl} onChange={(event) => {
+                  updateLibraryForm('licenseProofUrl', event.target.value);
+                  updateLibraryForm('pageUrl', event.target.value);
+                }} placeholder="Link da página, licença ou invoice" className="h-11 w-full rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white placeholder-white/30 outline-none" />
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
+                <input type="checkbox" checked={libraryForm.subscriptionConfirmed} onChange={(event) => updateLibraryForm('subscriptionConfirmed', event.target.checked)} className="h-4 w-4 accent-brand-500" />
+                Tenho direito de usar esta música neste projeto
+              </label>
+              <Button loading={importingLibraryMusic} disabled={!canUpload} onClick={handleImportLibraryMusic} icon={<FileAudio className="h-4 w-4" />}>
+                Importar música
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSection === 'ai' && (
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.045] p-5">
+          {!canGenerateSuno ? (
+            <div className="rounded-2xl border border-amber-300/20 bg-amber-500/10 p-4 text-sm text-amber-50/75">
+              Geração de música com IA fica liberada no plano Ilimitado.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-white">Gerar música com IA</h2>
+                <p className="mt-1 text-sm text-white/45">Descreva a trilha desejada e salve o resultado diretamente em Músicas.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['instrumental', 'Instrumental'],
+                  ['vocal', 'Cantada'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSunoMode(value as SunoMusicMode)}
+                    className={`h-11 rounded-2xl border text-sm font-bold transition-all ${
+                      sunoMode === value
+                        ? 'border-brand-300/70 bg-brand-500/22 text-white shadow-glow'
+                        : 'border-white/10 bg-black/20 text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-white/70">Ideia da música</span>
+                <textarea value={sunoPrompt} onChange={(event) => setSunoPrompt(event.target.value)} rows={4} placeholder="Ex: trilha animada para aniversário neon, com batida moderna e energia de festa..." className="w-full resize-none rounded-[18px] border border-white/10 bg-[#171922] px-4 py-3 text-sm text-white placeholder-white/30 outline-none" />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input value={sunoTitle} onChange={(event) => setSunoTitle(event.target.value)} placeholder="Título opcional" className="h-11 rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white placeholder-white/30 outline-none" />
+                <input value={sunoStyle} onChange={(event) => setSunoStyle(event.target.value)} placeholder="Estilo opcional" className="h-11 rounded-[18px] border border-white/10 bg-[#171922] px-4 text-sm text-white placeholder-white/30 outline-none" />
+              </div>
+              {sunoMode === 'vocal' && (
+                <textarea value={sunoLyrics} onChange={(event) => setSunoLyrics(event.target.value)} rows={3} placeholder="Letra opcional" className="w-full resize-none rounded-[18px] border border-white/10 bg-[#171922] px-4 py-3 text-sm text-white placeholder-white/30 outline-none" />
+              )}
+              {sunoPreviewPrompt && (
+                <div className="rounded-2xl border border-white/10 bg-[#171922] p-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-normal text-white/35">Prompt enviado para Suno</p>
+                  <p className="text-sm leading-relaxed text-white/62">{sunoPreviewPrompt}</p>
+                </div>
+              )}
+              {sunoStatus && (
+                <div className="rounded-2xl border border-brand-300/20 bg-brand-500/10 p-3 text-sm text-brand-100">
+                  {sunoStatus}
+                  {sunoTaskId && <span className="mt-1 block text-xs text-white/35">Task: {sunoTaskId}</span>}
+                </div>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button variant="secondary" onClick={handlePreviewSunoPrompt} disabled={sunoGenerating}>
+                  Ver prompt
+                </Button>
+                <Button loading={sunoGenerating} onClick={handleGenerateSunoMusic} icon={<Wand2 className="h-4 w-4" />}>
+                  Gerar música
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeSection === 'frames' && (templates.length === 0 ? (
         <EmptyState icon={<Layers className="h-8 w-8" />} title="Nenhum template" description="Os templates do catálogo serão exibidos assim que o backend responder." />
       ) : filteredTemplates.length === 0 ? (
         <EmptyState
@@ -1068,7 +1291,7 @@ export default function TemplatesPage() {
             </div>
           )}
         </>
-      )}
+      ))}
 
       <Modal open={librariesOpen} onClose={() => !importingLibraryMusic && setLibrariesOpen(false)} title="Bibliotecas de músicas" size="xl">
         <div className="max-h-[74vh] space-y-4 overflow-y-auto pr-1">

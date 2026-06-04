@@ -29,7 +29,7 @@ export function Modal({ open, onClose, title, children, size = 'md', panelClassN
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
           <motion.div initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 16 }}
-            className={`six3-glass relative w-full ${sizes[size]} overflow-hidden shadow-2xl shadow-black/50 ${panelClassName}`}>
+            className={`relative w-full ${sizes[size]} overflow-hidden rounded-2xl border border-white/[0.08] bg-[#11131b] text-white shadow-2xl shadow-black/60 ${panelClassName}`}>
             {title && (
               <div className={`flex items-center justify-between p-6 border-b border-white/[0.08] ${headerClassName}`}>
                 <h2 className="text-lg font-semibold">{title}</h2>
