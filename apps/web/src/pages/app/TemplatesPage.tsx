@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Star, Upload, Wand2, X, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Database, ExternalLink, FileAudio, Layers, Library, Lock, Music2, Search, ShieldCheck, SlidersHorizontal, Star, Upload, Wand2, X } from 'lucide-react';
 import { getTemplates, createTemplate } from '@/services/templateService';
 import { createMusic, getUserMusic } from '@/services/musicService';
 import { getGeneratedMusic, seedCuratedTemplates, uploadMusicToServer, uploadTemplateToServer } from '@/services/serverMediaService';
@@ -273,11 +273,6 @@ function TemplateCard({
           ) : (
             <TemplateOverlayRenderer template={template} preferPreview />
           )}
-          <div className="absolute left-2 top-2 flex flex-wrap gap-1">
-            <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase backdrop-blur-md ${animated ? 'border-cyan-300/25 bg-cyan-500/16 text-cyan-100' : 'border-white/15 bg-black/35 text-white/75'}`}>
-              {animated ? 'Animado' : 'Estático'}
-            </span>
-          </div>
           <button
             type="button"
             onClick={(event) => {
@@ -300,22 +295,18 @@ function TemplateCard({
         </div>
         <div className="bg-surface-50 p-3">
           <p className="truncate text-sm font-semibold text-white">{template.name}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge variant="purple">{template.category}</Badge>
-            <span className="text-xs text-white/30">{template.aspectRatio}</span>
-            {template.variantName && <span className="text-xs text-white/35">{template.variantName}</span>}
-            {animated && <span className="text-xs text-cyan-200/80">animado</span>}
-            {template.source && <span className="text-xs text-white/30">{template.source}</span>}
-          </div>
-          {template.layout && (
-            <p className="mt-1 truncate text-xs capitalize text-white/35">{template.layout.replace(/_/g, ' ')}</p>
-          )}
-          <div className="mt-2 flex flex-wrap gap-1">
-            {(template.effects || []).slice(0, 2).map(effect => (
-              <span key={effect} className="flex items-center gap-0.5 text-xs text-white/40">
-                <Zap className="h-2.5 w-2.5" />{effect}
-              </span>
-            ))}
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-white/55">
+              {template.aspectRatio}
+            </span>
+            <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold ${
+              animated
+                ? 'border-cyan-300/25 bg-cyan-500/12 text-cyan-100'
+                : 'border-white/10 bg-white/[0.04] text-white/55'
+            }`}>
+              {animated ? 'Animado' : 'Estático'}
+            </span>
           </div>
         </div>
       </div>
