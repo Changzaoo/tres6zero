@@ -12,6 +12,7 @@ export const videoRouter = Router();
 
 const allowedDurations: readonly number[] = [5, 15, 25, 35, 45];
 const videoStatuses = ['uploaded', 'processing', 'processed', 'failed', 'published'] as const;
+const videoVisibilities = ['public', 'private'] as const;
 
 const videoSchema = z.object({
   eventId: z.string().min(1),
@@ -22,6 +23,7 @@ const videoSchema = z.object({
   rawVideoUrl: z.string().optional(),
   thumbnailUrl: z.string().optional(),
   status: z.enum(videoStatuses),
+  visibility: z.enum(videoVisibilities).optional(),
   duration: z.number().optional(),
   size: z.number().optional(),
   format: z.string().optional(),
@@ -149,6 +151,10 @@ function canManageVideo(user: UserProfile, video: Record<string, unknown>) {
   return user.role === 'admin' || video.ownerId === user.uid;
 }
 
+function videoIsPublic(video: Record<string, unknown>) {
+  return (video.visibility || 'public') === 'public';
+}
+
 function serverVideoProcessingEnabled() {
   return process.env.SERVER_VIDEO_PROCESSING_ENABLED === 'true'
     && process.env.SIX3_HEAVY_VIDEO_WORKER === 'true';
@@ -227,6 +233,7 @@ videoRouter.post('/', requireActiveSubscription, async (req, res, next) => {
     const now = new Date().toISOString();
     const video = stripUndefined({
       ...data,
+      visibility: data.visibility || 'public',
       ownerId: user.uid,
       operatorId: user.uid,
       clientMutationId,
@@ -361,7 +368,7 @@ videoRouter.get('/event/:eventId', async (req, res, next) => {
       .where('eventId', '==', req.params.eventId)
       .where('status', '==', 'published')
       .get();
-    const videos = sortByNewest(snap.docs.map(videoFromDoc).filter(isPresent));
+    const videos = sortByNewest(snap.docs.map(videoFromDoc).filter(isPresent).filter(videoIsPublic));
     res.json({ videos });
   } catch (e) { next(e); }
 });
@@ -370,7 +377,7 @@ videoRouter.get('/:id', async (req, res, next) => {
   try {
     const snap = await getDb().collection('videos').doc(req.params.id).get();
     const video = videoFromDoc(snap);
-    if (!video || (video as { status?: string }).status !== 'published') {
+    if (!video || (video as { status?: string }).status !== 'published' || !videoIsPublic(video)) {
       res.status(404).json({ video: null });
       return;
     }

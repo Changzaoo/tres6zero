@@ -21,6 +21,10 @@ function sortVideos(videos: AppVideo[]) {
   return videos.sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
 }
 
+function isPublicPublishedVideo(video: AppVideo) {
+  return video.status === 'published' && video.visibility !== 'private';
+}
+
 async function localVideoPayload(id: string) {
   const record = await getLocalRecord<AppVideo>('video', id);
   return record?.payload;
@@ -195,7 +199,8 @@ export async function getVideo(id: string): Promise<AppVideo | null> {
     }
   }
 
-  return await localVideoPayload(id) || null;
+  const localVideo = await localVideoPayload(id);
+  return localVideo && isPublicPublishedVideo(localVideo) ? localVideo : null;
 }
 
 export async function getEventVideos(eventId: string): Promise<AppVideo[]> {
@@ -213,7 +218,7 @@ export async function getEventVideos(eventId: string): Promise<AppVideo[]> {
   }
 
   const videos = await listVisibleLocalPayloads<AppVideo>('video');
-  return sortVideos(videos.filter((video) => video.eventId === eventId));
+  return sortVideos(videos.filter((video) => video.eventId === eventId && isPublicPublishedVideo(video)));
 }
 
 export async function getUserVideos(ownerId: string): Promise<AppVideo[]> {

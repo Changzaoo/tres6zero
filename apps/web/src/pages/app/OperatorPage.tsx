@@ -2104,6 +2104,7 @@ export default function OperatorPage() {
         videoUrl: uploaded.videoUrl || '',
         rawVideoUrl: editingOriginalVideo?.rawVideoUrl || editingOriginalVideo?.videoUrl,
         status: 'published' as const,
+        visibility: editingOriginalVideo?.visibility || 'public' as const,
         size: renderedBlob.size, format: renderedBlob.type || 'video/webm',
         templateId: selectedTemplateId || undefined,
         templateStoragePath: selectedTemplate?.storagePath,

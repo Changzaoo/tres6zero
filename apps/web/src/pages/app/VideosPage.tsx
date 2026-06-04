@@ -8,6 +8,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  EyeOff,
   FolderPlus,
   MessageCircle,
   MoreVertical,
@@ -29,11 +30,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import type { AppEvent, AppVideo } from '@/types';
+import type { AppEvent, AppVideo, VideoVisibility } from '@/types';
 
 const STANDALONE_EVENT_ID = 'standalone';
 const VIDEO_MENU_WIDTH = 224;
-const VIDEO_MENU_ESTIMATED_HEIGHT = 390;
+const VIDEO_MENU_ESTIMATED_HEIGHT = 450;
 const VIDEO_MENU_MARGIN = 8;
 const VIDEO_MENU_GAP = 8;
 
@@ -57,6 +58,16 @@ const statusTone: Record<string, string> = {
   processed: 'border-emerald-300/25 bg-emerald-400/14 text-emerald-100',
   failed: 'border-red-300/25 bg-red-400/14 text-red-100',
   published: 'border-emerald-300/25 bg-emerald-400/14 text-emerald-100',
+};
+
+const visibilityLabel: Record<VideoVisibility, string> = {
+  public: 'PÃºblico',
+  private: 'Privado',
+};
+
+const visibilityTone: Record<VideoVisibility, string> = {
+  public: 'border-sky-200/25 bg-sky-400/16 text-sky-100',
+  private: 'border-white/15 bg-black/55 text-white/70',
 };
 
 const compactNumber = new Intl.NumberFormat('pt-BR', {
@@ -92,15 +103,26 @@ function calculateVideoMenuPosition(button: HTMLButtonElement): VideoMenuPositio
   };
 }
 
-function videoShareUrl(video: AppVideo) {
-  if (typeof window === 'undefined') return video.videoUrl;
-  return video.status === 'published'
-    ? `${window.location.origin}/v/${video.id}`
-    : video.videoUrl;
+function videoVisibility(video: AppVideo): VideoVisibility {
+  return video.visibility === 'private' ? 'private' : 'public';
 }
 
-function whatsappUrl(video: AppVideo) {
-  return `https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo SIX3: ${videoShareUrl(video)}`)}`;
+function isVideoPublic(video: AppVideo) {
+  return videoVisibility(video) === 'public';
+}
+
+function publicVideoShareUrl(video: AppVideo) {
+  if (typeof window === 'undefined') return null;
+  if (video.status !== 'published' || !isVideoPublic(video)) return null;
+  return `${window.location.origin}/v/${video.id}`;
+}
+
+function videoShareUrl(video: AppVideo) {
+  return publicVideoShareUrl(video) || video.videoUrl;
+}
+
+function whatsappUrl(url: string) {
+  return `https://wa.me/?text=${encodeURIComponent(`Olha esse video SIX3: ${url}`)}`;
 }
 
 function formatDuration(duration?: number) {
@@ -195,6 +217,7 @@ export default function VideosPage() {
   const [assignIds, setAssignIds] = useState<string[] | null>(null);
   const [assignEventId, setAssignEventId] = useState('');
   const [assigningEvent, setAssigningEvent] = useState(false);
+  const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [renameVideo, setRenameVideo] = useState<AppVideo | null>(null);
   const [titleDraft, setTitleDraft] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
@@ -443,8 +466,64 @@ export default function VideosPage() {
     setAssigningEvent(false);
   }
 
+  async function updateVideosVisibility(ids: string[], visibility: VideoVisibility) {
+    if (!ids.length || updatingVisibility) return;
+    closeVideoMenu();
+    setInlinePreviewId(null);
+
+    const idSet = new Set(ids);
+    const targetIds = videos
+      .filter((video) => idSet.has(video.id) && videoVisibility(video) !== visibility)
+      .map((video) => video.id);
+
+    if (targetIds.length === 0) {
+      toast.info(visibility === 'public'
+        ? 'Os vÃ­deos selecionados jÃ¡ estÃ£o pÃºblicos.'
+        : 'Os vÃ­deos selecionados jÃ¡ estÃ£o privados.');
+      return;
+    }
+
+    setUpdatingVisibility(true);
+    const results = await Promise.allSettled(targetIds.map((id) => updateVideo(id, { visibility })));
+    const updatedIds = targetIds.filter((_, index) => results[index].status === 'fulfilled');
+    const failedCount = results.length - updatedIds.length;
+
+    if (updatedIds.length) {
+      const now = new Date().toISOString();
+      setVideos((current) => current.map((video) => (
+        updatedIds.includes(video.id)
+          ? { ...video, visibility, updatedAt: now }
+          : video
+      )));
+      setPreviewVideo((current) => current && updatedIds.includes(current.id)
+        ? { ...current, visibility, updatedAt: now }
+        : current);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        updatedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      toast.success(updatedIds.length === 1
+        ? (visibility === 'public' ? 'VÃ­deo tornado pÃºblico.' : 'VÃ­deo tornado privado.')
+        : (visibility === 'public' ? `${updatedIds.length} vÃ­deos tornados pÃºblicos.` : `${updatedIds.length} vÃ­deos tornados privados.`));
+    }
+
+    if (failedCount) {
+      toast.error(failedCount === 1
+        ? 'NÃ£o foi possÃ­vel alterar a visibilidade de 1 vÃ­deo.'
+        : `NÃ£o foi possÃ­vel alterar a visibilidade de ${failedCount} vÃ­deos.`);
+    }
+
+    setUpdatingVisibility(false);
+  }
+
   async function copyLink(video: AppVideo) {
-    const url = videoShareUrl(video);
+    const url = publicVideoShareUrl(video);
+    if (!url) {
+      toast.info('Este vÃ­deo estÃ¡ privado. Torne pÃºblico para compartilhar o link.');
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(url);
       toast.success('Link copiado.');
@@ -455,7 +534,12 @@ export default function VideosPage() {
 
   async function shareVideo(video: AppVideo) {
     closeVideoMenu();
-    const url = videoShareUrl(video);
+    const url = publicVideoShareUrl(video);
+    if (!url) {
+      toast.info('Este vÃ­deo estÃ¡ privado. Torne pÃºblico para compartilhar.');
+      return;
+    }
+
     try {
       if (navigator.share) {
         await navigator.share({ title: video.title, url });
@@ -473,7 +557,13 @@ export default function VideosPage() {
 
   function openWhatsApp(video: AppVideo) {
     closeVideoMenu();
-    window.open(whatsappUrl(video), '_blank', 'noopener,noreferrer');
+    const url = publicVideoShareUrl(video);
+    if (!url) {
+      toast.info('Este vÃ­deo estÃ¡ privado. Torne pÃºblico para enviar pelo WhatsApp.');
+      return;
+    }
+
+    window.open(whatsappUrl(url), '_blank', 'noopener,noreferrer');
     bumpStat(video.id, 'shares');
   }
 
@@ -517,6 +607,9 @@ export default function VideosPage() {
 
   const selectedCount = selectedIds.size;
   const allSelected = videos.length > 0 && selectedCount === videos.length;
+  const selectedVideosForActions = videos.filter((video) => selectedIds.has(video.id));
+  const selectedAllPublic = selectedVideosForActions.length > 0 && selectedVideosForActions.every(isVideoPublic);
+  const selectedAllPrivate = selectedVideosForActions.length > 0 && selectedVideosForActions.every((video) => !isVideoPublic(video));
   const deleteCount = deleteIds?.length || 0;
   const assignCount = assignIds?.length || 0;
 
@@ -552,6 +645,24 @@ export default function VideosPage() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="secondary"
+                  disabled={updatingVisibility || selectedAllPublic}
+                  icon={<Eye className="h-4 w-4" />}
+                  onClick={() => updateVideosVisibility([...selectedIds], 'public')}
+                >
+                  Tornar pÃºblico
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={updatingVisibility || selectedAllPrivate}
+                  icon={<EyeOff className="h-4 w-4" />}
+                  onClick={() => updateVideosVisibility([...selectedIds], 'private')}
+                >
+                  Tornar privado
+                </Button>
+                <Button
+                  size="sm"
                   variant="danger"
                   icon={<Trash2 className="h-4 w-4" />}
                   onClick={() => openDeleteConfirmation([...selectedIds])}
@@ -584,6 +695,8 @@ export default function VideosPage() {
             const eventName = eventNameForVideo(video, eventMap);
             const menuOpen = openMenuId === video.id;
             const showInlinePreview = canPlay && inlinePreviewId === video.id;
+            const visibility = videoVisibility(video);
+            const publicShareEnabled = Boolean(publicVideoShareUrl(video));
 
             return (
               <motion.article
@@ -670,9 +783,14 @@ export default function VideosPage() {
                     {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
                   </button>
 
-                  <span className={`absolute right-2 top-2 rounded-full border px-2 py-1 text-[11px] font-bold shadow-lg shadow-black/30 backdrop-blur ${statusTone[video.status] || 'border-white/15 bg-black/45 text-white/70'}`}>
-                    {statusLabel[video.status] || video.status}
-                  </span>
+                  <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+                    <span className={`rounded-full border px-2 py-1 text-[11px] font-bold shadow-lg shadow-black/30 backdrop-blur ${statusTone[video.status] || 'border-white/15 bg-black/45 text-white/70'}`}>
+                      {statusLabel[video.status] || video.status}
+                    </span>
+                    <span className={`rounded-full border px-2 py-1 text-[10px] font-bold shadow-lg shadow-black/30 backdrop-blur ${visibilityTone[visibility]}`}>
+                      {visibilityLabel[visibility]}
+                    </span>
+                  </div>
 
                   {duration && (
                     <span className="absolute bottom-2 right-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-bold text-white">
@@ -742,19 +860,26 @@ export default function VideosPage() {
                         <MenuAction disabled={!canPlay} onClick={() => openPreview(video)} icon={<PlayCircle className="h-4 w-4" />}>
                           Visualizar
                         </MenuAction>
-                        <MenuAction disabled={!canPlay} onClick={() => shareVideo(video)} icon={<Share2 className="h-4 w-4" />}>
+                        <MenuAction disabled={!canPlay || !publicShareEnabled} onClick={() => shareVideo(video)} icon={<Share2 className="h-4 w-4" />}>
                           Compartilhar
                         </MenuAction>
-                        <MenuAction disabled={!canPlay} onClick={() => openWhatsApp(video)} icon={<MessageCircle className="h-4 w-4" />}>
+                        <MenuAction disabled={!canPlay || !publicShareEnabled} onClick={() => openWhatsApp(video)} icon={<MessageCircle className="h-4 w-4" />}>
                           WhatsApp
                         </MenuAction>
-                        <MenuAction disabled={!canPlay} onClick={() => copyVideoLinkFromMenu(video)} icon={<Copy className="h-4 w-4" />}>
+                        <MenuAction disabled={!canPlay || !publicShareEnabled} onClick={() => copyVideoLinkFromMenu(video)} icon={<Copy className="h-4 w-4" />}>
                           Copiar link
                         </MenuAction>
                         <MenuAction disabled={!canPlay} onClick={() => downloadVideo(video)} icon={<Download className="h-4 w-4" />}>
                           Baixar
                         </MenuAction>
                         <div className="my-1 h-px bg-white/[0.08]" />
+                        <MenuAction
+                          disabled={updatingVisibility}
+                          onClick={() => updateVideosVisibility([video.id], visibility === 'public' ? 'private' : 'public')}
+                          icon={visibility === 'public' ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        >
+                          {visibility === 'public' ? 'Tornar privado' : 'Tornar pÃºblico'}
+                        </MenuAction>
                         <MenuAction onClick={() => openRenameModal(video)} icon={<Edit3 className="h-4 w-4" />}>
                           Editar nome
                         </MenuAction>
@@ -803,11 +928,14 @@ export default function VideosPage() {
               />
             </div>
             <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 sm:flex-row sm:items-center">
-              <span className="min-w-0 flex-1 truncate text-xs text-white/40">{videoShareUrl(previewVideo)}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-white/40">
+                {publicVideoShareUrl(previewVideo) || 'VÃ­deo privado: link pÃºblico desativado.'}
+              </span>
               <button
                 type="button"
+                disabled={!publicVideoShareUrl(previewVideo)}
                 onClick={() => copyLink(previewVideo)}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-white/[0.08] px-3 text-xs font-semibold text-white/75 hover:bg-white/[0.12] hover:text-white"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-white/[0.08] px-3 text-xs font-semibold text-white/75 hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <Copy className="h-4 w-4" />
                 Copiar link

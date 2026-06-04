@@ -141,6 +141,7 @@ export interface AppEvent {
 }
 
 export type VideoStatus = 'uploaded' | 'processing' | 'processed' | 'failed' | 'published';
+export type VideoVisibility = 'public' | 'private';
 
 export interface AppVideo {
   id: string;
@@ -153,6 +154,7 @@ export interface AppVideo {
   rawVideoUrl?: string;
   thumbnailUrl?: string;
   status: VideoStatus;
+  visibility?: VideoVisibility;
   duration?: number;
   size?: number;
   format?: string;

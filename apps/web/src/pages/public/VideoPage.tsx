@@ -19,6 +19,7 @@ export default function VideoPage() {
   const { videoId } = useParams();
   const [video, setVideo] = useState<AppVideo | null>(null);
   const [event, setEvent] = useState<AppEvent | null>(null);
+  const [loading, setLoading] = useState(true);
   const [qrOpen, setQrOpen] = useState(false);
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadName, setLeadName] = useState('');
@@ -33,7 +34,13 @@ export default function VideoPage() {
   const [feedbackSending, setFeedbackSending] = useState(false);
 
   useEffect(() => {
-    if (!videoId) return;
+    if (!videoId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setVideo(null);
+    setEvent(null);
     getVideo(videoId).then(async (foundVideo) => {
       setVideo(foundVideo);
       if (!foundVideo) return;
@@ -48,7 +55,7 @@ export default function VideoPage() {
         eventId: foundVideo.eventId,
         videoId: foundVideo.id,
       });
-    });
+    }).catch(() => setVideo(null)).finally(() => setLoading(false));
   }, [videoId]);
 
   function publicEventId() {
@@ -188,10 +195,21 @@ export default function VideoPage() {
     }
   }
 
-  if (!video) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-brand-500" />
+      </div>
+    );
+  }
+
+  if (!video) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface p-6 text-center">
+        <div className="max-w-sm rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6">
+          <h1 className="text-lg font-bold text-white">VÃ­deo nÃ£o encontrado</h1>
+          <p className="mt-2 text-sm text-white/45">Este vÃ­deo pode estar privado ou ter sido removido.</p>
+        </div>
       </div>
     );
   }
