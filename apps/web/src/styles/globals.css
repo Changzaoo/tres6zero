@@ -325,6 +325,27 @@
     transform: translateX(-100%);
     animation: six3-shimmer 1.8s ease-in-out infinite;
   }
+  .six3-page-enter {
+    animation: six3-page-enter 180ms var(--ease-out) both;
+  }
+  .six3-route-progress {
+    position: relative;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--text) 8%, transparent);
+  }
+  .six3-route-progress::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: -42%;
+    width: 42%;
+    border-radius: inherit;
+    background: var(--grad);
+    box-shadow: 0 0 18px color-mix(in oklab, var(--glow) 35%, transparent);
+    animation: six3-route-progress 920ms var(--ease-out) infinite;
+  }
   .hide-scrollbar {
     scrollbar-width: none;
   }
@@ -402,6 +423,23 @@
 @keyframes six3-shimmer {
   to {
     transform: translateX(100%);
+  }
+}
+
+@keyframes six3-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes six3-route-progress {
+  to {
+    left: 100%;
   }
 }
 
