@@ -533,6 +533,17 @@ function MockVideoPreview({ effect }: { effect: string }) {
   );
 }
 
+function templateContentViewportClass(template?: AppTemplate) {
+  if (!template) return '';
+  if (template.aspectRatio === '16:9') {
+    return 'absolute left-1/2 top-1/2 aspect-video w-[88%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[18px]';
+  }
+  if (template.aspectRatio === '1:1') {
+    return 'absolute left-1/2 top-1/2 aspect-square w-[78%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[20px]';
+  }
+  return 'absolute left-1/2 top-1/2 aspect-[9/16] h-[88%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[22px]';
+}
+
 function VideoPreviewFrame({
   children,
   template,
@@ -548,17 +559,29 @@ function VideoPreviewFrame({
   label: string;
   className?: string;
 }) {
+  const hasTemplate = Boolean(template);
+  const content = children ? (
+    <div className="absolute inset-0" style={getEffectPreviewStyle(effect)}>
+      {children}
+    </div>
+  ) : (
+    <MockVideoPreview effect={effect} />
+  );
+
   return (
     <div className={`relative w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black ${className}`}>
-      {children ? (
-        <div className="absolute inset-0" style={getEffectPreviewStyle(effect)}>
-          {children}
+      {hasTemplate ? (
+        <div className={templateContentViewportClass(template)}>
+          {content}
+          <EffectPreviewLayer effect={effect} />
         </div>
       ) : (
-        <MockVideoPreview effect={effect} />
+        <>
+          {content}
+          <EffectPreviewLayer effect={effect} />
+        </>
       )}
       <TemplateOverlayPreview template={template} opacity={templateOpacity} />
-      <EffectPreviewLayer effect={effect} />
       <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-md">
         <Eye className="h-3.5 w-3.5" />
         {label}
