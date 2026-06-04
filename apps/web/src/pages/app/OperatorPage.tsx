@@ -1356,29 +1356,28 @@ export default function OperatorPage() {
     || canUsePremiumTemplates;
   const favoriteTemplateIds = useMemo(() => favoriteSet(favorites.templates), [favorites.templates]);
   const favoriteMusicIds = useMemo(() => favoriteSet(favorites.music), [favorites.music]);
+  const templateOrientation = step === 'select' || step === 'capture'
+    ? recordingOrientation
+    : videoOrientation || recordingOrientation;
   const filteredTemplates = useMemo(
     () => sortFavoritesFirst(
       templates.filter((template) => (
-        templateMatchesVideoOrientation(template, videoOrientation)
+        templateMatchesVideoOrientation(template, templateOrientation)
         && canUseTemplateForPlan(template, user?.planId, isAdmin)
       )),
       favoriteTemplateIds
     ),
-    [favoriteTemplateIds, isAdmin, templates, user?.planId, videoOrientation]
+    [favoriteTemplateIds, isAdmin, templates, templateOrientation, user?.planId]
   );
-  const templateAspectHint = videoOrientation
-    ? `Vídeo em ${videoOrientationLabel(videoOrientation)}: mostrando apenas templates ${templateOrientationPlural(videoOrientation)}.`
-    : 'Carregue ou grave um vídeo para filtrar os templates por retrato ou paisagem.';
-  const templatePreviewClass = selectedTemplate?.aspectRatio === '16:9'
-    ? 'mx-auto aspect-vídeo max-w-[260px]'
-    : selectedTemplate?.aspectRatio === '1:1'
-      ? 'mx-auto aspect-square max-w-[220px]'
-      : 'mx-auto aspect-[9/16] max-w-[220px]';
-  const videoPreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-vídeo max-h-[48vh] sm:max-h-[80vh]'
+  const templateAspectHint = `Formato ${videoOrientationLabel(templateOrientation)}: mostrando apenas templates ${templateOrientationPlural(templateOrientation)}.`;
+  const templatePreviewClass = templateOrientation === 'landscape'
+    ? 'mx-auto aspect-video max-w-[260px]'
+    : 'mx-auto aspect-[9/16] max-w-[220px]';
+  const videoPreviewFrameClass = templateOrientation === 'landscape'
+    ? 'aspect-video max-h-[48vh] sm:max-h-[80vh]'
     : 'aspect-[9/16] max-h-[48vh] sm:max-h-[80vh] mx-auto';
-  const livePreviewFrameClass = videoOrientation === 'landscape'
-    ? 'aspect-vídeo max-h-[48vh] sm:max-h-[68vh]'
+  const livePreviewFrameClass = templateOrientation === 'landscape'
+    ? 'aspect-video max-h-[48vh] sm:max-h-[68vh]'
     : 'aspect-[9/16] max-h-[48vh] sm:max-h-[68vh] mx-auto';
 
   const eventOptions = [
@@ -1390,7 +1389,7 @@ export default function OperatorPage() {
   const processActionLabel = editingVideoId ? 'Atualizar' : 'Processar';
 
   const templateOptions = [
-    { value: '', label: videoOrientation ? `Sem overlay (${videoOrientationLabel(videoOrientation)})` : 'Sem overlay' },
+    { value: '', label: `Sem overlay (${videoOrientationLabel(templateOrientation)})` },
     ...filteredTemplates.slice(0, 240).map(t => ({ value: t.id, label: t.name })),
   ];
 
@@ -2287,7 +2286,7 @@ export default function OperatorPage() {
               templates={filteredTemplates}
               selectedId={selectedTemplateId}
               onChange={setSelectedTemplateId}
-              videoOrientation={videoOrientation}
+              videoOrientation={templateOrientation}
               favoriteTemplateIds={favoriteTemplateIds}
               onToggleFavorite={handleToggleTemplateFavorite}
             />
@@ -2583,7 +2582,7 @@ export default function OperatorPage() {
                 templates={filteredTemplates}
                 selectedId={selectedTemplateId}
                 onChange={setSelectedTemplateId}
-                videoOrientation={videoOrientation}
+                videoOrientation={templateOrientation}
                 favoriteTemplateIds={favoriteTemplateIds}
                 onToggleFavorite={handleToggleTemplateFavorite}
               />
