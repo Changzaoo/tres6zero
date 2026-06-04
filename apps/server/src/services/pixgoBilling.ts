@@ -65,6 +65,7 @@ type PixGoWebhookPayload = {
 };
 
 const memoryPayments = new Map<string, StoredPixGoPayment>();
+const PIXGO_PAYMENT_TTL_MS = 20 * 60 * 1000;
 
 function pixgoApiBaseUrl() {
   return (process.env.PIXGO_API_BASE_URL || 'https://pixgo.org/api/v1').replace(/\/+$/, '');
@@ -101,6 +102,24 @@ function normalizeStatus(value?: string | null): PixGoStatus {
   if (status === 'refunded') return 'refunded';
   if (status === 'failed' || status === 'error') return 'failed';
   return 'pending';
+}
+
+function fallbackExpiresAt(baseIso?: string | null) {
+  const baseTime = baseIso ? Date.parse(baseIso) : Date.now();
+  const safeBaseTime = Number.isFinite(baseTime) ? baseTime : Date.now();
+  return new Date(safeBaseTime + PIXGO_PAYMENT_TTL_MS).toISOString();
+}
+
+function applyLocalExpiration(record: StoredPixGoPayment): StoredPixGoPayment {
+  if (record.status !== 'pending' || !record.expiresAt) return record;
+  const expiresAt = Date.parse(record.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return record;
+
+  return {
+    ...record,
+    status: 'expired',
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function normalizePixGoData(payload: unknown): PixGoPaymentData {
@@ -339,7 +358,7 @@ export async function createPixGoPayment(user: AuthenticatedBillingUser, planId:
     qrCodeUrl: data.qr_image_url || data.qr_code_url || null,
     qrCodeDataUrl: await qrCodeDataUrlFromPixCode(pixCode),
     paymentUrl: data.payment_url || data.checkout_url || null,
-    expiresAt: data.expires_at || null,
+    expiresAt: data.expires_at || fallbackExpiresAt(now),
     createdAt: now,
     updatedAt: now,
   };
@@ -356,8 +375,14 @@ export async function getPixGoPaymentStatus(paymentId: string, user: Authenticat
     throw err;
   }
 
+  const locallyExpired = applyLocalExpiration(stored);
+  if (locallyExpired.status === 'expired' && stored.status !== 'expired') {
+    await savePayment(locallyExpired);
+    return publicPayment(locallyExpired);
+  }
+
   const apiKey = pixgoApiKey();
-  if (!apiKey) return publicPayment(stored);
+  if (!apiKey) return publicPayment(locallyExpired);
 
   const response = await fetch(`${pixgoApiBaseUrl()}/payment/${encodeURIComponent(paymentId)}/status`, {
     headers: { 'X-API-Key': apiKey },
@@ -368,18 +393,19 @@ export async function getPixGoPaymentStatus(paymentId: string, user: Authenticat
   const data = normalizePixGoData(payload);
   const pixCode = data.qr_code || data.pix_code || data.copy_paste || data.brcode || stored.pixCode;
   const updated: StoredPixGoPayment = {
-    ...stored,
+    ...locallyExpired,
     status: normalizeStatus(data.status),
     pixCode,
     qrCodeUrl: data.qr_image_url || data.qr_code_url || stored.qrCodeUrl,
     qrCodeDataUrl: stored.qrCodeDataUrl || await qrCodeDataUrlFromPixCode(pixCode),
     paymentUrl: data.payment_url || data.checkout_url || stored.paymentUrl,
-    expiresAt: data.expires_at || stored.expiresAt,
+    expiresAt: data.expires_at || locallyExpired.expiresAt || fallbackExpiresAt(locallyExpired.createdAt),
     updatedAt: new Date().toISOString(),
   };
 
-  await savePayment(updated);
-  return publicPayment(updated.status === 'completed' ? await activatePixGoPayment(updated, 'status-check') : updated);
+  const expiringUpdated = applyLocalExpiration(updated);
+  await savePayment(expiringUpdated);
+  return publicPayment(expiringUpdated.status === 'completed' ? await activatePixGoPayment(expiringUpdated, 'status-check') : expiringUpdated);
 }
 
 function getHeader(headers: IncomingHttpHeaders, name: string) {

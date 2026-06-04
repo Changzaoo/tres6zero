@@ -16,6 +16,11 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(value));
 }
 
+function formatPaymentDeadline(value?: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(value));
+}
+
 function normalizeSelectedPlan(planId?: string | null, isAdmin = false): PlanId | null {
   if (isAdmin) return 'unlimited';
   return planId === 'starter' || planId === 'pro' || planId === 'unlimited' ? planId : null;
@@ -171,6 +176,7 @@ export default function BillingPage() {
 
   const qrSource = payment?.qrCodeDataUrl || payment?.qrCodeUrl || '';
   const isPaymentFinal = payment?.status && payment.status !== 'pending';
+  const paymentDeadline = formatPaymentDeadline(payment?.expiresAt);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -204,58 +210,70 @@ export default function BillingPage() {
         paymentHint="O QR Code Pix abre nesta pagina. Nao armazenamos dados de cartao."
       />
 
-      <Modal open={paymentOpen} onClose={() => setPaymentOpen(false)} title="Pagar com Pix" size="xl">
-        <div className="space-y-4">
+      <Modal
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        title="Pagar com Pix"
+        size="lg"
+        panelClassName="!rounded-2xl !border-white/10 [background:#101218!important] [backdrop-filter:none!important] [-webkit-backdrop-filter:none!important] before:hidden"
+        headerClassName="!p-4"
+        bodyClassName="!p-4"
+      >
+        <div className="space-y-3">
           {payment && (
             <>
-              <div className={`rounded-2xl border p-4 ${paymentStatusTone(payment.status)}`}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex min-w-0 gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+              <div className={`rounded-xl border p-3 ${paymentStatusTone(payment.status)}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 gap-2.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
                       {payment.status === 'completed' ? (
-                        <CheckCircle2 className="h-5 w-5" />
+                        <CheckCircle2 className="h-[18px] w-[18px]" />
                       ) : isPaymentFinal ? (
-                        <TriangleAlert className="h-5 w-5" />
+                        <TriangleAlert className="h-[18px] w-[18px]" />
                       ) : checkingPayment ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-[18px] w-[18px] animate-spin" />
                       ) : (
-                        <QrCode className="h-5 w-5" />
+                        <QrCode className="h-[18px] w-[18px]" />
                       )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold uppercase tracking-normal text-white/40">Plano escolhido</p>
-                      <h2 className="mt-1 text-xl font-bold leading-tight text-white">{payment.planName}</h2>
-                      <p className="mt-1 text-sm leading-relaxed text-white/62">
-                        Fique nesta tela: o QR Code e o status do Pix sao atualizados automaticamente apos o pagamento.
+                      <h2 className="mt-0.5 text-lg font-bold leading-tight text-white">{payment.planName}</h2>
+                      <p className="mt-1 text-xs leading-relaxed text-white/62">
+                        O Pix vale por 20 minutos{paymentDeadline ? `, ate ${paymentDeadline}` : ''}. Depois disso, gere um novo pagamento.
                       </p>
                     </div>
                   </div>
-                  <div className="shrink-0 rounded-xl border border-white/10 bg-black/16 px-3 py-2 text-left sm:text-right">
+                  <div className="shrink-0 rounded-lg border border-white/10 bg-[#171a22] px-3 py-2 text-right">
                     <p className="text-xs text-white/55">Valor</p>
                     <p className="text-lg font-black text-white">{currencyFormatter.format(payment.amount)}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[15rem_1fr]">
-                <div id="pix-qr-code" className="rounded-2xl border border-white/[0.08] bg-white p-4 text-surface">
+              <div className="rounded-xl border border-amber-300/25 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-50/80">
+                Voce tem 20 minutos para pagar este Pix. Se o tempo acabar, gere uma nova cobranca antes de pagar.
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[11.5rem_1fr]">
+                <div id="pix-qr-code" className="rounded-xl border border-white/[0.08] bg-white p-3 text-surface">
                   <div className="flex aspect-square items-center justify-center">
                     {qrSource ? (
                       <img src={qrSource} alt="QR Code Pix" className="h-full w-full object-contain" />
                     ) : payment.pixCode ? (
-                      <QRCodeSVG value={payment.pixCode} size={196} className="h-full w-full" />
+                      <QRCodeSVG value={payment.pixCode} size={156} className="h-full w-full" />
                     ) : (
-                      <QrCode className="h-20 w-20 text-surface/30" />
+                      <QrCode className="h-16 w-16 text-surface/30" />
                     )}
                   </div>
-                  <div className="mt-3 flex justify-center">
+                  <div className="mt-2 flex justify-center">
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${paymentStatusTone(payment.status)}`}>
                       {checkingPayment ? 'Verificando...' : paymentStatusLabel(payment.status)}
                     </span>
                   </div>
                 </div>
 
-                <div className="min-w-0 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4">
+                <div className="min-w-0 rounded-xl border border-white/[0.08] bg-[#171a22] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-white">Pix copia e cola</p>
@@ -269,12 +287,13 @@ export default function BillingPage() {
                   <textarea
                     readOnly
                     value={payment.pixCode || 'Codigo Pix indisponivel. Use o QR Code acima ou gere uma nova cobranca.'}
-                    className="mt-3 min-h-[7rem] w-full resize-none rounded-2xl border border-white/10 bg-black/22 p-3 text-xs leading-relaxed text-white/72 outline-none"
+                    className="mt-3 min-h-[5.25rem] w-full resize-none rounded-xl border border-white/10 bg-[#0b0d12] p-3 text-xs leading-relaxed text-white/72 outline-none"
                   />
 
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <Button
                       type="button"
+                      size="sm"
                       className="justify-center"
                       icon={<Copy className="h-4 w-4" />}
                       disabled={!payment.pixCode}
@@ -282,13 +301,25 @@ export default function BillingPage() {
                     >
                       Copiar codigo Pix
                     </Button>
+                    {payment.status === 'expired' && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="justify-center"
+                        loading={loadingPlan === payment.planId}
+                        onClick={() => startPixPayment(payment.planId)}
+                      >
+                        Gerar novo Pix
+                      </Button>
+                    )}
                   </div>
 
-                  <div className="mt-4 grid gap-2 text-xs leading-relaxed text-white/52 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-1.5 text-[11px] leading-relaxed text-white/52">
                     <p>Pagamento confirmado automaticamente via Pix.</p>
                     <p>Use o QR Code ou o Pix copia e cola no app do seu banco.</p>
                     <p>A liberacao do plano acontece apos a confirmacao da PixGo.</p>
-                    <p>A verificacao continua enquanto este modal estiver aberto.</p>
+                    <p>A verificacao continua enquanto este modal estiver aberto e o Pix nao expirar.</p>
                   </div>
                 </div>
               </div>
