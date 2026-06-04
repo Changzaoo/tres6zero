@@ -1,19 +1,35 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckSquare, Copy, Download, Edit3, ExternalLink, Eye, MessageCircle, Pencil, PlayCircle, Share2, Square, Trash2, Video, X } from 'lucide-react';
+import {
+  CheckSquare,
+  Copy,
+  Download,
+  Edit3,
+  ExternalLink,
+  Eye,
+  MessageCircle,
+  MoreVertical,
+  Pencil,
+  PlayCircle,
+  Share2,
+  Square,
+  Trash2,
+  Video,
+  X,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
+import { getUserEvents } from '@/services/eventService';
 import { deleteVideo, getUserVideos, incrementVideoStat, updateVideo } from '@/services/videoService';
 import { downloadUrlAsFile } from '@/services/downloadService';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/components/ui/Toast';
-import type { AppVideo } from '@/types';
+import type { AppEvent, AppVideo } from '@/types';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple';
+const STANDALONE_EVENT_ID = 'standalone';
 
 const statusLabel: Record<string, string> = {
   uploaded: 'Enviado',
@@ -23,13 +39,18 @@ const statusLabel: Record<string, string> = {
   published: 'Publicado',
 };
 
-const statusVariant: Record<string, BadgeVariant> = {
-  uploaded: 'info',
-  processing: 'warning',
-  processed: 'success',
-  failed: 'danger',
-  published: 'success',
+const statusTone: Record<string, string> = {
+  uploaded: 'border-cyan-300/25 bg-cyan-400/14 text-cyan-100',
+  processing: 'border-amber-300/25 bg-amber-400/14 text-amber-100',
+  processed: 'border-emerald-300/25 bg-emerald-400/14 text-emerald-100',
+  failed: 'border-red-300/25 bg-red-400/14 text-red-100',
+  published: 'border-emerald-300/25 bg-emerald-400/14 text-emerald-100',
 };
+
+const compactNumber = new Intl.NumberFormat('pt-BR', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
 
 function statValue(value: number | undefined) {
   return Number.isFinite(value) ? value || 0 : 0;
@@ -46,7 +67,53 @@ function whatsappUrl(video: AppVideo) {
   return `https://wa.me/?text=${encodeURIComponent(`Olha esse vídeo SIX3: ${videoShareUrl(video)}`)}`;
 }
 
-function ActionButton({
+function formatDuration(duration?: number) {
+  if (!Number.isFinite(duration) || !duration) return null;
+  const total = Math.max(0, Math.round(duration));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatRelativeDate(value?: string) {
+  if (!value) return 'agora';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'agora';
+
+  const diffSeconds = Math.round((date.getTime() - Date.now()) / 1000);
+  const abs = Math.abs(diffSeconds);
+  const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
+
+  if (abs < 60) return rtf.format(diffSeconds, 'second');
+  if (abs < 3600) return rtf.format(Math.round(diffSeconds / 60), 'minute');
+  if (abs < 86400) return rtf.format(Math.round(diffSeconds / 3600), 'hour');
+  if (abs < 2592000) return rtf.format(Math.round(diffSeconds / 86400), 'day');
+  if (abs < 31536000) return rtf.format(Math.round(diffSeconds / 2592000), 'month');
+  return rtf.format(Math.round(diffSeconds / 31536000), 'year');
+}
+
+function formatViews(value?: number) {
+  const views = statValue(value);
+  return `${compactNumber.format(views)} ${views === 1 ? 'visualização' : 'visualizações'}`;
+}
+
+function eventForVideo(video: AppVideo, eventMap: Map<string, AppEvent>) {
+  if (!video.eventId || video.eventId === STANDALONE_EVENT_ID) return null;
+  return eventMap.get(video.eventId) || null;
+}
+
+function eventNameForVideo(video: AppVideo, eventMap: Map<string, AppEvent>) {
+  if (!video.eventId || video.eventId === STANDALONE_EVENT_ID) return 'Vídeo avulso';
+  return eventMap.get(video.eventId)?.name || 'Evento';
+}
+
+function eventInitial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || 'S';
+}
+
+function MenuAction({
   children,
   icon,
   disabled,
@@ -64,13 +131,13 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
         tone === 'danger'
-          ? 'border-red-300/20 bg-red-500/[0.08] text-red-200 hover:border-red-300/35 hover:bg-red-500/[0.14] hover:text-red-50'
-          : 'border-white/10 bg-white/[0.055] text-white/70 hover:border-white/20 hover:bg-white/[0.1] hover:text-white'
+          ? 'text-red-200 hover:bg-red-500/12 hover:text-red-100'
+          : 'text-white/72 hover:bg-white/[0.07] hover:text-white'
       }`}
     >
-      {icon}
+      <span className="grid h-5 w-5 place-items-center text-white/45">{icon}</span>
       <span>{children}</span>
     </button>
   );
@@ -80,8 +147,10 @@ export default function VideosPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [videos, setVideos] = useState<AppVideo[]>([]);
+  const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<AppVideo | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -89,16 +158,48 @@ export default function VideosPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
 
+  const eventMap = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
+
   useEffect(() => {
     if (!user) return;
-    getUserVideos(user.uid)
-      .then(setVideos)
-      .catch((error) => {
-        console.warn('[vídeos] Load failed:', error);
-        toast.error('Não foi possível carregar os vídeos.');
+    let cancelled = false;
+
+    setLoading(true);
+    Promise.allSettled([
+      getUserVideos(user.uid),
+      getUserEvents(user.uid),
+    ])
+      .then(([videosResult, eventsResult]) => {
+        if (cancelled) return;
+
+        if (videosResult.status === 'fulfilled') {
+          setVideos(videosResult.value);
+        } else {
+          console.warn('[vídeos] Load failed:', videosResult.reason);
+          toast.error('Não foi possível carregar os vídeos.');
+        }
+
+        if (eventsResult.status === 'fulfilled') {
+          setEvents(eventsResult.value);
+        } else {
+          console.warn('[vídeos] Event load failed:', eventsResult.reason);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+
+  useEffect(() => {
+    if (!openMenuId) return undefined;
+    const closeMenu = () => setOpenMenuId(null);
+    window.addEventListener('click', closeMenu);
+    return () => window.removeEventListener('click', closeMenu);
+  }, [openMenuId]);
 
   function bumpStat(videoId: string, field: 'downloads' | 'shares') {
     setVideos((current) => current.map((video) => (
@@ -128,16 +229,24 @@ export default function VideosPage() {
 
   function openDeleteConfirmation(ids: string[]) {
     if (ids.length === 0) return;
+    setOpenMenuId(null);
     setDeleteIds(ids);
   }
 
   function openRenameModal(video: AppVideo) {
+    setOpenMenuId(null);
     setRenameVideo(video);
     setTitleDraft(video.title || '');
   }
 
   function editVideoAgain(video: AppVideo) {
+    setOpenMenuId(null);
     navigate(`/app/gravar?edit=${encodeURIComponent(video.id)}`);
+  }
+
+  function openPreview(video: AppVideo) {
+    setOpenMenuId(null);
+    setPreviewVideo(video);
   }
 
   async function saveVideoTitle() {
@@ -182,13 +291,13 @@ export default function VideosPage() {
         deletedIds.forEach((id) => next.delete(id));
         return next;
       });
-      setExpandedVideoId((current) => current && deletedIds.includes(current) ? null : current);
+      if (previewVideo && deletedIds.includes(previewVideo.id)) setPreviewVideo(null);
       if (navigator.onLine) {
         toast.success(deletedIds.length === 1 ? 'Vídeo excluído.' : `${deletedIds.length} vídeos excluídos.`);
       } else {
         toast.info(deletedIds.length === 1
           ? 'Vídeo removido deste dispositivo. A exclusão será enviada depois.'
-          : `${deletedIds.length} vídeos removidos deste dispositivo. As exclusoes serão enviadas depois.`);
+          : `${deletedIds.length} vídeos removidos deste dispositivo. As exclusões serão enviadas depois.`);
       }
     }
 
@@ -211,6 +320,7 @@ export default function VideosPage() {
   }
 
   async function shareVideo(video: AppVideo) {
+    setOpenMenuId(null);
     const url = videoShareUrl(video);
     try {
       if (navigator.share) {
@@ -228,16 +338,19 @@ export default function VideosPage() {
   }
 
   function openWhatsApp(video: AppVideo) {
+    setOpenMenuId(null);
     window.open(whatsappUrl(video), '_blank', 'noopener,noreferrer');
     bumpStat(video.id, 'shares');
   }
 
   function openVideo(video: AppVideo) {
+    setOpenMenuId(null);
     const url = video.status === 'published' ? videoShareUrl(video) : video.videoUrl;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   async function downloadVideo(video: AppVideo) {
+    setOpenMenuId(null);
     try {
       await downloadUrlAsFile(video.videoUrl, video.title || `six3-video-${video.id}`);
       bumpStat(video.id, 'downloads');
@@ -248,10 +361,21 @@ export default function VideosPage() {
     }
   }
 
+  async function copyVideoLinkFromMenu(video: AppVideo) {
+    setOpenMenuId(null);
+    await copyLink(video);
+  }
+
   if (loading) {
     return (
-      <div className="animate-pulse space-y-3">
-        {[...Array(4)].map((_, i) => <div key={i} className="h-20 rounded-2xl bg-white/5" />)}
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="animate-pulse space-y-3">
+            <div className="aspect-video rounded-xl bg-white/5" />
+            <div className="h-4 w-4/5 rounded bg-white/5" />
+            <div className="h-3 w-1/2 rounded bg-white/5" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -307,128 +431,196 @@ export default function VideosPage() {
       {videos.length === 0 ? (
         <EmptyState icon={<Video className="h-8 w-8" />} title="Nenhum vídeo ainda" description="Use a aba Gravar para publicar vídeos." />
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {videos.map((video) => {
-            const isExpanded = expandedVideoId === video.id;
             const canPlay = Boolean(video.videoUrl);
-            const shareUrl = videoShareUrl(video);
             const isSelected = selectedIds.has(video.id);
+            const duration = formatDuration(video.duration);
+            const event = eventForVideo(video, eventMap);
+            const eventName = eventNameForVideo(video, eventMap);
+            const menuOpen = openMenuId === video.id;
 
             return (
-              <motion.div
+              <motion.article
                 key={video.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="rounded-2xl border border-white/[0.08] bg-gradient-glass p-4"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group relative min-w-0"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                  <button
-                    type="button"
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
-                      isSelected
-                        ? 'border-brand-300/35 bg-brand-500/18 text-brand-100'
-                        : 'border-white/10 bg-white/[0.045] text-white/38 hover:bg-white/[0.08] hover:text-white'
-                    }`}
-                    onClick={() => toggleSelection(video.id)}
-                    aria-label={isSelected ? 'Remover vídeo da seleção' : 'Selecionar vídeo'}
-                  >
-                    {isSelected ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
-                  </button>
+                <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-white/[0.08]">
                   <button
                     type="button"
                     disabled={!canPlay}
-                    onClick={() => setExpandedVideoId((current) => current === video.id ? null : video.id)}
-                    className="group relative h-28 w-full shrink-0 overflow-hidden rounded-xl bg-black/45 ring-1 ring-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 sm:h-24 lg:h-16 lg:w-24"
+                    onClick={() => openPreview(video)}
+                    className="relative block aspect-video w-full overflow-hidden bg-black disabled:cursor-not-allowed"
+                    aria-label={`Visualizar ${video.title || 'vídeo'}`}
                   >
                     {video.thumbnailUrl ? (
-                      <img src={video.thumbnailUrl} className="h-full w-full object-cover transition group-hover:scale-105" alt="" loading="lazy" />
+                      <img
+                        src={video.thumbnailUrl}
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                        alt=""
+                        loading="lazy"
+                      />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-white/20">
-                        <Video className="h-6 w-6" />
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/[0.06] to-white/[0.015] text-white/28">
+                        <Video className="h-10 w-10" />
                       </div>
                     )}
                     {canPlay && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white transition group-hover:bg-black/35">
-                        <PlayCircle className="h-7 w-7 drop-shadow" />
+                      <span className="absolute inset-0 grid place-items-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100">
+                        <PlayCircle className="h-12 w-12 drop-shadow" />
                       </span>
                     )}
                   </button>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-medium text-white">{video.title}</span>
-                      <Badge variant={statusVariant[video.status] || 'default'}>{statusLabel[video.status] || video.status}</Badge>
-                    </div>
-                    <div className="mt-1 flex items-center gap-4 text-xs text-white/40">
-                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{statValue(video.views)}</span>
-                      <span className="flex items-center gap-1"><Download className="h-3 w-3" />{statValue(video.downloads)}</span>
-                      <span className="flex items-center gap-1"><Share2 className="h-3 w-3" />{statValue(video.shares)}</span>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    className={`absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-lg border text-white shadow-lg shadow-black/35 backdrop-blur transition ${
+                      isSelected
+                        ? 'border-brand-200/50 bg-brand-500/80'
+                        : 'border-white/14 bg-black/45 hover:bg-black/65'
+                    }`}
+                    onClick={(eventClick) => {
+                      eventClick.stopPropagation();
+                      toggleSelection(video.id);
+                    }}
+                    aria-label={isSelected ? 'Remover vídeo da seleção' : 'Selecionar vídeo'}
+                  >
+                    {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                  </button>
 
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-                    <ActionButton disabled={!canPlay} onClick={() => setExpandedVideoId((current) => current === video.id ? null : video.id)} icon={<PlayCircle className="h-4 w-4" />}>
-                      {isExpanded ? 'Fechar' : 'Visualizar'}
-                    </ActionButton>
-                    <ActionButton disabled={!canPlay} onClick={() => shareVideo(video)} icon={<Share2 className="h-4 w-4" />}>
-                      Compartilhar
-                    </ActionButton>
-                    <ActionButton disabled={!canPlay} onClick={() => openWhatsApp(video)} icon={<MessageCircle className="h-4 w-4" />}>
-                      WhatsApp
-                    </ActionButton>
-                    <ActionButton disabled={!canPlay} onClick={() => downloadVideo(video)} icon={<Download className="h-4 w-4" />}>
-                      Baixar
-                    </ActionButton>
-                    <ActionButton onClick={() => openRenameModal(video)} icon={<Edit3 className="h-4 w-4" />}>
-                      Editar nome
-                    </ActionButton>
-                    <ActionButton disabled={!canPlay} onClick={() => editVideoAgain(video)} icon={<Pencil className="h-4 w-4" />}>
-                      Editar vídeo
-                    </ActionButton>
-                    <ActionButton disabled={!canPlay} onClick={() => openVideo(video)} icon={<ExternalLink className="h-4 w-4" />}>
-                      Abrir
-                    </ActionButton>
-                    <ActionButton tone="danger" onClick={() => openDeleteConfirmation([video.id])} icon={<Trash2 className="h-4 w-4" />}>
-                      Excluir
-                    </ActionButton>
-                  </div>
+                  <span className={`absolute right-2 top-2 rounded-full border px-2 py-1 text-[11px] font-bold shadow-lg shadow-black/30 backdrop-blur ${statusTone[video.status] || 'border-white/15 bg-black/45 text-white/70'}`}>
+                    {statusLabel[video.status] || video.status}
+                  </span>
+
+                  {duration && (
+                    <span className="absolute bottom-2 right-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-bold text-white">
+                      {duration}
+                    </span>
+                  )}
                 </div>
 
-                {isExpanded && canPlay && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-4 overflow-hidden"
-                  >
-                    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
-                      <video
-                        key={video.id}
-                        src={video.videoUrl}
-                        poster={video.thumbnailUrl}
-                        controls
-                        playsInline
-                        preload="metadata"
-                        className="max-h-[72vh] w-full bg-black object-contain"
-                      />
-                    </div>
-                    <div className="mt-3 flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 sm:flex-row sm:items-center">
-                      <span className="min-w-0 flex-1 truncate text-xs text-white/40">{shareUrl}</span>
-                      <button
-                        type="button"
-                        onClick={() => copyLink(video)}
-                        className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-white/[0.08] px-3 text-xs font-semibold text-white/75 hover:bg-white/[0.12] hover:text-white"
+                <div className="mt-3 flex min-w-0 gap-3">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gradient-brand text-sm font-black text-white shadow-lg shadow-brand-500/20">
+                    {event?.coverUrl ? (
+                      <img src={event.coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <span className="grid h-full w-full place-items-center">{eventInitial(eventName)}</span>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      disabled={!canPlay}
+                      onClick={() => openPreview(video)}
+                      className="block w-full text-left text-sm font-bold leading-snug text-white transition hover:text-brand-100 disabled:cursor-default disabled:hover:text-white"
+                    >
+                      <span
+                        className="block overflow-hidden"
+                        style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
                       >
-                        <Copy className="h-4 w-4" />
-                        Copiar link
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </motion.div>
+                        {video.title || 'Vídeo sem nome'}
+                      </span>
+                    </button>
+                    <p className="mt-1 truncate text-sm text-white/50">{eventName}</p>
+                    <p className="mt-0.5 truncate text-xs text-white/35">
+                      {formatViews(video.views)} • {formatRelativeDate(video.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 place-items-center rounded-full text-white/58 transition hover:bg-white/[0.08] hover:text-white"
+                      onClick={(eventClick) => {
+                        eventClick.stopPropagation();
+                        setOpenMenuId((current) => current === video.id ? null : video.id);
+                      }}
+                      aria-label="Abrir ações do vídeo"
+                    >
+                      <MoreVertical className="h-5 w-5" />
+                    </button>
+
+                    {menuOpen && (
+                      <div
+                        className="absolute right-0 top-10 z-30 w-56 rounded-2xl border border-white/[0.12] bg-[#14161e] p-2 shadow-2xl shadow-black/60"
+                        onClick={(eventClick) => eventClick.stopPropagation()}
+                      >
+                        <MenuAction disabled={!canPlay} onClick={() => openPreview(video)} icon={<PlayCircle className="h-4 w-4" />}>
+                          Visualizar
+                        </MenuAction>
+                        <MenuAction disabled={!canPlay} onClick={() => shareVideo(video)} icon={<Share2 className="h-4 w-4" />}>
+                          Compartilhar
+                        </MenuAction>
+                        <MenuAction disabled={!canPlay} onClick={() => openWhatsApp(video)} icon={<MessageCircle className="h-4 w-4" />}>
+                          WhatsApp
+                        </MenuAction>
+                        <MenuAction disabled={!canPlay} onClick={() => copyVideoLinkFromMenu(video)} icon={<Copy className="h-4 w-4" />}>
+                          Copiar link
+                        </MenuAction>
+                        <MenuAction disabled={!canPlay} onClick={() => downloadVideo(video)} icon={<Download className="h-4 w-4" />}>
+                          Baixar
+                        </MenuAction>
+                        <div className="my-1 h-px bg-white/[0.08]" />
+                        <MenuAction onClick={() => openRenameModal(video)} icon={<Edit3 className="h-4 w-4" />}>
+                          Editar nome
+                        </MenuAction>
+                        <MenuAction disabled={!canPlay} onClick={() => editVideoAgain(video)} icon={<Pencil className="h-4 w-4" />}>
+                          Editar vídeo
+                        </MenuAction>
+                        <MenuAction disabled={!canPlay} onClick={() => openVideo(video)} icon={<ExternalLink className="h-4 w-4" />}>
+                          Abrir
+                        </MenuAction>
+                        <div className="my-1 h-px bg-white/[0.08]" />
+                        <MenuAction tone="danger" onClick={() => openDeleteConfirmation([video.id])} icon={<Trash2 className="h-4 w-4" />}>
+                          Excluir
+                        </MenuAction>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.article>
             );
           })}
         </div>
       )}
+
+      <Modal
+        open={Boolean(previewVideo)}
+        onClose={() => setPreviewVideo(null)}
+        title={previewVideo?.title || 'Visualizar vídeo'}
+        size="xl"
+        panelClassName="max-w-5xl"
+      >
+        {previewVideo && (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
+              <video
+                key={previewVideo.id}
+                src={previewVideo.videoUrl}
+                poster={previewVideo.thumbnailUrl}
+                controls
+                playsInline
+                preload="metadata"
+                className="max-h-[72vh] w-full bg-black object-contain"
+              />
+            </div>
+            <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 sm:flex-row sm:items-center">
+              <span className="min-w-0 flex-1 truncate text-xs text-white/40">{videoShareUrl(previewVideo)}</span>
+              <button
+                type="button"
+                onClick={() => copyLink(previewVideo)}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-white/[0.08] px-3 text-xs font-semibold text-white/75 hover:bg-white/[0.12] hover:text-white"
+              >
+                <Copy className="h-4 w-4" />
+                Copiar link
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={Boolean(renameVideo)} onClose={() => !savingTitle && setRenameVideo(null)} title="Editar nome do vídeo">
         <div className="space-y-5">
