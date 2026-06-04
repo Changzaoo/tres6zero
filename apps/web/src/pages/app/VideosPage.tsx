@@ -163,7 +163,7 @@ function eventForVideo(video: AppVideo, eventMap: Map<string, AppEvent>) {
 }
 
 function eventNameForVideo(video: AppVideo, eventMap: Map<string, AppEvent>) {
-  if (!video.eventId || video.eventId === STANDALONE_EVENT_ID) return 'Vídeo avulso';
+  if (!video.eventId || video.eventId === STANDALONE_EVENT_ID) return 'Sem evento';
   return eventMap.get(video.eventId)?.name || 'Evento';
 }
 
