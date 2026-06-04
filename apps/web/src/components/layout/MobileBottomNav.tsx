@@ -19,6 +19,7 @@ import { logout } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { currentPlanLabel, planExpirationLabel } from '@/utils/subscriptionDisplay';
 
 const mobileItems = [
   { to: '/app/events', label: 'Eventos', icon: Calendar },
@@ -48,13 +49,6 @@ function ProfileBubble({ avatarUrl, initial, size = 'sm' }: { avatarUrl?: string
   );
 }
 
-function formatSubscriptionDate(value?: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' }).format(date);
-}
-
 export function MobileBottomNav() {
   const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
@@ -68,12 +62,9 @@ export function MobileBottomNav() {
     : accountItems;
   const visibleMobileItems = isSupport ? supportMobileItems : mobileItems;
   const initial = user?.name?.charAt(0).toUpperCase() || 'U';
-  const expirationDate = formatSubscriptionDate(user?.currentPeriodEnd);
-  const accountStatus = isSupport
-    ? 'Suporte'
-    : hasActiveSubscription && expirationDate
-      ? `Expira em: ${expirationDate}`
-      : user?.email || 'Perfil SIX3';
+  const accountPlan = currentPlanLabel(user);
+  const accountExpiration = planExpirationLabel(user);
+  const accountExpirationClass = isSupport || hasActiveSubscription ? 'text-emerald-300/75' : 'text-white/35';
 
   useEffect(() => {
     setAccountOpen(false);
@@ -106,7 +97,8 @@ export function MobileBottomNav() {
               <ProfileBubble avatarUrl={user?.avatarUrl} initial={initial} size="md" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-white">{user?.name || 'Conta'}</p>
-                <p className="truncate text-xs text-white/42">{accountStatus}</p>
+                <p className="truncate text-xs font-semibold leading-tight text-white/58">{accountPlan}</p>
+                <p className={`truncate text-[11px] leading-tight ${accountExpirationClass}`}>{accountExpiration}</p>
               </div>
               <NotificationBell />
               <button

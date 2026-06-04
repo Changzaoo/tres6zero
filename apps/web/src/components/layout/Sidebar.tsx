@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { planExpirationLabel } from '@/utils/subscriptionDisplay';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -39,26 +40,12 @@ const supportNavItems = [
   { to: '/app/support-dashboard', label: 'Suporte', icon: LifeBuoy, unlocked: true },
 ];
 
-function formatSubscriptionDate(value?: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' }).format(date);
-}
-
 export function Sidebar({ onClose }: SidebarProps) {
   const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
   const visibleNavItems = isSupport ? supportNavItems : navItems;
-  const expirationDate = formatSubscriptionDate(user?.currentPeriodEnd);
-  const statusLabel = isSupport
-    ? 'Suporte'
-    : hasActiveSubscription && expirationDate
-      ? `Expira em: ${expirationDate}`
-      : hasActiveSubscription
-        ? 'Ativo'
-        : 'Sem assinatura';
+  const statusLabel = planExpirationLabel(user);
   const statusClass = isSupport || hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35';
 
   async function handleLogout() {
