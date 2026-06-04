@@ -7,6 +7,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  FolderPlus,
   MessageCircle,
   MoreVertical,
   Pencil,
@@ -155,6 +156,9 @@ export default function VideosPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [assignIds, setAssignIds] = useState<string[] | null>(null);
+  const [assignEventId, setAssignEventId] = useState('');
+  const [assigningEvent, setAssigningEvent] = useState(false);
   const [renameVideo, setRenameVideo] = useState<AppVideo | null>(null);
   const [titleDraft, setTitleDraft] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
@@ -234,6 +238,30 @@ export default function VideosPage() {
     setDeleteIds(ids);
   }
 
+  function openAssignEventModal(ids: string[]) {
+    if (ids.length === 0) return;
+    setOpenMenuId(null);
+    setInlinePreviewId(null);
+
+    if (events.length === 0) {
+      toast.info('Crie um evento antes de adicionar vídeos.');
+      return;
+    }
+
+    const idSet = new Set(ids);
+    const selectedVideos = videos.filter((video) => idSet.has(video.id));
+    const firstEventId = selectedVideos[0]?.eventId;
+    const sameCurrentEvent = Boolean(
+      firstEventId
+      && firstEventId !== STANDALONE_EVENT_ID
+      && eventMap.has(firstEventId)
+      && selectedVideos.every((video) => video.eventId === firstEventId),
+    );
+
+    setAssignIds(ids);
+    setAssignEventId(sameCurrentEvent && firstEventId ? firstEventId : events[0].id);
+  }
+
   function openRenameModal(video: AppVideo) {
     setOpenMenuId(null);
     setRenameVideo(video);
@@ -311,6 +339,47 @@ export default function VideosPage() {
     setDeleting(false);
   }
 
+  async function confirmAssignEvent() {
+    if (!assignIds?.length) return;
+    const targetEvent = eventMap.get(assignEventId);
+    if (!targetEvent) {
+      toast.error('Selecione um evento para adicionar os vídeos.');
+      return;
+    }
+
+    setAssigningEvent(true);
+    const results = await Promise.allSettled(assignIds.map((id) => updateVideo(id, { eventId: assignEventId })));
+    const assignedIds = assignIds.filter((_, index) => results[index].status === 'fulfilled');
+    const failedCount = results.length - assignedIds.length;
+
+    if (assignedIds.length) {
+      const now = new Date().toISOString();
+      setVideos((current) => current.map((video) => (
+        assignedIds.includes(video.id)
+          ? { ...video, eventId: assignEventId, updatedAt: now }
+          : video
+      )));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        assignedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      toast.success(assignedIds.length === 1
+        ? `Vídeo adicionado ao evento ${targetEvent.name}.`
+        : `${assignedIds.length} vídeos adicionados ao evento ${targetEvent.name}.`);
+    }
+
+    if (failedCount) {
+      toast.error(failedCount === 1
+        ? 'Não foi possível adicionar 1 vídeo ao evento.'
+        : `Não foi possível adicionar ${failedCount} vídeos ao evento.`);
+    }
+
+    setAssignIds(null);
+    setAssignEventId('');
+    setAssigningEvent(false);
+  }
+
   async function copyLink(video: AppVideo) {
     const url = videoShareUrl(video);
     try {
@@ -386,6 +455,7 @@ export default function VideosPage() {
   const selectedCount = selectedIds.size;
   const allSelected = videos.length > 0 && selectedCount === videos.length;
   const deleteCount = deleteIds?.length || 0;
+  const assignCount = assignIds?.length || 0;
 
   return (
     <div className="space-y-5">
@@ -409,6 +479,14 @@ export default function VideosPage() {
                 <span className="rounded-full border border-brand-300/20 bg-brand-500/10 px-3 py-2 text-xs font-semibold text-brand-100">
                   {selectedCount} selecionado(s)
                 </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<FolderPlus className="h-4 w-4" />}
+                  onClick={() => openAssignEventModal([...selectedIds])}
+                >
+                  Adicionar a evento
+                </Button>
                 <Button
                   size="sm"
                   variant="danger"
@@ -613,6 +691,9 @@ export default function VideosPage() {
                         <MenuAction onClick={() => openRenameModal(video)} icon={<Edit3 className="h-4 w-4" />}>
                           Editar nome
                         </MenuAction>
+                        <MenuAction onClick={() => openAssignEventModal([video.id])} icon={<FolderPlus className="h-4 w-4" />}>
+                          Adicionar a evento
+                        </MenuAction>
                         <MenuAction disabled={!canPlay} onClick={() => editVideoAgain(video)} icon={<Pencil className="h-4 w-4" />}>
                           Editar vídeo
                         </MenuAction>
@@ -686,6 +767,44 @@ export default function VideosPage() {
             </Button>
             <Button className="flex-1 justify-center" loading={savingTitle} onClick={saveVideoTitle}>
               Salvar nome
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(assignIds?.length)} onClose={() => !assigningEvent && setAssignIds(null)} title={assignCount === 1 ? 'Adicionar vídeo a evento' : 'Adicionar vídeos a evento'}>
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+            <p className="text-sm font-semibold text-white">
+              {assignCount === 1 ? '1 vídeo selecionado' : `${assignCount} vídeos selecionados`}
+            </p>
+            <p className="mt-1 text-xs text-white/45">
+              Escolha o evento onde esses vídeos devem aparecer.
+            </p>
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-semibold text-white/70">Evento destino</span>
+            <select
+              value={assignEventId}
+              onChange={(event) => setAssignEventId(event.target.value)}
+              disabled={assigningEvent}
+              className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.065] px-4 text-sm font-semibold text-white outline-none transition focus:border-brand-300/50 focus:bg-white/[0.09] disabled:opacity-50"
+            >
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button variant="secondary" className="flex-1 justify-center" disabled={assigningEvent} onClick={() => setAssignIds(null)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1 justify-center" loading={assigningEvent} onClick={confirmAssignEvent}>
+              Adicionar ao evento
             </Button>
           </div>
         </div>
