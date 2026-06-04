@@ -24,39 +24,38 @@ import type { AppMusic, AppTemplate, MusicLibraryProvider, MusicLibraryProviderI
 const INITIAL_TEMPLATE_COUNT = 32;
 const TEMPLATE_BATCH_SIZE = 32;
 
-const categoryOptions = [
-  { value: 'all', label: 'Todas' },
-  { value: 'brilhos_estrelas', label: 'Brilhos e estrelas' },
-  { value: 'confetes_festa', label: 'Confetes e festa' },
-  { value: 'neon_glow', label: 'Neon e glow' },
-  { value: 'circulos_animados', label: 'Circulos animados' },
-  { value: 'setas_chamadas', label: 'Setas e chamadas' },
-  { value: 'emojis_reacoes', label: 'Emojis e reacoes' },
-  { value: 'elementos_festivos', label: 'Elementos festivos' },
-  { value: 'cards_faixas', label: 'Cards e faixas' },
-  { value: 'tech_futurista', label: 'Tech e futurista' },
-  { value: 'cubos_isometricos', label: 'Cubos e isometricos' },
-  { value: 'flores_decorativos', label: 'Flores e decorativos' },
-  { value: 'minimal_premium', label: 'Minimal' },
-  { value: 'birthday', label: 'Aniversario' },
-  { value: 'wedding', label: 'Casamento' },
-  { value: 'corporate', label: 'Corporativo' },
-  { value: 'gamer_neon', label: 'Gamer / neon' },
-  { value: 'tropical', label: 'Tropical' },
-  { value: 'booth_360', label: '360 Booth' },
-  { value: 'graduation', label: 'Formatura' },
-  { value: 'party', label: 'Balada / Festa' },
-  { value: 'store', label: 'Loja / Inauguracao' },
-  { value: 'church', label: 'Igreja' },
-  { value: 'premium', label: 'Luxo' },
-  { value: 'infantil', label: 'Infantil' },
-  { value: 'esportivo', label: 'Esportivo' },
-  { value: 'natal', label: 'Natal / Ano Novo' },
-  { value: 'carnaval', label: 'Carnaval' },
-  { value: 'cha_revelacao', label: 'Cha Revelacao' },
-  { value: 'halloween', label: 'Halloween' },
-  { value: 'viral', label: 'Viral' },
-];
+const templateCategoryLabels: Record<string, string> = {
+  party: 'Festa',
+  wedding: 'Casamento',
+  corporate: 'Corporativo',
+  birthday: 'Aniversário',
+  viral: 'Viral',
+  premium: 'Luxo',
+  graduation: 'Formatura',
+  store: 'Loja / Inauguração',
+  church: 'Igreja',
+  infantil: 'Infantil',
+  esportivo: 'Esportivo',
+  natal: 'Natal / Ano Novo',
+  carnaval: 'Carnaval',
+  cha_revelacao: 'Chá revelação',
+  halloween: 'Halloween',
+  brilhos_estrelas: 'Brilhos e estrelas',
+  confetes_festa: 'Confetes e festa',
+  neon_glow: 'Neon e glow',
+  circulos_animados: 'Círculos animados',
+  setas_chamadas: 'Setas e chamadas',
+  emojis_reacoes: 'Emojis e reações',
+  elementos_festivos: 'Elementos festivos',
+  cards_faixas: 'Cards e faixas',
+  tech_futurista: 'Tech e futurista',
+  cubos_isometricos: 'Cubos isométricos',
+  flores_decorativos: 'Flores e decorativos',
+  minimal_premium: 'Minimal premium',
+  gamer_neon: 'Gamer neon',
+  tropical: 'Tropical',
+  booth_360: '360 Booth',
+};
 
 const aspectOptions = [
   { value: 'all', label: 'Todos formatos' },
@@ -91,6 +90,10 @@ const musicCategoryFilterOptions: { value: 'all' | AppMusic['category']; label: 
   { value: 'all', label: 'Todas' },
   ...musicCategoryOptions,
 ];
+
+function templateCategoryLabel(category: string) {
+  return templateCategoryLabels[category] || category.replace(/_/g, ' ');
+}
 
 const licenseStatusLabels: Record<MusicLicenseStatus, string> = {
   allowed: 'Liberada',
@@ -141,6 +144,7 @@ function searchableTemplateText(template: AppTemplate) {
   return [
     template.name,
     template.category,
+    templateCategoryLabel(template.category),
     template.aspectRatio,
     template.source,
     template.font,
@@ -296,7 +300,7 @@ function TemplateCard({
         <div className="bg-surface-50 p-3">
           <p className="truncate text-sm font-semibold text-white">{template.name}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge variant="purple">{template.category}</Badge>
+            <Badge variant="purple">{templateCategoryLabel(template.category)}</Badge>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-white/55">
               {template.aspectRatio}
             </span>
@@ -382,6 +386,14 @@ export default function TemplatesPage() {
     () => templates.filter((template) => canUseTemplateForPlan(template, user?.planId, isAdmin)),
     [isAdmin, templates, user?.planId]
   );
+  const templateCategoryOptions = useMemo(() => {
+    const categories = Array.from(new Set(availableTemplates.map((template) => template.category)))
+      .sort((a, b) => templateCategoryLabel(a).localeCompare(templateCategoryLabel(b), 'pt-BR'));
+    return [
+      { value: 'all', label: 'Todas' },
+      ...categories.map((category) => ({ value: category, label: templateCategoryLabel(category) })),
+    ];
+  }, [availableTemplates]);
   const filteredTemplates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     const filtered = availableTemplates.filter((template) => {
@@ -462,6 +474,12 @@ export default function TemplatesPage() {
   useEffect(() => {
     setVisibleCount(INITIAL_TEMPLATE_COUNT);
   }, [aspectFilter, categoryFilter, favoritesOnly, motionOnly, searchTerm, sourceFilter, typeFilter]);
+
+  useEffect(() => {
+    if (categoryFilter === 'all') return;
+    if (templateCategoryOptions.some((option) => option.value === categoryFilter)) return;
+    setCategoryFilter('all');
+  }, [categoryFilter, templateCategoryOptions]);
 
   useEffect(() => {
     if (canUseAnimatedTemplates) return;
@@ -951,7 +969,7 @@ export default function TemplatesPage() {
               onChange={(event) => setCategoryFilter(event.target.value)}
               className="h-10 rounded-[16px] border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white outline-none"
             >
-              {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              {templateCategoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <select
               value={aspectFilter}
