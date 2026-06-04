@@ -45,7 +45,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const visibleNavItems = isSupport ? supportNavItems : navItems;
   const planLabel = currentPlanLabel(user);
   const expirationLabel = planExpirationLabel(user);
-  const statusLabel = planLabel === expirationLabel ? expirationLabel : `${planLabel} - ${expirationLabel}`;
+  const showExpirationLabel = expirationLabel !== planLabel;
   const statusClass = isSupport || hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35';
 
   async function handleLogout() {
@@ -116,9 +116,14 @@ export function Sidebar({ onClose }: SidebarProps) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-white/90">{user?.name}</p>
-            <p className={`truncate font-mono text-[10px] ${statusClass}`}>
-              {statusLabel}
+            <p className={`truncate font-mono text-[10px] leading-tight ${statusClass}`}>
+              {planLabel}
             </p>
+            {showExpirationLabel && (
+              <p className={`mt-0.5 truncate font-mono text-[10px] leading-tight ${statusClass}`}>
+                {expirationLabel}
+              </p>
+            )}
           </div>
           <NotificationBell />
         </div>
