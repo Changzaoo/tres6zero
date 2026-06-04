@@ -19,12 +19,13 @@ import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { currentPlanLabel, planExpirationLabel } from '@/utils/subscriptionDisplay';
+import { getStoredMenuOrder, sortMenuItems, subscribeMenuOrder } from '@/services/menuOrderService';
 
 const mobileItems = [
-  { to: '/app/events', label: 'Eventos', icon: Calendar },
-  { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
-  { to: '/app/gravar', label: 'Gravar', icon: Camera },
-  { to: '/app/templates', label: 'Templates', icon: Layers },
+  { id: 'events' as const, to: '/app/events', label: 'Eventos', icon: Calendar },
+  { id: 'videos' as const, to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
+  { id: 'gravar' as const, to: '/app/gravar', label: 'Gravar', icon: Camera },
+  { id: 'templates' as const, to: '/app/templates', label: 'Templates', icon: Layers },
 ];
 
 const supportMobileItems = [
@@ -55,6 +56,7 @@ export function MobileBottomNav() {
   const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
   const location = useLocation();
   const navigate = useNavigate();
   const items = isSupport
@@ -62,7 +64,7 @@ export function MobileBottomNav() {
     : isAdmin
     ? [...accountItems, { to: '/app/admin', label: 'Admin', icon: Shield, unlocked: true }]
     : accountItems;
-  const visibleMobileItems = isSupport ? supportMobileItems : mobileItems;
+  const visibleMobileItems = isSupport ? supportMobileItems : sortMenuItems(mobileItems, menuOrder);
   const initial = user?.name?.charAt(0).toUpperCase() || 'U';
   const accountPlan = currentPlanLabel(user);
   const accountExpiration = planExpirationLabel(user);
@@ -72,6 +74,8 @@ export function MobileBottomNav() {
   useEffect(() => {
     setAccountOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => subscribeMenuOrder(setMenuOrder), []);
 
   function isLocked(unlocked?: boolean) {
     return !hasActiveSubscription && !unlocked;

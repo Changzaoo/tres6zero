@@ -7,12 +7,38 @@ import { changePassword, disconnectAllDevices, disconnectDevice, parseFirebaseEr
 import { getStoredThemeMode, setThemeMode, type ThemeMode } from '@/services/themeService';
 import { mergeNotificationPreferences, notificationCategories, updateNotificationPreferences } from '@/services/notificationService';
 import { uploadAvatarToServer } from '@/services/serverMediaService';
+import { DEFAULT_MENU_ORDER, getStoredMenuOrder, resetMenuOrder, saveMenuOrder, type MenuItemId } from '@/services/menuOrderService';
 import { useNotificationStore } from '@/store/notificationStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
 import { toast } from '@/components/ui/Toast';
-import { BellRing, Building, Camera, Clock3, Globe2, KeyRound, LogOut, MapPin, Monitor, MonitorSmartphone, Moon, Palette, ShieldCheck, Sun, Trash2, User, Volume2, Wifi } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  BellRing,
+  Building,
+  Calendar,
+  Camera,
+  ChevronRight,
+  Clock3,
+  GripVertical,
+  KeyRound,
+  Layers,
+  LogOut,
+  MapPin,
+  Monitor,
+  MonitorSmartphone,
+  Moon,
+  Palette,
+  RotateCcw,
+  ShieldCheck,
+  Sun,
+  Trash2,
+  User,
+  Video,
+  Volume2,
+  Wifi,
+} from 'lucide-react';
 import type { NotificationPreferences, TrustedDevice } from '@/types';
 
 interface ProfileFormData {
@@ -145,6 +171,40 @@ function ToggleRow({
   );
 }
 
+const menuItemMeta: Record<MenuItemId, { label: string; description: string; icon: ReactNode }> = {
+  events: { label: 'Eventos', description: 'Páginas e links criados.', icon: <Calendar className="h-4 w-4" /> },
+  videos: { label: 'Vídeos', description: 'Biblioteca de vídeos prontos.', icon: <Video className="h-4 w-4" /> },
+  gravar: { label: 'Gravar', description: 'Atalho para criar vídeo.', icon: <Camera className="h-4 w-4" /> },
+  templates: { label: 'Templates', description: 'Molduras e músicas.', icon: <Layers className="h-4 w-4" /> },
+};
+
+function SettingsNavLink({ href, icon, title, description }: { href: string; icon: ReactNode; title: string; description: string }) {
+  return (
+    <a href={href} className="group flex min-w-0 items-center gap-3 border-b border-white/[0.08] px-4 py-4 text-left transition hover:bg-white/[0.045]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.055] text-white/62 transition group-hover:bg-white/[0.08] group-hover:text-white">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-white">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-white/38">{description}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-white/28" />
+    </a>
+  );
+}
+
+function SettingsSection({ id, title, description, children }: { id: string; title: string; description: string; children: ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-4 border-b border-white/[0.08] px-4 py-5 sm:px-6">
+      <div className="mb-4">
+        <h2 className="text-xl font-black leading-tight text-white">{title}</h2>
+        <p className="mt-1 text-sm text-white/42">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const setUser = useAuthStore((state) => state.setUser);
@@ -157,6 +217,7 @@ export default function SettingsPage() {
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarProgress, setAvatarProgress] = useState(0);
+  const [menuOrder, setMenuOrder] = useState<MenuItemId[]>(() => getStoredMenuOrder());
   const setGlobalNotificationPrefs = useNotificationStore((state) => state.setPreferences);
   const devices = user?.trustedDevices || [];
 
@@ -294,6 +355,26 @@ export default function SettingsPage() {
     }
 
     await saveNotificationPrefs({ ...notificationPrefs, browser: checked });
+  }
+
+  function updateMenuOrder(nextOrder: MenuItemId[]) {
+    setMenuOrder(saveMenuOrder(nextOrder));
+    toast.success('Ordem do menu atualizada.');
+  }
+
+  function moveMenuItem(itemId: MenuItemId, direction: -1 | 1) {
+    const currentIndex = menuOrder.indexOf(itemId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= menuOrder.length) return;
+
+    const nextOrder = [...menuOrder];
+    [nextOrder[currentIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[currentIndex]];
+    updateMenuOrder(nextOrder);
+  }
+
+  function handleResetMenuOrder() {
+    setMenuOrder(resetMenuOrder());
+    toast.success('Ordem original restaurada.');
   }
 
   return (

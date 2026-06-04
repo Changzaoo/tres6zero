@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -18,17 +19,24 @@ import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { currentPlanLabel, planExpirationLabel } from '@/utils/subscriptionDisplay';
+import { getStoredMenuOrder, sortMenuItems, subscribeMenuOrder } from '@/services/menuOrderService';
 
 interface SidebarProps {
   onClose?: () => void;
 }
 
-const navItems = [
+const fixedNavStart = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/app/events', label: 'Eventos', icon: Calendar },
-  { to: '/app/gravar', label: 'Gravar', icon: Camera },
-  { to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
-  { to: '/app/templates', label: 'Templates', icon: Layers },
+];
+
+const orderedNavItems = [
+  { id: 'events' as const, to: '/app/events', label: 'Eventos', icon: Calendar },
+  { id: 'videos' as const, to: '/app/videos', label: 'Vídeos', icon: Video, unlocked: true },
+  { id: 'gravar' as const, to: '/app/gravar', label: 'Gravar', icon: Camera },
+  { id: 'templates' as const, to: '/app/templates', label: 'Templates', icon: Layers },
+];
+
+const fixedNavEnd = [
   { to: '/app/billing', label: 'Planos', icon: CreditCard, unlocked: true },
   { to: '/app/settings', label: 'Configurações', icon: Settings, unlocked: true },
   { to: '/app/support', label: 'Suporte', icon: LifeBuoy, unlocked: true },
@@ -42,11 +50,14 @@ export function Sidebar({ onClose }: SidebarProps) {
   const { user, isAdmin, isSupport, hasActiveSubscription } = useAuth();
   const resetAuth = useAuthStore((state) => state.reset);
   const navigate = useNavigate();
-  const visibleNavItems = isSupport ? supportNavItems : navItems;
+  const [menuOrder, setMenuOrder] = useState(() => getStoredMenuOrder());
+  const visibleNavItems = isSupport ? supportNavItems : [...fixedNavStart, ...sortMenuItems(orderedNavItems, menuOrder), ...fixedNavEnd];
   const planLabel = currentPlanLabel(user);
   const expirationLabel = planExpirationLabel(user);
   const showExpirationLabel = expirationLabel !== planLabel;
   const statusClass = isSupport || hasActiveSubscription ? 'text-emerald-400/80' : 'text-white/35';
+
+  useEffect(() => subscribeMenuOrder(setMenuOrder), []);
 
   async function handleLogout() {
     await logout();

@@ -270,17 +270,17 @@ function TemplateCard({
         if (template.animationUrl) setActiveMotionId((current) => current === template.id ? null : template.id);
       }}
     >
-      <div className={`overflow-hidden rounded-[28px] border bg-[#10131c] shadow-[0_18px_55px_rgba(0,0,0,0.24)] transition-all duration-300 group-hover:-translate-y-1 group-hover:border-brand-300/35 group-hover:shadow-[0_28px_75px_rgba(0,0,0,0.38)] ${
+      <div className={`overflow-hidden rounded-[20px] border bg-[#10131c] shadow-[0_12px_32px_rgba(0,0,0,0.24)] transition-all duration-300 group-hover:-translate-y-1 group-hover:border-brand-300/35 group-hover:shadow-[0_28px_75px_rgba(0,0,0,0.38)] sm:rounded-[28px] sm:shadow-[0_18px_55px_rgba(0,0,0,0.24)] ${
         isSpotlight
           ? 'border-brand-200/70 ring-2 ring-brand-500/18'
           : 'border-white/[0.08]'
       }`}>
         <div
-          className="relative flex min-h-[220px] items-center justify-center overflow-hidden sm:min-h-[260px]"
+          className="relative flex min-h-[148px] max-h-[210px] items-center justify-center overflow-hidden sm:min-h-[260px] sm:max-h-none"
           style={{ aspectRatio: templateAspectRatio(template.aspectRatio), background: `radial-gradient(circle at 28% 18%, ${primary}55, transparent 34%), linear-gradient(135deg, ${primary}30, ${secondary}1f 48%, rgba(0,0,0,0.78))` }}
         >
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_34%,rgba(0,0,0,0.38))]" />
-          <BrandWordmark className="relative text-3xl opacity-80 drop-shadow-lg" />
+          <BrandWordmark className="relative text-2xl opacity-80 drop-shadow-lg sm:text-3xl" />
           {isMotionActive && motionVideoUrl ? (
             <video
               src={motionVideoUrl}
@@ -294,15 +294,15 @@ function TemplateCard({
           ) : (
             <TemplateOverlayRenderer template={template} preferPreview />
           )}
-          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase backdrop-blur-md ${
+          <div className="absolute left-2 top-2 flex flex-wrap gap-1 sm:left-3 sm:top-3 sm:gap-1.5">
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px] ${
               animated
                 ? 'border-cyan-200/35 bg-cyan-400/16 text-cyan-50'
                 : 'border-white/12 bg-black/35 text-white/72'
             }`}>
               {animated ? 'Animado' : 'Estático'}
             </span>
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase backdrop-blur-md ${
+            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px] ${
               premium
                 ? 'border-amber-200/35 bg-amber-400/16 text-amber-50'
                 : 'border-emerald-200/25 bg-emerald-400/12 text-emerald-50'
@@ -318,27 +318,27 @@ function TemplateCard({
             }}
             title={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             aria-label={isFavorite ? 'Remover template dos favoritos' : 'Favoritar template'}
-            className={`absolute right-2 top-2 z-10 grid h-9 w-9 place-items-center rounded-full border backdrop-blur-md transition-all ${
+            className={`absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full border backdrop-blur-md transition-all sm:h-9 sm:w-9 ${
               isFavorite
                 ? 'border-amber-200/45 bg-amber-400/20 text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]'
                 : 'border-white/12 bg-black/35 text-white/45 hover:border-amber-200/35 hover:text-amber-100'
             }`}
           >
-            <Star className="h-4 w-4" fill={isFavorite ? 'currentColor' : 'none'} />
+            <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/82 via-black/28 to-transparent" />
-          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 transition-all duration-300">
-            <span className="rounded-full border border-white/12 bg-black/58 px-3 py-1.5 text-xs font-black text-white shadow-lg backdrop-blur-md">Usar</span>
-            <span className="rounded-full border border-brand-200/30 bg-brand-500/22 px-2.5 py-1 text-[11px] font-bold text-brand-50 backdrop-blur-md">{template.aspectRatio}</span>
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/82 via-black/28 to-transparent sm:h-24" />
+          <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1.5 transition-all duration-300 sm:inset-x-3 sm:bottom-3 sm:gap-2">
+            <span className="rounded-full border border-white/12 bg-black/58 px-2.5 py-1 text-[10px] font-black text-white shadow-lg backdrop-blur-md sm:px-3 sm:py-1.5 sm:text-xs">Usar</span>
+            <span className="rounded-full border border-brand-200/30 bg-brand-500/22 px-2 py-1 text-[10px] font-bold text-brand-50 backdrop-blur-md sm:px-2.5 sm:text-[11px]">{template.aspectRatio}</span>
           </div>
         </div>
-        <div className="border-t border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] p-4">
-          <p className="line-clamp-2 min-h-[2.5rem] text-sm font-black leading-tight text-white">{template.name}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full border border-brand-200/18 bg-brand-500/10 px-2.5 py-1 text-[11px] font-bold text-brand-100">
+        <div className="border-t border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] p-2.5 sm:p-4">
+          <p className="line-clamp-2 min-h-[2rem] text-[11px] font-black leading-tight text-white sm:min-h-[2.5rem] sm:text-sm">{template.name}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1 sm:mt-3 sm:gap-1.5">
+            <span className="rounded-full border border-brand-200/18 bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold text-brand-100 sm:px-2.5 sm:py-1 sm:text-[11px]">
               {templateCategoryLabel(template.category)}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/55">
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-white/55 sm:px-2.5 sm:py-1 sm:text-[11px]">
               {template.aspectRatio}
             </span>
           </div>
@@ -1551,7 +1551,7 @@ export default function TemplatesPage() {
             );
           })()}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-4">
             {visibleTemplates.map((template) => (
               <TemplateCard
                 key={template.id}
