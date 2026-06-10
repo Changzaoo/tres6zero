@@ -109,14 +109,20 @@ def segment_filters(effect_segments):
     return filters
 
 
-def build_graph(effect, has_overlay, animated_overlay=False, effect_segments=None):
+def build_graph(effect, has_overlay, animated_overlay=False, effect_segments=None, duration_seconds=None):
     base_effect = chosen_effect(effect, None)
     base_filters = effect_filters(base_effect)
     timed_filters = segment_filters(effect_segments)
 
     if base_effect == "boomerang":
+        # Com duração alvo conhecida, a ida usa metade dela: ida + volta preenchem o
+        # tempo exato e o clipe termina de volta no primeiro frame, sem corte brusco
+        # (sem o trim, o "-t" final decepava a volta no meio).
+        head = "[0:v]scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        if duration_seconds:
+            head += f",trim=duration={duration_seconds / 2:.3f},setpts=PTS-STARTPTS"
         graph = (
-            "[0:v]scale=trunc(iw/2)*2:trunc(ih/2)*2,split[v1][v2];"
+            f"{head},split[v1][v2];"
             "[v2]reverse[v2r];"
             f"[v1][v2r]concat=n=2:v=1:a=0,fps=30,{','.join(timed_filters + ['format=yuv420p'])}[base]"
         )
@@ -165,7 +171,7 @@ def main():
     effect_segments = parse_effect_segments(args.effect_segments, duration_seconds)
     overlay_ext = os.path.splitext(args.overlay.lower())[1] if args.overlay else ""
     animated_overlay = overlay_ext in [".webm", ".mp4", ".mov", ".gif"]
-    graph = build_graph(effect, bool(args.overlay), animated_overlay, effect_segments)
+    graph = build_graph(effect, bool(args.overlay), animated_overlay, effect_segments, duration_seconds)
     cmd = [args.ffmpeg, "-y", "-i", args.input]
 
     if args.overlay:

@@ -878,12 +878,15 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
           }
         }
       } else {
-        if (isTemporalEffect(previousEffect) && previousEffect !== currentEffect) {
+        if (isTemporalEffect(previousEffect) && previousEffect !== currentEffect && previousEffect !== 'boomerang') {
           const resumedTime = Math.min(trimEnd - 0.03, trimStart + elapsed);
           if (Number.isFinite(resumedTime) && Math.abs(sourceVideo.currentTime - resumedTime) > 0.08) {
             sourceVideo.currentTime = resumedTime;
           }
         }
+        // Boomerang termina sempre no frame inicial do trecho (ciclos inteiros) e o
+        // vídeo-fonte já está pausado nessa posição: retomar dali, sem seek, evita o
+        // salto brusco para frente na linha do tempo quando o efeito acaba.
 
         const nextRate = mapPlaybackRate(currentEffect, effectState.localElapsed, effectState.duration);
         if (Math.abs(sourceVideo.playbackRate - nextRate) > 0.02) {
