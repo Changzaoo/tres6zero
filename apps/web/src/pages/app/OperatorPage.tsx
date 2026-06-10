@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Camera, Upload, RefreshCw, Check, QrCode, Share2, Video, Loader2, Lock, Wand2, Music2, Eye, Clock, Volume2, Sparkles, Film, Layers, SlidersHorizontal, Scissors, ChevronDown, Minus, Plus, X, Pencil, Star, Search } from 'lucide-react';
@@ -703,7 +704,7 @@ function InlineSelectPopover({
 }) {
   return (
     <div
-      className="absolute left-0 top-full z-50 mt-1.5 max-h-56 w-72 overflow-y-auto rounded-2xl border border-white/[0.08] py-1.5"
+      className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-white/[0.08] py-1.5 sm:right-auto sm:w-72"
       style={{
         background: 'rgba(13, 15, 20, 0.98)',
         boxShadow: '0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.05)',
@@ -782,6 +783,20 @@ function TemplatePicker({
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeQuickFilter, setActiveQuickFilter] = useState<'all' | 'free' | 'premium' | 'animated' | 'favorites'>('all');
   const [templateQuery, setTemplateQuery] = useState('');
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [expanded]);
 
   const selectedTemplate = templates.find((t) => t.id === selectedId);
 
@@ -902,13 +917,24 @@ function TemplatePicker({
         />
       </button>
 
-      {expanded && (
-        <div className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#090c13] shadow-[0_24px_80px_rgba(0,0,0,0.42)]">
-          <div className="relative border-b border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(69,92,255,0.2),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4">
+      {expanded && createPortal(
+        <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setExpanded(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Galeria de molduras"
+            className="relative flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-[26px] border border-white/[0.08] bg-[#090c13] shadow-[0_24px_80px_rgba(0,0,0,0.6)] supports-[height:100dvh]:max-h-[94dvh] sm:max-h-[92vh] sm:max-w-3xl sm:rounded-[28px] sm:supports-[height:100dvh]:max-h-[92dvh] xl:max-w-5xl"
+          >
+          <div className="relative shrink-0 border-b border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(69,92,255,0.2),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-3 sm:p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-base font-black text-white">Escolha sua moldura</h3>
-                <p className="mt-1 text-xs text-white/45">Selecione uma moldura para aplicar ao vídeo.</p>
+                <p className="mt-1 hidden text-xs text-white/45 sm:block">Selecione uma moldura para aplicar ao vídeo.</p>
               </div>
               <button
                 type="button"
@@ -920,8 +946,31 @@ function TemplatePicker({
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1fr)]">
-              <div className={`relative mx-auto w-full overflow-hidden rounded-[24px] border border-white/[0.1] bg-[linear-gradient(135deg,rgba(44,58,105,0.86),rgba(8,10,16,0.94))] ${selectedPreviewFrame}`}>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-black/20 p-2.5 sm:hidden">
+              <div className={`relative shrink-0 overflow-hidden rounded-lg border border-white/12 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.22),rgba(0,0,0,0.45))] ${videoOrientation === 'landscape' ? 'h-10 w-16' : 'h-12 w-8'}`}>
+                {selectedTemplateThumb ? (
+                  <img src={selectedTemplateThumb} alt="" className="absolute inset-0 h-full w-full object-contain p-0.5" />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-white/30"><Layers className="h-4 w-4" /></div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black text-white">{selectedTemplate?.name || 'Sem moldura'}</p>
+                <p className="mt-0.5 truncate text-[11px] font-bold text-white/40">
+                  {selectedTemplate
+                    ? `${CATEGORY_LABELS[selectedTemplate.category] || selectedTemplate.category} · ${selectedPremium ? 'Premium' : 'Grátis'}`
+                    : 'Vídeo limpo'}
+                </p>
+              </div>
+              {selectedTemplate && (
+                <button type="button" onClick={() => handleSelect('')} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/50 transition hover:bg-white/[0.08] hover:text-white" aria-label="Remover moldura">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4 hidden items-start gap-3 sm:grid sm:grid-cols-[minmax(0,0.78fr)_minmax(0,1fr)]">
+              <div className={`relative mx-auto w-full overflow-hidden rounded-2xl border border-white/[0.1] bg-[linear-gradient(135deg,rgba(44,58,105,0.86),rgba(8,10,16,0.94))] lg:rounded-[24px] ${selectedPreviewFrame}`}>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(125,139,255,0.28),transparent_34%),radial-gradient(circle_at_70%_80%,rgba(34,211,238,0.14),transparent_34%)]" />
                 {selectedTemplate && selectedTemplateThumb ? (
                   <img src={selectedTemplateThumb} alt="" className="absolute inset-0 h-full w-full object-contain p-2" loading="lazy" decoding="async" />
@@ -943,11 +992,11 @@ function TemplatePicker({
                 </div>
               </div>
 
-              <div className="flex min-w-0 flex-col justify-between gap-3 rounded-[24px] border border-white/[0.08] bg-black/20 p-4">
+              <div className="flex min-w-0 flex-col justify-between gap-3 rounded-2xl border border-white/[0.08] bg-black/20 p-3 sm:p-4 lg:rounded-[24px]">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.14em] text-brand-200/75">Moldura selecionada</p>
-                  <h4 className="mt-2 line-clamp-2 text-xl font-black leading-tight text-white">{selectedTemplate?.name || 'Vídeo sem moldura'}</h4>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
+                  <h4 className="mt-1 line-clamp-2 text-base font-black leading-tight text-white sm:mt-2 sm:text-xl">{selectedTemplate?.name || 'Vídeo sem moldura'}</h4>
+                  <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3">
                     {selectedTemplate ? (
                       <>
                         <span className="rounded-full border border-brand-200/20 bg-brand-500/12 px-2.5 py-1 text-xs font-bold text-brand-100">{CATEGORY_LABELS[selectedTemplate.category] || selectedTemplate.category}</span>
@@ -971,7 +1020,7 @@ function TemplatePicker({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="mt-3 grid gap-2 sm:mt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                 <input
@@ -986,13 +1035,13 @@ function TemplatePicker({
                   </button>
                 )}
               </div>
-              <span className="rounded-full border border-white/[0.08] bg-white/[0.045] px-3 py-2 text-center text-xs font-bold text-white/52">
+              <span className="hidden rounded-full border border-white/[0.08] bg-white/[0.045] px-3 py-2 text-center text-xs font-bold text-white/52 sm:block">
                 {visibleTemplates.length} de {filteredTemplates.length}
               </span>
             </div>
           </div>
 
-          <div className="space-y-3 p-3 sm:p-4">
+          <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
             <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1">
               {quickFilters.map((filter) => (
                 <button
@@ -1018,8 +1067,8 @@ function TemplatePicker({
               ))}
             </div>
 
-            <div className="max-h-[min(72vh,680px)] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
                 <button
                   type="button"
                   onClick={() => handleSelect('')}
@@ -1109,7 +1158,19 @@ function TemplatePicker({
               </p>
             )}
           </div>
-        </div>
+
+          <div className="shrink-0 border-t border-white/[0.07] bg-[#0a0d14] p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:hidden">
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="h-12 w-full rounded-2xl bg-gradient-brand text-sm font-black text-white shadow-[0_16px_38px_rgba(70,96,255,0.28)] transition hover:brightness-110 active:scale-[0.99]"
+            >
+              {selectedTemplate ? 'Aplicar moldura' : 'Concluir'}
+            </button>
+          </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
