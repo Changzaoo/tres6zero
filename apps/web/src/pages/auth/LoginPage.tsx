@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion, type Variants } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { login, parseFirebaseError } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
@@ -17,6 +17,106 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+// Entrada escalonada dos personagens: fade-in + scale a partir do "chão"
+const illustrationContainer: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.25 } },
+};
+
+const shapeEnter: Variants = {
+  hidden: { opacity: 0, scale: 0.85, y: 28 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+};
+
+/**
+ * Ilustração viva: personagens geométricos com microanimações de "respiração",
+ * leve inclinação e piscar de olhos. Respeita prefers-reduced-motion.
+ */
+function LoginIllustration() {
+  const reduceMotion = useReducedMotion();
+
+  // Loop suave de flutuação vertical (respiração)
+  const breathe = (delay: number, amount = 5, duration = 4) =>
+    reduceMotion
+      ? undefined
+      : { y: [0, -amount, 0], transition: { duration, repeat: Infinity, ease: 'easeInOut' as const, delay } };
+
+  // Loop de balanço com leve rotação (personagens inclinados)
+  const sway = (from: number, to: number, delay: number, duration = 5) =>
+    reduceMotion
+      ? { rotate: from }
+      : {
+          rotate: [from, to, from],
+          y: [0, -6, 0],
+          transition: { duration, repeat: Infinity, ease: 'easeInOut' as const, delay },
+        };
+
+  // Piscar de olhos ocasional
+  const blink = reduceMotion
+    ? undefined
+    : {
+        scaleY: [1, 1, 0.1, 1],
+        transition: { duration: 0.5, times: [0, 0.7, 0.85, 1], repeat: Infinity, repeatDelay: 3.2, ease: 'easeInOut' as const },
+      };
+
+  return (
+    <motion.div
+      variants={illustrationContainer}
+      initial="hidden"
+      animate="visible"
+      className="relative h-56 w-72"
+      aria-hidden="true"
+    >
+      {/* Forma laranja: baixa e acolhedora, "respira" pela base */}
+      <motion.div variants={shapeEnter} className="absolute bottom-0 left-4 h-28 w-36">
+        <motion.div
+          animate={reduceMotion ? undefined : { scaleY: [1, 1.045, 1] }}
+          transition={reduceMotion ? undefined : { duration: 4.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="h-full w-full origin-bottom rounded-t-full bg-orange-400"
+        />
+      </motion.div>
+
+      {/* Forma roxa: personagem principal, inclinada, balança devagar */}
+      <motion.div variants={shapeEnter} className="absolute bottom-0 left-28 h-48 w-24">
+        <motion.div animate={sway(3, 5.5, 0.4, 5.5)} className="h-full w-full origin-bottom rounded-md bg-violet-600" />
+      </motion.div>
+
+      {/* Forma preta: contraste e sofisticação, movimento mínimo */}
+      <motion.div variants={shapeEnter} className="absolute bottom-0 left-44 h-40 w-20">
+        <motion.div animate={sway(-3, -1.5, 1.1, 6.5)} className="h-full w-full origin-bottom rounded-md bg-neutral-950" />
+      </motion.div>
+
+      {/* Forma amarela: leve e simpática, flutua num ritmo próprio */}
+      <motion.div variants={shapeEnter} className="absolute bottom-0 right-4 h-32 w-24">
+        <motion.div
+          animate={breathe(0.8, 7, 4.8)}
+          className="h-full w-full rounded-l-3xl rounded-r-full bg-yellow-400"
+        />
+      </motion.div>
+
+      {/* Olhos: acompanham a respiração e piscam de vez em quando */}
+      <motion.div variants={shapeEnter} className="absolute bottom-20 left-24">
+        <motion.div animate={breathe(0.4, 6)} className="flex gap-6">
+          <motion.span animate={blink} className="h-2 w-2 rounded-full bg-neutral-900" />
+          <motion.span animate={blink} className="h-2 w-2 rounded-full bg-neutral-900" />
+          <motion.span animate={blink} className="h-2 w-2 rounded-full bg-neutral-900" />
+        </motion.div>
+      </motion.div>
+
+      {/* Traços de expressão */}
+      <motion.div variants={shapeEnter} className="absolute bottom-20 right-2">
+        <motion.span animate={breathe(0.8, 7, 4.8)} className="block h-0.5 w-10 bg-neutral-900" />
+      </motion.div>
+      <motion.div variants={shapeEnter} className="absolute left-44 top-12">
+        <motion.span animate={breathe(1.1, 5, 6.5)} className="block h-4 w-1 rounded-full bg-neutral-900" />
+      </motion.div>
+      <motion.div variants={shapeEnter} className="absolute left-52 top-12">
+        <motion.span animate={breathe(1.3, 5, 6.5)} className="block h-2 w-1 rounded-full bg-neutral-900" />
+      </motion.div>
+    </motion.div>
+  );
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -51,22 +151,9 @@ export default function LoginPage() {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="grid w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-black/40 md:grid-cols-2"
       >
-        {/* Coluna esquerda — ilustração abstrata */}
+        {/* Coluna esquerda — ilustração abstrata animada */}
         <div className="relative hidden min-h-[360px] items-center justify-center bg-[#f1f1f1] p-10 sm:flex md:min-h-full">
-          <div className="relative h-56 w-72" aria-hidden="true">
-            <div className="absolute bottom-0 left-4 h-28 w-36 rounded-t-full bg-orange-400" />
-            <div className="absolute bottom-0 left-28 h-48 w-24 rotate-3 rounded-md bg-violet-600" />
-            <div className="absolute bottom-0 left-44 h-40 w-20 -rotate-3 rounded-md bg-neutral-950" />
-            <div className="absolute bottom-0 right-4 h-32 w-24 rounded-l-3xl rounded-r-full bg-yellow-400" />
-
-            <span className="absolute bottom-20 left-24 h-2 w-2 rounded-full bg-neutral-900" />
-            <span className="absolute bottom-20 left-32 h-2 w-2 rounded-full bg-neutral-900" />
-            <span className="absolute bottom-20 left-40 h-2 w-2 rounded-full bg-neutral-900" />
-
-            <span className="absolute bottom-20 right-2 h-0.5 w-10 bg-neutral-900" />
-            <span className="absolute left-44 top-12 h-4 w-1 rounded-full bg-neutral-900" />
-            <span className="absolute left-52 top-12 h-2 w-1 rounded-full bg-neutral-900" />
-          </div>
+          <LoginIllustration />
         </div>
 
         {/* Coluna direita — formulário */}
@@ -94,7 +181,7 @@ export default function LoginPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="seu@email.com"
-                    className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 text-sm text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-0"
+                    className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 text-sm text-neutral-950 outline-none transition placeholder:text-neutral-400 autofill:shadow-[inset_0_0_0_1000px_#ffffff] autofill:[-webkit-text-fill-color:#0a0a0a] focus:border-neutral-950 focus:ring-0"
                     {...register('email')}
                   />
                   {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
@@ -107,7 +194,7 @@ export default function LoginPage() {
                       type={showPass ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="••••••••"
-                      className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 pr-10 text-sm text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-0"
+                      className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 pr-10 text-sm text-neutral-950 outline-none transition placeholder:text-neutral-400 autofill:shadow-[inset_0_0_0_1000px_#ffffff] autofill:[-webkit-text-fill-color:#0a0a0a] focus:border-neutral-950 focus:ring-0"
                       {...register('password')}
                     />
                     <button
