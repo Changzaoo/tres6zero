@@ -94,7 +94,11 @@ function localMessage(visitorId: string, body: string, pending = true): SupportM
   };
 }
 
-export function LoginSupportChat() {
+type LoginSupportChatProps = {
+  variant?: 'inline' | 'floating';
+};
+
+export function LoginSupportChat({ variant = 'inline' }: LoginSupportChatProps) {
   const [open, setOpen] = useState(false);
   const [visitorId] = useState(() => getVisitorId());
   const [conversation, setConversation] = useState<SupportConversation | null>(null);
@@ -212,14 +216,26 @@ export function LoginSupportChat() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-950"
-      >
-        <LifeBuoy className="h-4 w-4" />
-        Entrar em contato com suporte
-      </button>
+      {variant === 'floating' ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Entrar em contato com suporte"
+          title="Entrar em contato com suporte"
+          className="fixed bottom-4 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white text-neutral-950 shadow-2xl shadow-black/30 transition hover:scale-105 hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
+          <LifeBuoy className="h-5 w-5" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-950"
+        >
+          <LifeBuoy className="h-4 w-4" />
+          Entrar em contato com suporte
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 backdrop-blur-sm sm:items-center sm:p-4">

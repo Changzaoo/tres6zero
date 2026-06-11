@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, useReducedMotion, type Variants } from 'framer-motion';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Sparkles } from 'lucide-react';
 import { login, parseFirebaseError } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
@@ -12,52 +12,50 @@ import { LoginSupportChat } from '@/components/support/LoginSupportChat';
 import { BannedAccountNotice } from '@/components/auth/BannedAccountNotice';
 
 const schema = z.object({
-  email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres'),
+  email: z.string().email('E-mail invalido'),
+  password: z.string().min(6, 'Minimo 6 caracteres'),
 });
 
 type FormData = z.infer<typeof schema>;
 
-// Entrada escalonada dos personagens: fade-in + scale a partir do "chão"
 const illustrationContainer: Variants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.25 } },
+  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.18 } },
 };
 
 const shapeEnter: Variants = {
-  hidden: { opacity: 0, scale: 0.85, y: 28 },
-  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+  hidden: { opacity: 0, scale: 0.9, y: 24 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.48, ease: 'easeOut' } },
 };
 
-/**
- * Ilustração viva: personagens geométricos com microanimações de "respiração",
- * leve inclinação e piscar de olhos. Respeita prefers-reduced-motion.
- */
 function LoginIllustration() {
   const reduceMotion = useReducedMotion();
 
-  // Loop suave de flutuação vertical (respiração)
-  const breathe = (delay: number, amount = 5, duration = 4) =>
+  const breathe = (delay: number, amount = 4, duration = 4.6) =>
     reduceMotion
       ? undefined
       : { y: [0, -amount, 0], transition: { duration, repeat: Infinity, ease: 'easeInOut' as const, delay } };
 
-  // Loop de balanço com leve rotação (personagens inclinados)
-  const sway = (from: number, to: number, delay: number, duration = 5) =>
+  const sway = (from: number, to: number, delay: number, duration = 5.2) =>
     reduceMotion
       ? { rotate: from }
       : {
           rotate: [from, to, from],
-          y: [0, -6, 0],
+          y: [0, -5, 0],
           transition: { duration, repeat: Infinity, ease: 'easeInOut' as const, delay },
         };
 
-  // Piscar de olhos ocasional
   const blink = reduceMotion
     ? undefined
     : {
         scaleY: [1, 1, 0.1, 1],
-        transition: { duration: 0.5, times: [0, 0.7, 0.85, 1], repeat: Infinity, repeatDelay: 3.2, ease: 'easeInOut' as const },
+        transition: {
+          duration: 0.45,
+          times: [0, 0.72, 0.84, 1],
+          repeat: Infinity,
+          repeatDelay: 3.4,
+          ease: 'easeInOut' as const,
+        },
       };
 
   return (
@@ -65,54 +63,60 @@ function LoginIllustration() {
       variants={illustrationContainer}
       initial="hidden"
       animate="visible"
-      className="relative h-56 w-72"
+      className="relative h-[238px] w-[292px] max-w-full"
       aria-hidden="true"
     >
-      {/* Forma laranja: baixa e acolhedora, "respira" pela base */}
-      <motion.div variants={shapeEnter} className="absolute bottom-0 left-4 h-28 w-36">
+      <motion.div variants={shapeEnter} className="absolute bottom-[48px] left-[24px] h-[72px] w-[132px]">
         <motion.div
-          animate={reduceMotion ? undefined : { scaleY: [1, 1.045, 1] }}
-          transition={reduceMotion ? undefined : { duration: 4.2, repeat: Infinity, ease: 'easeInOut' }}
-          className="h-full w-full origin-bottom rounded-t-full bg-orange-400"
+          animate={reduceMotion ? undefined : { scaleY: [1, 1.04, 1] }}
+          transition={reduceMotion ? undefined : { duration: 4.1, repeat: Infinity, ease: 'easeInOut' }}
+          className="h-full w-full origin-bottom rounded-t-full bg-[#ff8a22]"
         />
       </motion.div>
 
-      {/* Forma roxa: personagem principal, inclinada, balança devagar */}
-      <motion.div variants={shapeEnter} className="absolute bottom-0 left-28 h-48 w-24">
-        <motion.div animate={sway(3, 5.5, 0.4, 5.5)} className="h-full w-full origin-bottom rounded-md bg-violet-600" />
+      <motion.div variants={shapeEnter} className="absolute bottom-[78px] left-[106px] h-[124px] w-[72px]">
+        <motion.div animate={sway(1.5, 3.5, 0.25, 5.4)} className="h-full w-full origin-bottom rounded-[4px] bg-[#6236ff]" />
       </motion.div>
 
-      {/* Forma preta: contraste e sofisticação, movimento mínimo */}
-      <motion.div variants={shapeEnter} className="absolute bottom-0 left-44 h-40 w-20">
-        <motion.div animate={sway(-3, -1.5, 1.1, 6.5)} className="h-full w-full origin-bottom rounded-md bg-neutral-950" />
+      <motion.div variants={shapeEnter} className="absolute bottom-[78px] left-[166px] h-[96px] w-[56px]">
+        <motion.div animate={sway(-2.5, -1, 0.85, 6.2)} className="h-full w-full origin-bottom rounded-[4px] bg-[#111111]" />
       </motion.div>
 
-      {/* Forma amarela: leve e simpática, flutua num ritmo próprio */}
-      <motion.div variants={shapeEnter} className="absolute bottom-0 right-4 h-32 w-24">
+      <motion.div variants={shapeEnter} className="absolute bottom-[48px] right-[22px] h-[88px] w-[62px]">
         <motion.div
-          animate={breathe(0.8, 7, 4.8)}
-          className="h-full w-full rounded-l-3xl rounded-r-full bg-yellow-400"
+          animate={breathe(0.65, 5, 4.9)}
+          className="h-full w-full rounded-l-[28px] rounded-r-full bg-[#f4c400]"
         />
       </motion.div>
 
-      {/* Olhos: acompanham a respiração e piscam de vez em quando */}
-      <motion.div variants={shapeEnter} className="absolute bottom-20 left-24">
-        <motion.div animate={breathe(0.4, 6)} className="flex gap-6">
-          <motion.span animate={blink} className="h-2 w-2 rounded-full bg-neutral-900" />
-          <motion.span animate={blink} className="h-2 w-2 rounded-full bg-neutral-900" />
-          <motion.span animate={blink} className="h-2 w-2 rounded-full bg-neutral-900" />
+      <motion.div variants={shapeEnter} className="absolute bottom-[96px] left-[94px]">
+        <motion.div animate={breathe(0.35, 4)} className="flex gap-[18px]">
+          <motion.span animate={blink} className="h-[5px] w-[5px] rounded-full bg-[#121212]" />
+          <motion.span animate={blink} className="h-[5px] w-[5px] rounded-full bg-[#121212]" />
+          <motion.span animate={blink} className="h-[5px] w-[5px] rounded-full bg-[#121212]" />
         </motion.div>
       </motion.div>
 
-      {/* Traços de expressão */}
-      <motion.div variants={shapeEnter} className="absolute bottom-20 right-2">
-        <motion.span animate={breathe(0.8, 7, 4.8)} className="block h-0.5 w-10 bg-neutral-900" />
+      <motion.div variants={shapeEnter} className="absolute bottom-[130px] left-[126px]">
+        <motion.div animate={breathe(0.3, 3)} className="flex gap-4">
+          <motion.span animate={blink} className="h-[5px] w-[3px] rounded-full bg-white/90" />
+          <motion.span animate={blink} className="h-[5px] w-[3px] rounded-full bg-white/90" />
+        </motion.div>
       </motion.div>
-      <motion.div variants={shapeEnter} className="absolute left-44 top-12">
-        <motion.span animate={breathe(1.1, 5, 6.5)} className="block h-4 w-1 rounded-full bg-neutral-900" />
+
+      <motion.div variants={shapeEnter} className="absolute bottom-[124px] left-[186px]">
+        <motion.div animate={breathe(0.75, 3, 6)} className="flex gap-3">
+          <motion.span animate={blink} className="h-[5px] w-[5px] rounded-full bg-white/90" />
+          <motion.span animate={blink} className="h-[5px] w-[5px] rounded-full bg-white/90" />
+        </motion.div>
       </motion.div>
-      <motion.div variants={shapeEnter} className="absolute left-52 top-12">
-        <motion.span animate={breathe(1.3, 5, 6.5)} className="block h-2 w-1 rounded-full bg-neutral-900" />
+
+      <motion.div variants={shapeEnter} className="absolute bottom-[98px] left-[112px]">
+        <motion.span animate={breathe(0.45, 4)} className="block h-[3px] w-[14px] rounded-full bg-[#121212]" />
+      </motion.div>
+
+      <motion.div variants={shapeEnter} className="absolute bottom-[96px] right-[24px]">
+        <motion.span animate={breathe(0.65, 5, 4.9)} className="block h-[2px] w-[34px] bg-[#121212]" />
       </motion.div>
     </motion.div>
   );
@@ -144,115 +148,101 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center overflow-x-hidden bg-[#18181d] px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center overflow-x-hidden bg-[#18181d] px-4 py-8 sm:px-6">
       <motion.section
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="grid w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-black/40 md:grid-cols-2"
+        className="grid w-full max-w-[820px] overflow-hidden rounded-[12px] bg-white shadow-[0_26px_80px_rgba(0,0,0,0.45)] ring-1 ring-white/10 md:grid-cols-2"
       >
-        {/* Coluna esquerda — ilustração abstrata animada */}
-        <div className="relative hidden min-h-[360px] items-center justify-center bg-[#f1f1f1] p-10 sm:flex md:min-h-full">
+        <div className="relative flex min-h-[260px] items-center justify-center bg-[#eeeeee] p-8 sm:min-h-[330px] md:min-h-[520px] md:p-10">
           <LoginIllustration />
         </div>
 
-        {/* Coluna direita — formulário */}
-        <div className="flex min-h-[560px] items-center justify-center px-6 py-12 sm:px-8">
-          <div className="w-full max-w-sm">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+        <div className="flex min-h-[460px] items-center justify-center bg-white px-7 py-10 sm:px-10 md:min-h-[520px]">
+          <div className="w-full max-w-[282px]">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
               <div className="text-center">
-                {/* Logo em chip escuro: o wordmark "SIX3" do PNG é branco e precisa de fundo escuro */}
-                <div className="mx-auto mb-8 inline-flex h-12 items-center justify-center overflow-hidden rounded-full bg-[#18181d] px-5">
-                  <img
-                    src="/brand/six3-logo.png"
-                    alt="SIX3"
-                    className="h-16 w-auto max-w-none select-none object-contain"
-                    draggable={false}
-                  />
+                <div className="mx-auto mb-7 flex h-7 w-7 items-center justify-center text-black" aria-hidden="true">
+                  <Sparkles className="h-5 w-5 fill-black stroke-[2.4]" />
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Welcome back!</h1>
-                <p className="mt-2 text-sm text-neutral-500">Please enter your details</p>
+                <h1 className="text-[22px] font-extrabold leading-tight text-neutral-950">Welcome back!</h1>
+                <p className="mt-1 text-[11px] font-medium text-neutral-500">Please enter your details</p>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4 pt-1">
                 <label className="block">
-                  <span className="text-xs font-medium text-neutral-700">Email</span>
+                  <span className="text-[11px] font-semibold text-neutral-800">Email</span>
                   <input
                     type="email"
                     autoComplete="email"
-                    placeholder="seu@email.com"
-                    className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 text-sm text-neutral-950 outline-none transition placeholder:text-neutral-400 autofill:shadow-[inset_0_0_0_1000px_#ffffff] autofill:[-webkit-text-fill-color:#0a0a0a] focus:border-neutral-950 focus:ring-0"
+                    placeholder="example@email.com"
+                    className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-1.5 text-[12px] font-medium text-neutral-950 outline-none transition placeholder:text-neutral-400 autofill:shadow-[inset_0_0_0_1000px_#ffffff] autofill:[-webkit-text-fill-color:#0a0a0a] focus:border-neutral-950 focus:ring-0"
                     {...register('email')}
                   />
-                  {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
+                  {errors.email && <p className="mt-1 text-[11px] text-red-500">{errors.email.message}</p>}
                 </label>
 
                 <label className="block">
-                  <span className="text-xs font-medium text-neutral-700">Password</span>
+                  <span className="text-[11px] font-semibold text-neutral-800">Password</span>
                   <div className="relative">
                     <input
                       type={showPass ? 'text' : 'password'}
                       autoComplete="current-password"
-                      placeholder="••••••••"
-                      className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-2 pr-10 text-sm text-neutral-950 outline-none transition placeholder:text-neutral-400 autofill:shadow-[inset_0_0_0_1000px_#ffffff] autofill:[-webkit-text-fill-color:#0a0a0a] focus:border-neutral-950 focus:ring-0"
+                      placeholder="********"
+                      className="mt-1 w-full border-0 border-b border-neutral-300 bg-transparent px-0 py-1.5 pr-9 text-[12px] font-medium text-neutral-950 outline-none transition placeholder:text-neutral-400 autofill:shadow-[inset_0_0_0_1000px_#ffffff] autofill:[-webkit-text-fill-color:#0a0a0a] focus:border-neutral-950 focus:ring-0"
                       {...register('password')}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPass(!showPass)}
                       aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}
-                      className="absolute bottom-2 right-0 text-neutral-400 transition hover:text-neutral-950 focus:outline-none focus-visible:text-neutral-950"
+                      className="absolute bottom-1.5 right-0 flex h-6 w-6 items-center justify-center text-neutral-500 transition hover:text-neutral-950 focus:outline-none focus-visible:text-neutral-950"
                     >
-                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     </button>
                   </div>
-                  {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
+                  {errors.password && <p className="mt-1 text-[11px] text-red-500">{errors.password.message}</p>}
                 </label>
               </div>
 
-              <div className="flex items-center justify-between text-xs">
-                {/* "Remember" é apenas visual por enquanto: a sessão já persiste via authService/localStorage */}
-                <label className="flex cursor-pointer items-center gap-2 text-neutral-600">
+              <div className="flex items-center justify-between gap-3 text-[10px]">
+                <label className="flex min-w-0 cursor-pointer items-center gap-1.5 text-neutral-600">
                   <input
                     type="checkbox"
-                    className="h-3.5 w-3.5 rounded border-neutral-300 text-neutral-950 accent-neutral-950 focus:ring-neutral-950"
+                    className="h-3 w-3 shrink-0 rounded-[2px] border-neutral-300 text-neutral-950 accent-neutral-950 focus:ring-neutral-950"
                   />
-                  Remember for 30 days
+                  <span className="truncate">Remember for 30 days</span>
                 </label>
 
                 <Link
                   to="/forgot-password"
-                  className="text-neutral-500 transition hover:text-neutral-950"
+                  className="shrink-0 text-neutral-500 transition hover:text-neutral-950"
                 >
                   Forgot password?
                 </Link>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full rounded-full bg-black py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-9 w-full rounded-full bg-black text-[12px] font-bold text-white transition hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting ? (
                     <span className="inline-flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      Logging in…
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Logging in...
                     </span>
                   ) : (
                     'Log In'
                   )}
                 </button>
 
-                {/*
-                  Login com Google ainda não existe no backend (authService só expõe login por e-mail/senha).
-                  Para integrar: criar signInWithGoogle() em src/services/authService.ts e chamar aqui no onClick,
-                  seguindo o mesmo fluxo de onSubmit (setUser + navigate).
-                */}
                 <button
                   type="button"
-                  onClick={() => toast.error('Login com Google ainda não disponível')}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-neutral-100 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 active:scale-[0.99]"
+                  onClick={() => toast.error('Login com Google ainda nao disponivel')}
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-neutral-100 text-[12px] font-bold text-neutral-800 transition hover:bg-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 active:scale-[0.99]"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
@@ -264,7 +254,7 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <p className="pt-6 text-center text-xs text-neutral-500">
+              <p className="pt-5 text-center text-[10px] text-neutral-500">
                 Don&apos;t have an account?{' '}
                 <Link to="/register" className="font-semibold text-neutral-950 transition hover:underline">
                   Sign Up
@@ -272,7 +262,7 @@ export default function LoginPage() {
               </p>
             </form>
 
-            <LoginSupportChat />
+            <LoginSupportChat variant="floating" />
           </div>
         </div>
       </motion.section>
