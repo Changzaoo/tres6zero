@@ -1,6 +1,18 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
-export type CharacterMood = 'idle' | 'hover' | 'focus' | 'typing' | 'error' | 'success';
+/**
+ * Cena animada da tela de login, reproduzindo o video de referencia:
+ * - entrada: as formas caem/tombam do alto e se montam em sequencia;
+ * - idle: respiracao dessincronizada + olhos seguindo o cursor;
+ * - typing: todos se esticam e inclinam em direcao ao formulario, "espiando";
+ * - shy: senha visivel -> desviam o olhar (azul fecha os olhos, violeta fica
+ *   preocupado, o "passaro" vira o bico, o grafite continua encarando);
+ * - error: shake curto; success: reacao positiva breve.
+ *
+ * Formas e comportamento seguem a referencia; as cores seguem a marca SIX3
+ * (laranja -> brand blue, amarelo -> brand-300, roxo -> violeta do gradiente).
+ */
+export type CharacterMood = 'idle' | 'hover' | 'focus' | 'typing' | 'shy' | 'error' | 'success';
 
 type AnimatedLoginCharactersProps = {
   mood?: CharacterMood;
@@ -95,37 +107,69 @@ export function AnimatedLoginCharacters({ mood = 'idle', activeField = null }: A
       <style>{charactersCss}</style>
       <div className="alc-shake">
         <div className="alc-stage">
-          <Character
-            name="orange"
-            body={<><span className="alc-eye orange-eye-a" /><span className="alc-eye orange-eye-b" /><span className="alc-mouth orange-mouth" /></>}
-          />
-          <Character
-            name="purple"
-            body={<><span className="alc-eye purple-eye-a" /><span className="alc-eye purple-eye-b" /><span className="alc-mouth purple-mouth" /></>}
-          />
-          <Character
-            name="black"
-            body={<><span className="alc-eye black-eye-a" /><span className="alc-eye black-eye-b" /></>}
-          />
-          <Character
-            name="yellow"
-            body={<><span className="alc-eye yellow-eye" /><span className="alc-mouth yellow-mouth" /></>}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+          {/* Ordem do DOM segue a ordem de entrada do video: preto -> roxo -> amarelo -> laranja */}
+          <div className="alc-character alc-black">
+            <div className="alc-enter">
+              <div className="alc-depth">
+                <div className="alc-react">
+                  <div className="alc-loop">
+                    <div className="alc-body" />
+                    <div className="alc-face">
+                      <span className="alc-eye black-eye-a" />
+                      <span className="alc-eye black-eye-b" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-function Character({ name, body }: { name: 'orange' | 'purple' | 'black' | 'yellow'; body: ReactNode }) {
-  return (
-    <div className={`alc-character alc-${name}`}>
-      <div className="alc-enter">
-        <div className="alc-depth">
-          <div className="alc-react">
-            <div className="alc-loop">
-              <div className="alc-body">
-                <div className="alc-face">{body}</div>
+          <div className="alc-character alc-purple">
+            <div className="alc-enter">
+              <div className="alc-depth">
+                <div className="alc-react">
+                  <div className="alc-loop">
+                    <div className="alc-body" />
+                    <div className="alc-face">
+                      <span className="alc-eye purple-eye-a" />
+                      <span className="alc-eye purple-eye-b" />
+                      <span className="alc-mouth purple-mouth" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="alc-character alc-yellow">
+            <div className="alc-enter">
+              <div className="alc-depth">
+                <div className="alc-react">
+                  <div className="alc-loop">
+                    <div className="alc-body" />
+                    <div className="alc-face">
+                      <span className="alc-eye yellow-eye" />
+                      <span className="alc-beak yellow-beak" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="alc-character alc-orange">
+            <div className="alc-enter">
+              <div className="alc-depth">
+                <div className="alc-react">
+                  <div className="alc-loop">
+                    <div className="alc-body" />
+                    <div className="alc-face">
+                      <span className="alc-eye orange-eye-a" />
+                      <span className="alc-eye orange-eye-b" />
+                      <span className="alc-mouth orange-mouth" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -139,38 +183,13 @@ const charactersCss = `
 .animated-login-characters {
   --px: 0;
   --py: 0;
-  --field-x: 0px;
-  --field-y: 0px;
-  --eye-extra-x: 0px;
-  --eye-extra-y: 0px;
+  --eye-mx: 0px;
+  --eye-my: 0px;
   display: flex;
   width: 100%;
   height: 100%;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-}
-
-.animated-login-characters[data-field="email"] {
-  --field-y: -1.5px;
-}
-
-.animated-login-characters[data-field="password"] {
-  --field-y: 1.2px;
-}
-
-.animated-login-characters[data-mood="focus"],
-.animated-login-characters[data-mood="typing"] {
-  --field-x: 2px;
-}
-
-.animated-login-characters[data-mood="typing"] {
-  --eye-extra-x: 1.2px;
-  --eye-extra-y: -0.5px;
-}
-
-.animated-login-characters[data-mood="error"] {
-  --eye-extra-x: -1px;
 }
 
 .alc-shake {
@@ -183,24 +202,21 @@ const charactersCss = `
 
 .alc-stage {
   position: relative;
-  width: 292px;
-  height: 238px;
+  width: 300px;
+  height: 240px;
   max-width: 100%;
   transform: translateZ(0);
 }
 
 .alc-character {
   position: absolute;
-  transform-style: preserve-3d;
   will-change: transform, opacity;
 }
 
 .alc-enter,
 .alc-depth,
 .alc-react,
-.alc-loop,
-.alc-body,
-.alc-face {
+.alc-loop {
   position: relative;
   width: 100%;
   height: 100%;
@@ -211,63 +227,107 @@ const charactersCss = `
   will-change: transform, opacity;
 }
 
-.alc-depth,
-.alc-react,
-.alc-loop,
-.alc-body,
-.alc-face,
-.alc-eye,
-.alc-mouth {
+.alc-body {
+  position: absolute;
+  inset: 0;
   will-change: transform;
 }
 
-.alc-orange {
-  left: 24px;
-  bottom: 48px;
-  z-index: 4;
-  width: 134px;
-  height: 74px;
+.alc-face {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
+/* ---- Posicoes (composicao do video, escala 300x240, chao em 30px) ---- */
+
 .alc-purple {
-  left: 106px;
-  bottom: 78px;
-  z-index: 3;
-  width: 74px;
-  height: 128px;
+  left: 52px;
+  bottom: 30px;
+  z-index: 2;
+  width: 76px;
+  height: 138px;
 }
 
 .alc-black {
-  left: 166px;
-  bottom: 78px;
-  z-index: 5;
-  width: 58px;
-  height: 98px;
+  left: 130px;
+  bottom: 30px;
+  z-index: 3;
+  width: 50px;
+  height: 102px;
 }
 
 .alc-yellow {
-  right: 22px;
-  bottom: 48px;
-  z-index: 2;
-  width: 64px;
-  height: 90px;
+  left: 180px;
+  bottom: 30px;
+  z-index: 4;
+  width: 58px;
+  height: 88px;
 }
 
-.alc-orange .alc-enter {
-  animation: alc-enter-orange 760ms cubic-bezier(0.16, 1, 0.3, 1) 600ms both;
+.alc-orange {
+  left: 6px;
+  bottom: 30px;
+  z-index: 5;
+  width: 142px;
+  height: 74px;
+}
+
+/* ---- Corpos (formas fieis ao video, cores da marca SIX3) ---- */
+
+/* Meia-bola grande na frente: o mais calmo */
+.alc-orange .alc-body {
+  border-radius: 999px 999px 0 0;
+  background: #3b6dff;
+  transform-origin: bottom center;
+  transition: transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Retangulo alto atras: o personagem principal e mais reativo */
+.alc-purple .alc-body {
+  border-radius: 4px;
+  background: #8b5cf6;
+  transform-origin: bottom center;
+  transition: transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Bloco observador, levemente inclinado */
+.alc-black .alc-body {
+  border-radius: 4px;
+  background: #1d212e;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transform: rotate(-3deg);
+  transform-origin: bottom center;
+  transition: transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* "Passaro" de topo arredondado, espiando da direita */
+.alc-yellow .alc-body {
+  border-radius: 999px 999px 4px 4px;
+  background: #8fb0ff;
+  transform-origin: bottom center;
+  transition: transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- Entrada: queda/montagem em sequencia (frames do video) ---- */
+
+.alc-black .alc-enter {
+  animation: alc-enter-black 900ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
 }
 
 .alc-purple .alc-enter {
-  animation: alc-enter-purple 860ms cubic-bezier(0.16, 1, 0.3, 1) 500ms both;
-}
-
-.alc-black .alc-enter {
-  animation: alc-enter-black 760ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
+  animation: alc-enter-purple 950ms cubic-bezier(0.16, 1, 0.3, 1) 520ms both;
 }
 
 .alc-yellow .alc-enter {
-  animation: alc-enter-yellow 780ms cubic-bezier(0.16, 1, 0.3, 1) 570ms both;
+  animation: alc-enter-yellow 900ms cubic-bezier(0.16, 1, 0.3, 1) 640ms both;
 }
+
+.alc-orange .alc-enter {
+  animation: alc-enter-orange 800ms cubic-bezier(0.16, 1, 0.3, 1) 760ms both;
+}
+
+/* ---- Parallax (corpo) ---- */
 
 .alc-orange .alc-depth {
   transform: translate3d(calc(var(--px) * 3px), calc(var(--py) * 1.5px), 0);
@@ -289,256 +349,291 @@ const charactersCss = `
   transition: transform 380ms ease-out;
 }
 
+/* ---- Loops idle dessincronizados ---- */
+
 .alc-orange .alc-loop {
-  animation: alc-orange-idle 4.2s ease-in-out 900ms infinite;
+  animation: alc-orange-idle 4.2s ease-in-out 1700ms infinite;
 }
 
 .alc-purple .alc-loop {
-  animation: alc-purple-idle 4.6s ease-in-out 720ms infinite;
+  animation: alc-purple-idle 4.6s ease-in-out 1550ms infinite;
 }
 
 .alc-black .alc-loop {
-  animation: alc-black-idle 3.7s ease-in-out 1050ms infinite;
+  animation: alc-black-idle 3.7s ease-in-out 1400ms infinite;
 }
 
 .alc-yellow .alc-loop {
-  animation: alc-yellow-idle 3.9s ease-in-out 820ms infinite;
+  animation: alc-yellow-idle 3.9s ease-in-out 1620ms infinite;
 }
 
-.alc-orange .alc-react,
-.alc-purple .alc-react,
-.alc-black .alc-react,
-.alc-yellow .alc-react {
-  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+/* ---- Reacoes por estado (camada .alc-react) ---- */
+
+.alc-react {
+  transition: transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* foco: inclinam de leve na direcao do formulario */
+.animated-login-characters[data-mood="focus"] {
+  --eye-mx: 2.5px;
+  --eye-my: -0.5px;
+}
+
+.animated-login-characters[data-mood="focus"] .alc-purple .alc-react {
+  transform: translate3d(4px, 0, 0) rotate(2deg);
+}
+
+.animated-login-characters[data-mood="focus"] .alc-black .alc-react {
+  transform: translate3d(2px, 0, 0) rotate(1.5deg);
+}
+
+.animated-login-characters[data-mood="focus"] .alc-yellow .alc-react {
+  transform: translate3d(1px, -2px, 0);
 }
 
 .animated-login-characters[data-mood="focus"] .alc-orange .alc-react {
   transform: translate3d(1px, -1px, 0);
 }
 
-.animated-login-characters[data-mood="focus"] .alc-purple .alc-react {
-  transform: translate3d(6px, 0, 0) rotate(3deg) skewX(-1deg);
+/* digitando: todos se esticam para "espiar" o formulario (reacao forte do video) */
+.animated-login-characters[data-mood="typing"] {
+  --eye-mx: 5px;
+  --eye-my: -2px;
 }
 
-.animated-login-characters[data-mood="focus"] .alc-black .alc-react {
-  transform: translate3d(2px, 0, 0) rotate(-2deg);
+.animated-login-characters[data-mood="typing"] .alc-react {
+  transition: transform 550ms cubic-bezier(0.16, 1, 0.3, 1) 200ms;
 }
 
-.animated-login-characters[data-mood="focus"] .alc-yellow .alc-react {
-  transform: translate3d(0, -2px, 0);
+.animated-login-characters[data-mood="typing"] .alc-body {
+  transition: transform 550ms cubic-bezier(0.16, 1, 0.3, 1) 200ms;
 }
 
 .animated-login-characters[data-mood="typing"] .alc-purple .alc-react {
-  animation: alc-purple-typing 1650ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+  transform: translate3d(9px, 0, 0) rotate(6deg);
+}
+
+.animated-login-characters[data-mood="typing"] .alc-purple .alc-body {
+  transform: scaleY(1.12) skewX(-2.5deg);
+}
+
+.animated-login-characters[data-mood="typing"] .alc-purple .alc-eye {
+  --eye-mx: 7px;
+  --eye-my: -15px;
+}
+
+.animated-login-characters[data-mood="typing"] .alc-purple .purple-mouth {
+  --eye-mx: 7px;
+  --eye-my: -13px;
 }
 
 .animated-login-characters[data-mood="typing"] .alc-black .alc-react {
-  transform: translate3d(3px, -1px, 0) rotate(-1deg);
+  transform: translate3d(4px, 0, 0) rotate(4deg);
 }
 
 .animated-login-characters[data-mood="typing"] .alc-yellow .alc-react {
+  transform: translate3d(2px, -2px, 0) rotate(5deg);
+}
+
+.animated-login-characters[data-mood="typing"] .alc-orange .alc-react {
   transform: translate3d(1px, -1px, 0);
 }
 
+/* senha visivel: desviam o olhar (gag do video) */
+.animated-login-characters[data-mood="shy"] .alc-react {
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animated-login-characters[data-mood="shy"] .alc-purple .alc-react {
+  transform: translate3d(-4px, 0, 0) rotate(-3deg);
+}
+
+.animated-login-characters[data-mood="shy"] .alc-purple .alc-eye {
+  animation: none;
+  --eye-mx: -3px;
+  --eye-my: 2px;
+  transform: translate3d(var(--eye-mx), var(--eye-my), 0) scaleY(0.7);
+}
+
+.animated-login-characters[data-mood="shy"] .alc-purple .purple-mouth {
+  --eye-mx: -3px;
+  --eye-my: 4px;
+  width: 9px;
+  transform: translate3d(var(--eye-mx), var(--eye-my), 0) rotate(-9deg);
+}
+
+/* azul fecha os olhos */
+.animated-login-characters[data-mood="shy"] .alc-orange .alc-eye {
+  animation: none;
+  transform: translate3d(-2px, 1px, 0) scaleY(0.14);
+}
+
+/* o "passaro" vira para o outro lado */
+.animated-login-characters[data-mood="shy"] .alc-yellow .alc-react {
+  transform: translate3d(-2px, 0, 0) rotate(-4deg);
+}
+
+.animated-login-characters[data-mood="shy"] .yellow-beak {
+  transform: translate3d(-34px, 0, 0) scaleX(-1);
+}
+
+.animated-login-characters[data-mood="shy"] .yellow-eye {
+  --eye-mx: -4px;
+  --eye-my: 0px;
+}
+
+/* o grafite continua encarando (a piada) */
+.animated-login-characters[data-mood="shy"] .alc-black .alc-eye {
+  animation: none;
+  transform: translate3d(2px, -1px, 0) scale(1.25);
+}
+
+/* erro: desconfianca + shake */
+.animated-login-characters[data-mood="error"] {
+  --eye-mx: -1px;
+}
+
 .animated-login-characters[data-mood="error"] .alc-purple .alc-react {
-  transform: translate3d(-2px, 0, 0) rotate(-5deg) skewX(2deg);
+  transform: translate3d(-2px, 0, 0) rotate(-5deg);
 }
 
 .animated-login-characters[data-mood="error"] .alc-black .alc-react {
   animation: alc-black-error 520ms ease-in-out both;
 }
 
+.animated-login-characters[data-mood="error"] .alc-black .alc-eye {
+  animation: alc-blink-fast 520ms ease-in-out both;
+}
+
 .animated-login-characters[data-mood="error"] .alc-yellow .alc-react {
   animation: alc-yellow-error 520ms ease-in-out both;
 }
 
+/* sucesso: reacao positiva curta */
 .animated-login-characters[data-mood="success"] .alc-purple .alc-react {
   transform: translate3d(0, -6px, 0) rotate(-2deg);
 }
 
 .animated-login-characters[data-mood="success"] .alc-black .alc-react {
-  transform: translate3d(0, -2px, 0) rotate(0deg);
+  transform: translate3d(0, -2px, 0);
 }
 
 .animated-login-characters[data-mood="success"] .alc-yellow .alc-react {
   animation: alc-yellow-success 500ms ease-out both;
 }
 
-.alc-orange .alc-body {
-  overflow: hidden;
-  border-radius: 74px 74px 0 0;
-  background: #ff8a22;
-  transform-origin: bottom center;
-}
-
-.alc-purple .alc-body {
-  overflow: hidden;
-  border-radius: 5px;
-  background: #8b5cf6;
-  clip-path: polygon(6% 0, 100% 2%, 96% 100%, 0 98%);
-  transform-origin: bottom center;
-  transition: clip-path 700ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 700ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.animated-login-characters[data-mood="typing"] .alc-purple .alc-body {
-  animation: alc-purple-body-typing 1650ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
-}
-
-.alc-black .alc-body {
-  overflow: hidden;
-  border-radius: 5px;
-  background: #151923;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
-  transform-origin: bottom center;
-}
-
-.alc-yellow .alc-body {
-  overflow: hidden;
-  border-radius: 30px 999px 999px 30px;
-  background: #f4c400;
-  transform-origin: center bottom;
-}
+/* ---- Olhos, bocas e bico ---- */
 
 .alc-eye,
-.alc-mouth {
+.alc-mouth,
+.alc-beak {
   position: absolute;
   display: block;
   pointer-events: none;
+  transition: transform 300ms ease-out, width 300ms ease-out;
 }
 
 .alc-eye {
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0);
+  transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0);
 }
 
 .alc-mouth {
-  transform: translate3d(calc(var(--px) * 1px + var(--field-x)), calc(var(--py) * 0.6px + var(--field-y)), 0);
+  transform: translate3d(calc(var(--px) * 1px + var(--eye-mx)), calc(var(--py) * 0.6px + var(--eye-my)), 0);
 }
 
-.orange-eye-a {
-  left: 70px;
-  top: 33px;
-  background: #101010;
-}
-
-.orange-eye-b {
-  left: 91px;
-  top: 34px;
-  background: #101010;
-}
+/* Azul (meia-bola): dois olhos + sorriso */
+.orange-eye-a { left: 62px; top: 20px; width: 6px; height: 6px; background: rgba(255, 255, 255, 0.95); }
+.orange-eye-b { left: 88px; top: 20px; width: 6px; height: 6px; background: rgba(255, 255, 255, 0.95); }
 
 .orange-mouth {
-  left: 80px;
-  top: 50px;
-  width: 13px;
-  height: 3px;
-  border-radius: 999px;
-  background: #101010;
+  left: 68px;
+  top: 30px;
+  width: 16px;
+  height: 9px;
+  background: transparent;
+  border-bottom: 2.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 0 0 12px 12px;
 }
 
-.purple-eye-a {
-  left: 25px;
-  top: 61px;
-  width: 4px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.purple-eye-b {
-  left: 47px;
-  top: 61px;
-  width: 4px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.92);
-}
+/* Violeta: olhos escuros no topo (como no video) */
+.purple-eye-a { left: 20px; top: 20px; width: 5px; height: 6px; background: rgba(16, 18, 26, 0.85); }
+.purple-eye-b { left: 46px; top: 20px; width: 5px; height: 6px; background: rgba(16, 18, 26, 0.85); }
 
 .purple-mouth {
-  left: 31px;
-  top: 87px;
-  width: 13px;
+  left: 28px;
+  top: 38px;
+  width: 12px;
   height: 3px;
   border-radius: 999px;
-  background: rgba(10, 10, 12, 0.78);
+  background: rgba(16, 18, 26, 0.8);
 }
 
-.black-eye-a {
-  left: 22px;
-  top: 46px;
-  background: rgba(255, 255, 255, 0.92);
+/* Grafite: dois olhos brancos juntos */
+.black-eye-a { left: 15px; top: 22px; background: rgba(255, 255, 255, 0.95); }
+.black-eye-b { left: 29px; top: 22px; background: rgba(255, 255, 255, 0.95); }
+
+/* Passaro: um olho + bico de linha que passa da borda */
+.yellow-eye { left: 18px; top: 24px; background: rgba(16, 18, 26, 0.9); }
+
+.yellow-beak {
+  left: 28px;
+  top: 32px;
+  width: 38px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(16, 18, 26, 0.9);
+  transform: translate3d(0, 0, 0);
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.black-eye-b {
-  left: 42px;
-  top: 47px;
-  background: rgba(255, 255, 255, 0.92);
-}
+/* ---- Piscadas (cadencias e delays diferentes) ---- */
 
-.yellow-eye {
-  left: 21px;
-  top: 38px;
-  background: #101010;
-}
-
-.yellow-mouth {
-  left: 27px;
-  top: 56px;
-  width: 34px;
-  height: 2px;
-  background: #101010;
+.alc-orange .alc-eye {
+  animation: alc-blink 150ms ease-in-out 4.4s infinite;
+  animation-delay: 2600ms;
 }
 
 .alc-purple .alc-eye {
-  animation: alc-blink 150ms ease-in-out 4.6s infinite;
-  animation-delay: 1600ms;
+  animation: alc-blink 150ms ease-in-out 4.8s infinite;
+  animation-delay: 1900ms;
 }
 
 .alc-black .alc-eye {
-  animation: alc-blink 150ms ease-in-out 5.1s infinite;
-  animation-delay: 2300ms;
-}
-
-.animated-login-characters[data-mood="error"] .alc-black .alc-eye {
-  animation: alc-blink-fast 520ms ease-in-out both;
+  animation: alc-blink 150ms ease-in-out 5.2s infinite;
+  animation-delay: 3200ms;
 }
 
 .animated-login-characters[data-mood="focus"] .alc-black .alc-eye {
   animation: alc-blink-once 360ms ease-in-out both;
 }
 
-.animated-login-characters[data-mood="typing"] .purple-eye-a {
-  animation: none;
-  transform: translate3d(calc(var(--px) * 1.8px + 2px), calc(var(--py) * 1px - 3px), 0) scaleY(1.25);
-}
-
-.animated-login-characters[data-mood="typing"] .purple-eye-b {
-  animation: none;
-  transform: translate3d(calc(var(--px) * 1.8px + 5px), calc(var(--py) * 1px - 1px), 0) scaleY(0.85);
-}
-
-.animated-login-characters[data-mood="typing"] .purple-mouth {
-  transform: translate3d(4px, -2px, 0) rotate(8deg);
-  width: 17px;
-}
+/* ---- Keyframes ---- */
 
 @keyframes alc-enter-black {
-  0% { opacity: 0; transform: translate3d(0, -20px, 0) rotate(-8deg) scale(0.94); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(-4deg) scale(1); }
+  0% { opacity: 0; transform: translate3d(8px, -140px, 0) rotate(-50deg); }
+  60% { opacity: 1; transform: translate3d(0, 4px, 0) rotate(-7deg); }
+  80% { transform: translate3d(0, -2px, 0) rotate(-1deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 @keyframes alc-enter-purple {
-  0% { opacity: 0; transform: translate3d(0, 20px, 0) rotate(-2deg) scale(0.94); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  0% { opacity: 0; transform: translate3d(-70px, -90px, 0) rotate(45deg); }
+  65% { opacity: 1; transform: translate3d(0, 3px, 0) rotate(-3deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 @keyframes alc-enter-yellow {
-  0% { opacity: 0; transform: translate3d(12px, 18px, 0) scale(0.95); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  0% { opacity: 0; transform: translate3d(40px, -100px, 0) rotate(24deg); }
+  70% { opacity: 1; transform: translate3d(0, 3px, 0) rotate(-3deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 @keyframes alc-enter-orange {
-  0% { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.97); }
+  0% { opacity: 0; transform: translate3d(0, 60px, 0) scale(0.9); }
+  70% { opacity: 1; transform: translate3d(0, -3px, 0) scale(1.01); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
@@ -553,39 +648,13 @@ const charactersCss = `
 }
 
 @keyframes alc-black-idle {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(-4deg); }
-  50% { transform: translate3d(0, -2px, 0) rotate(-3.2deg); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -2px, 0); }
 }
 
 @keyframes alc-yellow-idle {
   0%, 100% { transform: translate3d(-3px, 0, 0); }
   50% { transform: translate3d(3px, -2px, 0); }
-}
-
-@keyframes alc-purple-typing {
-  0% { transform: translate3d(6px, 0, 0) rotate(3deg) skewX(-1deg); }
-  34% { transform: translate3d(16px, -4px, 0) rotate(11deg) skewX(-8deg); }
-  52% { transform: translate3d(16px, -4px, 0) rotate(11deg) skewX(-8deg); }
-  100% { transform: translate3d(5px, 0, 0) rotate(3deg) skewX(-1deg); }
-}
-
-@keyframes alc-purple-body-typing {
-  0% {
-    border-radius: 5px;
-    clip-path: polygon(6% 0, 100% 2%, 96% 100%, 0 98%);
-  }
-  34% {
-    border-radius: 8px 4px 7px 5px;
-    clip-path: polygon(0 7%, 87% 0, 100% 100%, 20% 96%);
-  }
-  52% {
-    border-radius: 8px 4px 7px 5px;
-    clip-path: polygon(0 7%, 87% 0, 100% 100%, 20% 96%);
-  }
-  100% {
-    border-radius: 5px;
-    clip-path: polygon(6% 0, 100% 2%, 96% 100%, 0 98%);
-  }
 }
 
 @keyframes alc-scene-error {
@@ -597,10 +666,10 @@ const charactersCss = `
 }
 
 @keyframes alc-black-error {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg); }
-  25% { transform: translate3d(-3px, 0, 0) rotate(-5deg); }
-  50% { transform: translate3d(3px, 0, 0) rotate(0deg); }
-  75% { transform: translate3d(-2px, 0, 0) rotate(-4deg); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-3px, 0, 0) rotate(-3deg); }
+  50% { transform: translate3d(3px, 0, 0) rotate(2deg); }
+  75% { transform: translate3d(-2px, 0, 0) rotate(-2deg); }
 }
 
 @keyframes alc-yellow-error {
@@ -616,18 +685,18 @@ const charactersCss = `
 }
 
 @keyframes alc-blink {
-  0%, 96%, 100% { transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0) scaleY(1); }
-  98% { transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0) scaleY(0.1); }
+  0%, 96%, 100% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(1); }
+  98% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(0.1); }
 }
 
 @keyframes alc-blink-once {
-  0%, 100% { transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0) scaleY(1); }
-  45% { transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0) scaleY(0.1); }
+  0%, 100% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(1); }
+  45% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(0.1); }
 }
 
 @keyframes alc-blink-fast {
-  0%, 26%, 52%, 100% { transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0) scaleY(1); }
-  13%, 39% { transform: translate3d(calc(var(--px) * 1.6px + var(--field-x) + var(--eye-extra-x)), calc(var(--py) * 1.1px + var(--field-y) + var(--eye-extra-y)), 0) scaleY(0.1); }
+  0%, 26%, 52%, 100% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(1); }
+  13%, 39% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(0.1); }
 }
 
 @media (max-width: 520px) {
@@ -649,7 +718,8 @@ const charactersCss = `
   .alc-react,
   .alc-loop,
   .alc-eye,
-  .alc-mouth {
+  .alc-mouth,
+  .alc-beak {
     transform: none !important;
   }
 }

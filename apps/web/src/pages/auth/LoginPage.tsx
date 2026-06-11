@@ -136,6 +136,11 @@ export default function LoginPage() {
     ? { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.4 } } }
     : { hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easePremium } } };
 
+  // Senha visivel: os personagens desviam o olhar (gag do video de referencia).
+  // Erro e sucesso tem prioridade sobre a timidez.
+  const sceneMood: CharacterMood =
+    mood === 'error' || mood === 'success' ? mood : showPass ? 'shy' : mood;
+
   if (banNotice) {
     return <BannedAccountNotice reason={banNotice.reason} expiresAt={banNotice.expiresAt} />;
   }
@@ -149,7 +154,7 @@ export default function LoginPage() {
         className="relative z-10 grid w-full max-w-[820px] overflow-hidden rounded-[16px] bg-[#151821] shadow-[0_30px_90px_-20px_rgba(59,109,255,0.3)] ring-1 ring-white/10 md:grid-cols-2"
       >
         <div className="relative flex min-h-[260px] items-center justify-center bg-[#11141d] p-8 sm:min-h-[330px] md:min-h-[520px] md:p-10">
-          <AnimatedLoginCharacters mood={mood} activeField={activeField} />
+          <AnimatedLoginCharacters mood={sceneMood} activeField={activeField} />
         </div>
 
         <div className="flex min-h-[460px] items-center justify-center px-7 py-10 sm:px-10 md:min-h-[520px]">
