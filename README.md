@@ -18,9 +18,10 @@ Sistema para operacao de experiencias 360: cadastro, assinatura, acesso por plan
 
 ```bash
 npm install
-npm run dev:web
-npm run dev:server
+npm run dev
 ```
+
+`npm run dev` sobe backend e frontend juntos via `concurrently` (funciona tambem no Windows). Se preferir terminais separados, use `npm run dev:server` e `npm run dev:web`.
 
 Copie `.env.example` para `.env` e preencha os valores locais. Nao coloque secrets em variaveis `VITE_*`, porque tudo que comeca com `VITE_` entra no bundle publico do navegador.
 

@@ -3,15 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=20.19.0",
+    "node": ">=22.0.0",
     "npm": ">=10.0.0"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
   "scripts": {
-    "dev": "npm run dev:server & npm run dev:web",
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
     "dev:web": "npm --workspace=apps/web run dev",
     "dev:server": "npm --workspace=apps/server run dev",
     "build": "npm run build --workspace=@six3/web",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.3",
     "eslint": "^10.4.1",
     "globals": "^17.6.0",
     "typescript-eslint": "^8.60.1"

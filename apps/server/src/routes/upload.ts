@@ -39,6 +39,20 @@ function isAllowedByMime(mimetype: string, allowed: string[]) {
   return allowed.includes(baseMime(mimetype));
 }
 
+// jsdom e carregado sob demanda para nao ocupar memoria no boot do Render free tier.
+let svgPurifier: import('dompurify').DOMPurify | null = null;
+
+async function getSvgPurifier() {
+  if (!svgPurifier) {
+    const [{ default: createDOMPurify }, { JSDOM }] = await Promise.all([
+      import('dompurify'),
+      import('jsdom'),
+    ]);
+    svgPurifier = createDOMPurify(new JSDOM('').window);
+  }
+  return svgPurifier;
+}
+
 async function sanitizeSvgFile(file: Express.Multer.File) {
   if (baseMime(file.mimetype) !== 'image/svg+xml') return;
 
@@ -51,10 +65,20 @@ async function sanitizeSvgFile(file: Express.Multer.File) {
     throw uploadError('SVG bloqueado por conter script ou embed inseguro.', 415);
   }
 
-  const sanitized = raw
-    .replace(/\s+on[a-z]+\s*=\s*(['"]).*?\1/gi, '')
-    .replace(/\s+(href|xlink:href)\s*=\s*(['"])\s*(https?:|data:text\/html|javascript:).*?\2/gi, '')
-    .replace(/<\s*metadata\b[\s\S]*?<\s*\/\s*metadata\s*>/gi, '');
+  const purifier = await getSvgPurifier();
+  const sanitized = purifier.sanitize(raw, {
+    USE_PROFILES: { svg: true, svgFilters: true },
+    // <use> fica fora do perfil padrao do DOMPurify; com URIs restritas a "#id" ele e seguro.
+    ADD_TAGS: ['use'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'foreignObject', 'metadata'],
+    KEEP_CONTENT: false,
+    // Permite apenas referencias internas (#id) em href/xlink:href, como o filtro anterior.
+    ALLOWED_URI_REGEXP: /^#/,
+  });
+
+  if (!sanitized.trim()) {
+    throw uploadError('SVG bloqueado por conteúdo inválido.', 415);
+  }
 
   await writeFile(file.path, sanitized, 'utf8');
 }

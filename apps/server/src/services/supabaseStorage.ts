@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
 const DEFAULT_SUPABASE_URL = 'https://xmuawzcpydmbcqackgoz.supabase.co';
 
@@ -202,7 +203,7 @@ export async function downloadToTempFile(url: string, fallbackExt = '.bin') {
     throw err;
   }
 
-  await pipeline(Readable.fromWeb(response.body as ReadableStream<Uint8Array>), createWriteStream(filePath));
+  await pipeline(Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>), createWriteStream(filePath));
 
   return {
     dir,
