@@ -12,7 +12,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
  * Formas e comportamento seguem a referencia; as cores seguem a marca SIX3
  * (laranja -> brand blue, amarelo -> brand-300, roxo -> violeta do gradiente).
  */
-export type CharacterMood = 'idle' | 'hover' | 'focus' | 'typing' | 'shy' | 'error' | 'success';
+export type CharacterMood = 'idle' | 'hover' | 'focus' | 'typing' | 'shy' | 'error' | 'success' | 'leave';
 
 type AnimatedLoginCharactersProps = {
   mood?: CharacterMood;
@@ -470,6 +470,65 @@ const charactersCss = `
   transform: translate3d(1px, -1px, 0);
 }
 
+/* ---- digitando a SENHA: surpresa exagerada em todos ---- */
+
+/* roxo recua ereto, espantado, com olhos saltados e bocao em O */
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-purple .alc-react {
+  transform: translate3d(5px, -5px, 0) rotate(2deg);
+}
+
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-purple .alc-body {
+  transform: scaleY(1.2) skewX(-1deg);
+}
+
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-purple .alc-eye {
+  animation: none;
+  transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scale(1.7);
+}
+
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-purple .purple-mouth {
+  --eye-mx: 7px;
+  --eye-my: -14px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+/* azul arregala os olhos e abre a boca (o sorriso vira espanto) */
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-orange .alc-eye {
+  animation: none;
+  transform: translate3d(calc(var(--px) * 1.6px + 3px), calc(var(--py) * 1.1px - 1px), 0) scale(1.5);
+}
+
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-orange .orange-mouth {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom-color: transparent;
+}
+
+/* grafite com olhos estourados */
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-black .alc-eye {
+  animation: none;
+  transform: translate3d(calc(var(--px) * 1.6px + 3px), calc(var(--py) * 1.1px - 1px), 0) scale(1.6);
+}
+
+/* passaro empina a cabeca com o bico para cima, de queixo caido */
+.animated-login-characters[data-mood="typing"][data-field="password"] .alc-yellow .alc-react {
+  transform: translate3d(2px, -4px, 0) rotate(9deg);
+}
+
+.animated-login-characters[data-mood="typing"][data-field="password"] .yellow-eye {
+  animation: none;
+  transform: translate3d(calc(var(--px) * 1.6px + 3px), calc(var(--py) * 1.1px - 1px), 0) scale(1.5);
+}
+
+.animated-login-characters[data-mood="typing"][data-field="password"] .yellow-beak {
+  transform-origin: left center;
+  transform: rotate(-14deg);
+}
+
 /* senha visivel: desviam o olhar com um snap rapido (gag do video) */
 .animated-login-characters[data-mood="shy"] .alc-react {
   transition: transform 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -581,6 +640,56 @@ const charactersCss = `
   height: 6px;
   border-radius: 0 0 10px 10px;
 }
+
+/* ---- Saida para o cadastro: as formas se reunem e viram um loader ---- */
+
+.alc-face {
+  transition: opacity 280ms ease-out;
+}
+
+.animated-login-characters[data-mood="leave"] .alc-face {
+  opacity: 0;
+}
+
+.animated-login-characters[data-mood="leave"] .alc-react {
+  transition: transform 650ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animated-login-characters[data-mood="leave"] .alc-body {
+  transition: transform 650ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 650ms cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 999px;
+}
+
+/* cada forma encolhe ate virar um ponto e desliza para seu lugar na fileira */
+.animated-login-characters[data-mood="leave"] .alc-orange .alc-react {
+  transform: translate3d(28px, -53px, 0) scale(0.1, 0.19);
+}
+
+.animated-login-characters[data-mood="leave"] .alc-purple .alc-react {
+  transform: translate3d(45px, -21px, 0) scale(0.18, 0.1);
+}
+
+.animated-login-characters[data-mood="leave"] .alc-black .alc-react {
+  transform: translate3d(10px, -39px, 0) scale(0.28, 0.14);
+}
+
+.animated-login-characters[data-mood="leave"] .alc-yellow .alc-react {
+  transform: translate3d(-14px, -46px, 0) scale(0.24, 0.16);
+}
+
+/* os pontos quicam em sequencia, como um indicador de loading */
+.animated-login-characters[data-mood="leave"] .alc-loop {
+  animation: none;
+}
+
+.animated-login-characters[data-mood="leave"] .alc-depth {
+  animation: alc-dot-bounce 640ms ease-in-out infinite;
+}
+
+.animated-login-characters[data-mood="leave"] .alc-orange .alc-depth { animation-delay: 700ms; }
+.animated-login-characters[data-mood="leave"] .alc-purple .alc-depth { animation-delay: 810ms; }
+.animated-login-characters[data-mood="leave"] .alc-black .alc-depth { animation-delay: 920ms; }
+.animated-login-characters[data-mood="leave"] .alc-yellow .alc-depth { animation-delay: 1030ms; }
 
 /* ---- Olhos, bocas e bico ---- */
 
@@ -765,6 +874,12 @@ const charactersCss = `
   48% { transform: translate3d(-2px, 1px, 0) rotate(-4deg) scaleY(0.93) scaleX(1.05); }
   70% { transform: translate3d(-2px, -1px, 0) rotate(-5.5deg) scale(1); }
   100% { transform: translate3d(-2px, 0, 0) rotate(-5deg); }
+}
+
+/* quicada dos pontos do loader */
+@keyframes alc-dot-bounce {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  45% { transform: translate3d(0, -9px, 0); }
 }
 
 /* sobressalto curto ao notar o cursor */
