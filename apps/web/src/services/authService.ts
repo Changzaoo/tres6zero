@@ -370,9 +370,10 @@ export async function register(name: string, email: string, password: string): P
 }
 
 export async function login(email: string, password: string): Promise<AuthSession> {
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
   const session = await request<AuthSession>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: normalizedEmail, password }),
   });
   setAuthSession(session);
   return session;
