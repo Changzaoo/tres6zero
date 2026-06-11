@@ -224,6 +224,7 @@ const charactersCss = `
 
 .alc-enter {
   opacity: 0;
+  transform-origin: bottom center;
   will-change: transform, opacity;
 }
 
@@ -352,19 +353,27 @@ const charactersCss = `
 /* ---- Loops idle dessincronizados ---- */
 
 .alc-orange .alc-loop {
-  animation: alc-orange-idle 4.2s ease-in-out 1700ms infinite;
+  animation: alc-orange-idle 5.8s ease-in-out 1700ms infinite;
+  transform-origin: bottom center;
 }
 
 .alc-purple .alc-loop {
-  animation: alc-purple-idle 4.6s ease-in-out 1550ms infinite;
+  animation: alc-purple-idle 6.6s ease-in-out 1550ms infinite;
+  transform-origin: bottom center;
 }
 
 .alc-black .alc-loop {
   animation: alc-black-idle 3.7s ease-in-out 1400ms infinite;
 }
 
+/* olhada lateral rapida do grafite, em ciclo proprio */
+.alc-black .alc-face {
+  animation: alc-glance 8.4s ease-in-out 3400ms infinite;
+}
+
 .alc-yellow .alc-loop {
-  animation: alc-yellow-idle 3.9s ease-in-out 1620ms infinite;
+  animation: alc-yellow-idle 5.4s ease-in-out 1620ms infinite;
+  transform-origin: bottom center;
 }
 
 /* ---- Reacoes por estado (camada .alc-react) ---- */
@@ -373,10 +382,24 @@ const charactersCss = `
   transition: transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* hover: sobressalto rapido ao notar o cursor, escalonado por personagem */
+.animated-login-characters[data-mood="hover"] .alc-react {
+  animation: alc-perk 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animated-login-characters[data-mood="hover"] .alc-purple .alc-react { animation-delay: 0ms; }
+.animated-login-characters[data-mood="hover"] .alc-black .alc-react { animation-delay: 50ms; }
+.animated-login-characters[data-mood="hover"] .alc-yellow .alc-react { animation-delay: 95ms; }
+.animated-login-characters[data-mood="hover"] .alc-orange .alc-react { animation-delay: 140ms; }
+
 /* foco: inclinam de leve na direcao do formulario */
 .animated-login-characters[data-mood="focus"] {
   --eye-mx: 2.5px;
   --eye-my: -0.5px;
+}
+
+.animated-login-characters[data-mood="focus"] .alc-react {
+  transition: transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animated-login-characters[data-mood="focus"] .alc-purple .alc-react {
@@ -401,20 +424,21 @@ const charactersCss = `
   --eye-my: -2px;
 }
 
+/* ida com overshoot elastico (snap), volta macia */
 .animated-login-characters[data-mood="typing"] .alc-react {
-  transition: transform 550ms cubic-bezier(0.16, 1, 0.3, 1) 200ms;
+  transition: transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1) 150ms;
 }
 
 .animated-login-characters[data-mood="typing"] .alc-body {
-  transition: transform 550ms cubic-bezier(0.16, 1, 0.3, 1) 200ms;
+  transition: transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1) 150ms;
 }
 
 .animated-login-characters[data-mood="typing"] .alc-purple .alc-react {
-  transform: translate3d(9px, 0, 0) rotate(6deg);
+  transform: translate3d(10px, 0, 0) rotate(7deg);
 }
 
 .animated-login-characters[data-mood="typing"] .alc-purple .alc-body {
-  transform: scaleY(1.12) skewX(-2.5deg);
+  transform: scaleY(1.16) skewX(-3deg);
 }
 
 /* olhos arregalados de curiosidade */
@@ -446,9 +470,9 @@ const charactersCss = `
   transform: translate3d(1px, -1px, 0);
 }
 
-/* senha visivel: desviam o olhar (gag do video) */
+/* senha visivel: desviam o olhar com um snap rapido (gag do video) */
 .animated-login-characters[data-mood="shy"] .alc-react {
-  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animated-login-characters[data-mood="shy"] .alc-purple .alc-react {
@@ -507,8 +531,9 @@ const charactersCss = `
   --eye-mx: -1px;
 }
 
+/* roxo leva um susto: pula e encolhe desconfiado */
 .animated-login-characters[data-mood="error"] .alc-purple .alc-react {
-  transform: translate3d(-2px, 0, 0) rotate(-5deg);
+  animation: alc-purple-startle 560ms ease-out both;
 }
 
 /* boca tensa, esticada de desconfianca */
@@ -532,15 +557,16 @@ const charactersCss = `
 
 /* sucesso: reacao positiva curta */
 .animated-login-characters[data-mood="success"] .alc-purple .alc-react {
-  transform: translate3d(0, -6px, 0) rotate(-2deg);
+  animation: alc-purple-success 620ms ease-out both;
 }
 
 .animated-login-characters[data-mood="success"] .alc-black .alc-react {
-  transform: translate3d(0, -2px, 0);
+  transform: translate3d(0, -3px, 0);
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animated-login-characters[data-mood="success"] .alc-yellow .alc-react {
-  animation: alc-yellow-success 500ms ease-out both;
+  animation: alc-yellow-success 700ms ease-out 80ms both;
 }
 
 /* sorrisos no sucesso */
@@ -620,7 +646,8 @@ const charactersCss = `
   border-radius: 999px;
   background: rgba(16, 18, 26, 0.9);
   transform: translate3d(0, 0, 0);
-  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* o bico vira de supetao */
+  transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ---- Piscadas (cadencias e delays diferentes) ---- */
@@ -646,39 +673,57 @@ const charactersCss = `
 
 /* ---- Keyframes ---- */
 
+/* Quedas com impacto: squash na aterrissagem + rebote elastico */
 @keyframes alc-enter-black {
-  0% { opacity: 0; transform: translate3d(8px, -140px, 0) rotate(-50deg); }
-  60% { opacity: 1; transform: translate3d(0, 4px, 0) rotate(-7deg); }
-  80% { transform: translate3d(0, -2px, 0) rotate(-1deg); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  0% { opacity: 0; transform: translate3d(8px, -150px, 0) rotate(-55deg); }
+  48% { opacity: 1; transform: translate3d(0, 6px, 0) rotate(-9deg) scaleY(0.82) scaleX(1.14); }
+  64% { transform: translate3d(0, -6px, 0) rotate(2deg) scaleY(1.08) scaleX(0.96); }
+  80% { transform: translate3d(0, 2px, 0) rotate(-1.5deg) scaleY(0.97) scaleX(1.02); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
 }
 
 @keyframes alc-enter-purple {
-  0% { opacity: 0; transform: translate3d(-70px, -90px, 0) rotate(45deg); }
-  65% { opacity: 1; transform: translate3d(0, 3px, 0) rotate(-3deg); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  0% { opacity: 0; transform: translate3d(-80px, -100px, 0) rotate(50deg); }
+  50% { opacity: 1; transform: translate3d(2px, 5px, 0) rotate(-6deg) scaleY(0.84) scaleX(1.12); }
+  68% { transform: translate3d(0, -7px, 0) rotate(3deg) scaleY(1.1) scaleX(0.95); }
+  84% { transform: translate3d(0, 2px, 0) rotate(-1.5deg) scaleY(0.98) scaleX(1.01); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
 }
 
 @keyframes alc-enter-yellow {
-  0% { opacity: 0; transform: translate3d(40px, -100px, 0) rotate(24deg); }
-  70% { opacity: 1; transform: translate3d(0, 3px, 0) rotate(-3deg); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  0% { opacity: 0; transform: translate3d(50px, -110px, 0) rotate(30deg); }
+  52% { opacity: 1; transform: translate3d(-2px, 5px, 0) rotate(-7deg) scaleY(0.8) scaleX(1.15); }
+  70% { transform: translate3d(1px, -6px, 0) rotate(4deg) scaleY(1.09) scaleX(0.95); }
+  85% { transform: translate3d(0, 1px, 0) rotate(-2deg) scaleY(0.98) scaleX(1.01); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
 }
 
 @keyframes alc-enter-orange {
-  0% { opacity: 0; transform: translate3d(0, 60px, 0) scale(0.9); }
-  70% { opacity: 1; transform: translate3d(0, -3px, 0) scale(1.01); }
+  0% { opacity: 0; transform: translate3d(0, 70px, 0) scaleY(0.6) scaleX(1.2); }
+  55% { opacity: 1; transform: translate3d(0, -8px, 0) scaleY(1.1) scaleX(0.95); }
+  75% { transform: translate3d(0, 2px, 0) scaleY(0.94) scaleX(1.05); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
+/* respiracao calma + jiggle gelatinoso brusco no fim do ciclo */
 @keyframes alc-orange-idle {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -4px, 0); }
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  38% { transform: translate3d(0, -4px, 0) scale(1); }
+  72% { transform: translate3d(0, 0, 0) scale(1); }
+  78% { transform: translate3d(0, -2px, 0) scaleY(0.93) scaleX(1.06); }
+  84% { transform: translate3d(0, -3px, 0) scaleY(1.05) scaleX(0.97); }
+  90% { transform: translate3d(0, 0, 0) scale(1); }
 }
 
+/* balanco lento + pulinho subito */
 @keyframes alc-purple-idle {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg); }
-  50% { transform: translate3d(0, -4px, 0) rotate(1deg); }
+  34% { transform: translate3d(0, -4px, 0) rotate(1deg); }
+  66% { transform: translate3d(0, 0, 0) rotate(-0.5deg); }
+  73% { transform: translate3d(0, -9px, 0) rotate(2deg) scaleY(1.06); }
+  79% { transform: translate3d(0, 1px, 0) rotate(-1.5deg) scaleY(0.94) scaleX(1.04); }
+  85% { transform: translate3d(0, -2px, 0) rotate(0deg) scale(1); }
+  92% { transform: translate3d(0, 0, 0) rotate(-1deg); }
 }
 
 @keyframes alc-black-idle {
@@ -686,17 +731,48 @@ const charactersCss = `
   50% { transform: translate3d(0, -2px, 0); }
 }
 
+/* olhada lateral rapida (dispara e volta) */
+@keyframes alc-glance {
+  0%, 62%, 100% { transform: translate3d(0, 0, 0); }
+  66%, 76% { transform: translate3d(-3.5px, 0, 0); }
+  80% { transform: translate3d(0, 0, 0); }
+}
+
+/* balanco horizontal + tique de cabeca brusco */
 @keyframes alc-yellow-idle {
-  0%, 100% { transform: translate3d(-3px, 0, 0); }
-  50% { transform: translate3d(3px, -2px, 0); }
+  0%, 100% { transform: translate3d(-3px, 0, 0) rotate(0deg); }
+  36% { transform: translate3d(3px, -2px, 0) rotate(0deg); }
+  64% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  70% { transform: translate3d(1px, -1px, 0) rotate(-8deg); }
+  76% { transform: translate3d(1px, -1px, 0) rotate(-8deg); }
+  82% { transform: translate3d(0, 0, 0) rotate(2deg); }
+  88% { transform: translate3d(-1px, 0, 0) rotate(0deg); }
 }
 
 @keyframes alc-scene-error {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  18% { transform: translate3d(-4px, 0, 0); }
-  38% { transform: translate3d(4px, 0, 0); }
-  58% { transform: translate3d(-2px, 0, 0); }
-  78% { transform: translate3d(2px, 0, 0); }
+  15% { transform: translate3d(-6px, 0, 0); }
+  32% { transform: translate3d(6px, 0, 0); }
+  50% { transform: translate3d(-4px, 0, 0); }
+  68% { transform: translate3d(3px, 0, 0); }
+  84% { transform: translate3d(-1px, 0, 0); }
+}
+
+/* susto do roxo: salto + encolhida desconfiada */
+@keyframes alc-purple-startle {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  22% { transform: translate3d(-1px, -10px, 0) rotate(-7deg) scaleY(1.08); }
+  48% { transform: translate3d(-2px, 1px, 0) rotate(-4deg) scaleY(0.93) scaleX(1.05); }
+  70% { transform: translate3d(-2px, -1px, 0) rotate(-5.5deg) scale(1); }
+  100% { transform: translate3d(-2px, 0, 0) rotate(-5deg); }
+}
+
+/* sobressalto curto ao notar o cursor */
+@keyframes alc-perk {
+  0% { transform: translate3d(0, 0, 0) scaleY(1); }
+  45% { transform: translate3d(0, -5px, 0) scaleY(1.04); }
+  75% { transform: translate3d(0, 1px, 0) scaleY(0.98); }
+  100% { transform: translate3d(0, -1px, 0) scaleY(1); }
 }
 
 @keyframes alc-black-error {
@@ -713,9 +789,22 @@ const charactersCss = `
   75% { transform: translate3d(-2px, 0, 0); }
 }
 
+/* dois pulinhos animados do passaro */
 @keyframes alc-yellow-success {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  45% { transform: translate3d(0, -3px, 0); }
+  22% { transform: translate3d(0, -8px, 0) scaleY(1.06); }
+  44% { transform: translate3d(0, 0, 0) scaleY(0.95) scaleX(1.04); }
+  64% { transform: translate3d(0, -4px, 0) scaleY(1.03); }
+  82% { transform: translate3d(0, 0, 0) scaleY(0.98); }
+}
+
+/* salto de comemoracao do roxo com squash na volta */
+@keyframes alc-purple-success {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  30% { transform: translate3d(0, -12px, 0) rotate(-3deg) scaleY(1.08); }
+  60% { transform: translate3d(0, 1px, 0) rotate(-1deg) scaleY(0.93) scaleX(1.05); }
+  80% { transform: translate3d(0, -4px, 0) rotate(-2deg) scale(1); }
+  100% { transform: translate3d(0, -3px, 0) rotate(-2deg); }
 }
 
 @keyframes alc-blink {
@@ -733,9 +822,19 @@ const charactersCss = `
   13%, 39% { transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scaleY(0.1); }
 }
 
-@media (max-width: 520px) {
+/* Mobile: cena mais compacta, ancorada na base do painel */
+@media (max-width: 640px) {
   .alc-stage {
-    transform: scale(0.9);
+    width: 260px;
+    height: 196px;
+    transform: scale(0.88);
+    transform-origin: center bottom;
+  }
+}
+
+@media (max-width: 380px) {
+  .alc-stage {
+    transform: scale(0.8);
   }
 }
 

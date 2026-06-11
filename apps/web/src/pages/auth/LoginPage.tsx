@@ -146,18 +146,19 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="six3-grid-bg flex min-h-screen items-center justify-center overflow-x-hidden bg-surface px-4 py-8 sm:px-6">
+    // pb maior no mobile: folga para o botao flutuante de suporte nao cobrir o formulario
+    <main className="six3-grid-bg flex min-h-screen items-center justify-center overflow-x-hidden bg-surface px-4 pt-6 pb-20 sm:px-6 sm:py-8">
       <motion.section
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
         animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.8, delay: reduceMotion ? 0 : 0.28, ease: easePremium }}
         className="relative z-10 grid w-full max-w-[820px] overflow-hidden rounded-[16px] bg-[#151821] shadow-[0_30px_90px_-20px_rgba(59,109,255,0.3)] ring-1 ring-white/10 md:grid-cols-2"
       >
-        <div className="relative flex min-h-[260px] items-center justify-center bg-[#11141d] p-8 sm:min-h-[330px] md:min-h-[520px] md:p-10">
+        <div className="relative flex min-h-[212px] items-center justify-center bg-[#11141d] p-5 sm:min-h-[330px] sm:p-8 md:min-h-[520px] md:p-10">
           <AnimatedLoginCharacters mood={sceneMood} activeField={activeField} />
         </div>
 
-        <div className="flex min-h-[460px] items-center justify-center px-7 py-10 sm:px-10 md:min-h-[520px]">
+        <div className="flex items-center justify-center px-6 py-9 sm:min-h-[460px] sm:px-10 sm:py-10 md:min-h-[520px]">
           <div className="w-full max-w-[282px]">
             <motion.form
               variants={formContainer}
@@ -190,7 +191,7 @@ export default function LoginPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="example@email.com"
-                    className="mt-1 w-full border-0 border-b border-white/15 bg-transparent px-0 py-1.5 text-[12px] font-medium text-[#f8fafc] outline-none transition-colors duration-200 placeholder:text-white/25 autofill:shadow-[inset_0_0_0_1000px_#151821] autofill:[-webkit-text-fill-color:#f8fafc] focus:border-brand-400 focus:ring-0"
+                    className="mt-1 w-full border-0 border-b border-white/15 bg-transparent px-0 py-2 text-[12px] md:py-1.5 font-medium text-[#f8fafc] outline-none transition-colors duration-200 placeholder:text-white/25 autofill:shadow-[inset_0_0_0_1000px_#151821] autofill:[-webkit-text-fill-color:#f8fafc] focus:border-brand-400 focus:ring-0"
                     {...emailField}
                     onFocus={() => handleFieldFocus('email')}
                     onChange={(event) => handleFieldChange(event, 'email', emailField.onChange)}
@@ -209,7 +210,7 @@ export default function LoginPage() {
                       type={showPass ? 'text' : 'password'}
                       autoComplete="current-password"
                       placeholder="********"
-                      className="mt-1 w-full border-0 border-b border-white/15 bg-transparent px-0 py-1.5 pr-9 text-[12px] font-medium text-[#f8fafc] outline-none transition-colors duration-200 placeholder:text-white/25 autofill:shadow-[inset_0_0_0_1000px_#151821] autofill:[-webkit-text-fill-color:#f8fafc] focus:border-brand-400 focus:ring-0"
+                      className="mt-1 w-full border-0 border-b border-white/15 bg-transparent px-0 py-2 pr-9 text-[12px] md:py-1.5 font-medium text-[#f8fafc] outline-none transition-colors duration-200 placeholder:text-white/25 autofill:shadow-[inset_0_0_0_1000px_#151821] autofill:[-webkit-text-fill-color:#f8fafc] focus:border-brand-400 focus:ring-0"
                       {...passwordField}
                       onFocus={() => handleFieldFocus('password')}
                       onChange={(event) => handleFieldChange(event, 'password', passwordField.onChange)}
@@ -264,7 +265,7 @@ export default function LoginPage() {
                   variants={formItem}
                   type="submit"
                   disabled={isSubmitting}
-                  className="six3-btn-shine h-9 w-full rounded-full bg-gradient-brand text-[12px] font-bold text-white shadow-glow ring-1 ring-white/[0.16] transition hover:shadow-[0_22px_70px_-26px_rgba(139,92,246,0.95)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151821] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="six3-btn-shine h-10 w-full rounded-full bg-gradient-brand text-[12px] font-bold text-white shadow-glow ring-1 ring-white/[0.16] transition hover:shadow-[0_22px_70px_-26px_rgba(139,92,246,0.95)] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151821] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:h-9"
                 >
                   {isSubmitting ? (
                     <span className="inline-flex items-center gap-2">
@@ -280,7 +281,7 @@ export default function LoginPage() {
                   variants={formItem}
                   type="button"
                   onClick={() => toast.error('Login com Google ainda nao disponivel')}
-                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[12px] font-bold text-white/85 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151821] active:scale-[0.98]"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[12px] font-bold text-white/85 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151821] active:scale-[0.98] md:h-9"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
