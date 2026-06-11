@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ToastContainer } from './components/ui/Toast';
-import { API_URL } from './config/api';
+import { API_URL, getBackendHealthPingUrl } from './config/api';
 import { initNetworkStatus } from './offline/networkStatus';
 import { configureOfflineSync, startOfflineSyncLoop } from './offline/syncEngine';
 import { registerServiceWorker } from './services/pwaService';
@@ -17,7 +17,7 @@ import './store/authStore';
 applyThemeMode();
 startThemeWatcher();
 registerServiceWorker();
-initNetworkStatus({ pingUrl: `${API_URL}/health` });
+initNetworkStatus({ pingUrl: getBackendHealthPingUrl() });
 configureOfflineSync({
   baseUrl: API_URL,
   getHeaders: () => {
