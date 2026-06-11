@@ -61,7 +61,7 @@ export default function RegisterPage() {
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <BrandWordmark className="text-4xl" />
+          <BrandWordmark className="text-5xl" />
           <div>
             <h1 className="text-xl font-black text-white">Criar conta</h1>
             <p className="mt-1 text-sm text-white/40">Cadastre-se e escolha um plano para liberar a plataforma</p>

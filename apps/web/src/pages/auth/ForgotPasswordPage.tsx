@@ -132,7 +132,7 @@ export default function ForgotPasswordPage() {
             <form onSubmit={identifyForm.handleSubmit(onIdentify)} className="space-y-4">
               <Input
                 label="Usuário ou e-mail"
-                placeholder="vinicius ou admin@six3.com"
+                placeholder="exemplo@six3.com"
                 icon={<UserSearch className="h-4 w-4" />}
                 autoCapitalize="none"
                 autoCorrect="off"

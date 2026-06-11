@@ -5,6 +5,14 @@ import { z } from 'zod';
 import { getAuthenticatedUser, requireSupportStaff } from './auth';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '../services/firebaseAdmin';
 import { createNotification, createSupportStaffNotification } from '../services/notifications';
+import {
+  addLocalSupportMessage,
+  createLocalSupportConversation,
+  getLocalSupportConversation,
+  listLocalSupportConversations,
+  listLocalSupportMessages,
+  updateLocalSupportConversation,
+} from '../services/localSupportStore';
 
 export const supportRouter = Router();
 
@@ -45,6 +53,15 @@ function getDb() {
     throw err;
   }
   return db;
+}
+
+function getOptionalDb() {
+  try {
+    return getFirebaseAdminFirestore();
+  } catch (error) {
+    console.warn('[support] Firestore unavailable, using local support store:', error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 function supportError(message: string, status: number): never {
@@ -193,14 +210,22 @@ function messageFromDoc(doc: FirebaseFirestore.DocumentSnapshot) {
 }
 
 async function getConversation(id: string) {
-  const db = getDb();
-  const snap = await db.collection('supportConversations').doc(id).get();
-  if (!snap.exists) supportError('SUPPORT_CONVERSATION_NOT_FOUND', 404);
-  return { ref: snap.ref, data: conversationFromDoc(snap) };
+  const db = getOptionalDb();
+  if (db) {
+    const snap = await db.collection('supportConversations').doc(id).get();
+    if (!snap.exists) supportError('SUPPORT_CONVERSATION_NOT_FOUND', 404);
+    return { storage: 'firestore' as const, ref: snap.ref, data: conversationFromDoc(snap) };
+  }
+
+  const data = await getLocalSupportConversation(id);
+  if (!data) supportError('SUPPORT_CONVERSATION_NOT_FOUND', 404);
+  return { storage: 'local' as const, ref: null, data };
 }
 
 async function listMessages(conversationId: string) {
-  const db = getDb();
+  const db = getOptionalDb();
+  if (!db) return listLocalSupportMessages(conversationId);
+
   const snap = await db
     .collection('supportConversations')
     .doc(conversationId)
@@ -211,7 +236,7 @@ async function listMessages(conversationId: string) {
   return snap.docs.map(messageFromDoc);
 }
 
-function assertAnonymousConversation(conversation: ReturnType<typeof conversationFromDoc>, visitorId: string) {
+function assertAnonymousConversation(conversation: { accessLevel?: unknown; visitorId?: unknown }, visitorId: string) {
   if (conversation.accessLevel !== 'anonymous' || conversation.visitorId !== visitorId) {
     supportError('FORBIDDEN', 403);
   }
@@ -220,14 +245,15 @@ function assertAnonymousConversation(conversation: ReturnType<typeof conversatio
 supportRouter.get('/anonymous/conversations', async (req, res, next) => {
   try {
     const visitorId = z.string().min(16).max(96).regex(/^[a-zA-Z0-9._-]+$/).parse(req.query.visitorId);
-    const db = getDb();
-    const snap = await db.collection('supportConversations')
-      .where('accessLevel', '==', 'anonymous')
-      .where('visitorId', '==', visitorId)
-      .get();
-    const conversations = snap.docs
-      .map(conversationFromDoc)
-      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+    const db = getOptionalDb();
+    const conversations = db
+      ? (await db.collection('supportConversations')
+        .where('accessLevel', '==', 'anonymous')
+        .where('visitorId', '==', visitorId)
+        .get()).docs
+        .map(conversationFromDoc)
+        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
+      : await listLocalSupportConversations({ accessLevel: 'anonymous', visitorId });
 
     res.json({ conversations });
   } catch (error) {
@@ -238,11 +264,10 @@ supportRouter.get('/anonymous/conversations', async (req, res, next) => {
 supportRouter.post('/anonymous/conversations', async (req, res, next) => {
   try {
     const data = anonymousConversationSchema.parse(req.body);
-    const db = getDb();
+    const db = getOptionalDb();
     const createdAt = nowIso();
     const userName = data.name || 'Anônimo';
     const contactEmail = data.email || '';
-    const conversationRef = db.collection('supportConversations').doc();
     const contextLines = [
       data.pageUrl ? `Página: ${data.pageUrl}` : '',
       data.userAgent ? `Dispositivo: ${data.userAgent}` : '',
@@ -252,7 +277,7 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
     const conversation = {
       ownerUid: `anonymous:${data.visitorId}`,
       visitorId: data.visitorId,
-      accessLevel: 'anonymous',
+      accessLevel: 'anonymous' as const,
       source: 'login',
       userName,
       userEmail: contactEmail || 'anônimo',
@@ -267,15 +292,27 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
       updatedAt: createdAt,
     };
 
-    await conversationRef.set(conversation);
-    await conversationRef.collection('messages').add({
-      conversationId: conversationRef.id,
+    const initialMessage = {
       senderUid: data.visitorId,
-      senderRole: 'anonymous',
+      senderRole: 'anonymous' as const,
       senderName: userName,
       body,
       createdAt,
-    });
+    };
+
+    let savedConversation;
+    if (db) {
+      const conversationRef = db.collection('supportConversations').doc();
+      await conversationRef.set(conversation);
+      await conversationRef.collection('messages').add({
+        conversationId: conversationRef.id,
+        ...initialMessage,
+      });
+      savedConversation = { id: conversationRef.id, ...conversation };
+    } else {
+      const saved = await createLocalSupportConversation(conversation, initialMessage);
+      savedConversation = saved.conversation;
+    }
 
     await createSupportStaffNotification({
       category: 'support',
@@ -283,10 +320,10 @@ supportRouter.post('/anonymous/conversations', async (req, res, next) => {
       body: `${userName}: ${preview(data.message)}`,
       link: '/app/support-dashboard',
       priority: 'high',
-      metadata: { conversationId: conversationRef.id, source: 'login' },
+      metadata: { conversationId: savedConversation.id, source: 'login' },
     }).catch((error) => console.warn('[notifications] support staff skipped:', error instanceof Error ? error.message : error));
 
-    res.status(201).json({ conversation: { id: conversationRef.id, ...conversation } });
+    res.status(201).json({ conversation: savedConversation });
   } catch (error) {
     next(error);
   }
@@ -299,9 +336,14 @@ supportRouter.get('/anonymous/conversations/:id/messages', async (req, res, next
     assertAnonymousConversation(data, visitorId);
 
     const messages = await listMessages(req.params.id);
-    await ref.update({ unreadForUser: 0, updatedAt: nowIso() });
+    const updatedAt = nowIso();
+    if (ref) {
+      await ref.update({ unreadForUser: 0, updatedAt });
+    } else {
+      await updateLocalSupportConversation(req.params.id, { unreadForUser: 0, updatedAt });
+    }
 
-    res.json({ conversation: { ...data, unreadForUser: 0 }, messages });
+    res.json({ conversation: { ...data, unreadForUser: 0, updatedAt }, messages });
   } catch (error) {
     next(error);
   }
@@ -314,22 +356,39 @@ supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, nex
     assertAnonymousConversation(conversation, data.visitorId);
 
     const createdAt = nowIso();
-    const messageRef = await ref.collection('messages').add({
-      conversationId: req.params.id,
+    const outgoingMessage = {
       senderUid: data.visitorId,
-      senderRole: 'anonymous',
+      senderRole: 'anonymous' as const,
       senderName: conversation.userName || 'Anônimo',
       body: data.message,
       createdAt,
-    });
+    };
 
-    await ref.update({
-      status: 'open',
-      lastMessagePreview: preview(data.message),
-      lastMessageAt: createdAt,
-      unreadForAdmin: FieldValue.increment(1),
-      updatedAt: createdAt,
-    });
+    let savedMessage;
+    if (ref) {
+      const messageRef = await ref.collection('messages').add({
+        conversationId: req.params.id,
+        ...outgoingMessage,
+      });
+
+      await ref.update({
+        status: 'open',
+        lastMessagePreview: preview(data.message),
+        lastMessageAt: createdAt,
+        unreadForAdmin: FieldValue.increment(1),
+        updatedAt: createdAt,
+      });
+      savedMessage = messageFromDoc(await messageRef.get());
+    } else {
+      savedMessage = await addLocalSupportMessage(req.params.id, outgoingMessage, {
+        status: 'open',
+        lastMessagePreview: preview(data.message),
+        lastMessageAt: createdAt,
+        unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1,
+        updatedAt: createdAt,
+      });
+      if (!savedMessage) supportError('SUPPORT_CONVERSATION_NOT_FOUND', 404);
+    }
 
     await createSupportStaffNotification({
       category: 'support',
@@ -340,9 +399,7 @@ supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, nex
       metadata: { conversationId: req.params.id, source: 'login' },
     }).catch((error) => console.warn('[notifications] support staff skipped:', error instanceof Error ? error.message : error));
 
-    res.status(201).json({
-      message: messageFromDoc(await messageRef.get()),
-    });
+    res.status(201).json({ message: savedMessage });
   } catch (error) {
     next(error);
   }
@@ -351,11 +408,12 @@ supportRouter.post('/anonymous/conversations/:id/messages', async (req, res, nex
 supportRouter.get('/conversations', async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
-    const db = getDb();
-    const snap = await db.collection('supportConversations').where('ownerUid', '==', user.localId).get();
-    const conversations = snap.docs
-      .map(conversationFromDoc)
-      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+    const db = getOptionalDb();
+    const conversations = db
+      ? (await db.collection('supportConversations').where('ownerUid', '==', user.localId).get()).docs
+        .map(conversationFromDoc)
+        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
+      : await listLocalSupportConversations({ ownerUid: user.localId });
 
     res.json({ conversations });
   } catch (error) {
@@ -367,15 +425,14 @@ supportRouter.post('/conversations', async (req, res, next) => {
   try {
     const user = await getAuthenticatedUser(req);
     const data = conversationSchema.parse(req.body);
-    const db = getDb();
+    const db = getOptionalDb();
     const createdAt = nowIso();
     const userEmail = data.email || user.email || '';
     const userName = user.displayName || user.email || 'Usuário';
-    const conversationRef = db.collection('supportConversations').doc();
 
     const conversation = {
       ownerUid: user.localId,
-      accessLevel: 'authenticated',
+      accessLevel: 'authenticated' as const,
       source: 'app',
       userName,
       userEmail,
@@ -390,15 +447,27 @@ supportRouter.post('/conversations', async (req, res, next) => {
       updatedAt: createdAt,
     };
 
-    await conversationRef.set(conversation);
-    await conversationRef.collection('messages').add({
-      conversationId: conversationRef.id,
+    const initialMessage = {
       senderUid: user.localId,
-      senderRole: 'user',
+      senderRole: 'user' as const,
       senderName: userName,
       body: data.message,
       createdAt,
-    });
+    };
+
+    let savedConversation;
+    if (db) {
+      const conversationRef = db.collection('supportConversations').doc();
+      await conversationRef.set(conversation);
+      await conversationRef.collection('messages').add({
+        conversationId: conversationRef.id,
+        ...initialMessage,
+      });
+      savedConversation = { id: conversationRef.id, ...conversation };
+    } else {
+      const saved = await createLocalSupportConversation(conversation, initialMessage);
+      savedConversation = saved.conversation;
+    }
 
     await createSupportStaffNotification({
       category: 'support',
@@ -406,10 +475,10 @@ supportRouter.post('/conversations', async (req, res, next) => {
       body: `${userName}: ${preview(data.message)}`,
       link: '/app/support-dashboard',
       priority: 'high',
-      metadata: { conversationId: conversationRef.id, ownerUid: user.localId },
+      metadata: { conversationId: savedConversation.id, ownerUid: user.localId },
     }).catch((error) => console.warn('[notifications] support staff skipped:', error instanceof Error ? error.message : error));
 
-    res.status(201).json({ conversation: { id: conversationRef.id, ...conversation } });
+    res.status(201).json({ conversation: savedConversation });
   } catch (error) {
     next(error);
   }
@@ -422,9 +491,14 @@ supportRouter.get('/conversations/:id/messages', async (req, res, next) => {
     if (data.ownerUid !== user.localId) supportError('FORBIDDEN', 403);
 
     const messages = await listMessages(req.params.id);
-    await ref.update({ unreadForUser: 0, updatedAt: nowIso() });
+    const updatedAt = nowIso();
+    if (ref) {
+      await ref.update({ unreadForUser: 0, updatedAt });
+    } else {
+      await updateLocalSupportConversation(req.params.id, { unreadForUser: 0, updatedAt });
+    }
 
-    res.json({ conversation: { ...data, unreadForUser: 0 }, messages });
+    res.json({ conversation: { ...data, unreadForUser: 0, updatedAt }, messages });
   } catch (error) {
     next(error);
   }
@@ -439,22 +513,39 @@ supportRouter.post('/conversations/:id/messages', async (req, res, next) => {
 
     const createdAt = nowIso();
     const userName = user.displayName || user.email || 'Usuário';
-    const messageRef = await ref.collection('messages').add({
-      conversationId: req.params.id,
+    const outgoingMessage = {
       senderUid: user.localId,
-      senderRole: 'user',
+      senderRole: 'user' as const,
       senderName: userName,
       body: data.message,
       createdAt,
-    });
+    };
 
-    await ref.update({
-      status: 'open',
-      lastMessagePreview: preview(data.message),
-      lastMessageAt: createdAt,
-      unreadForAdmin: FieldValue.increment(1),
-      updatedAt: createdAt,
-    });
+    let savedMessage;
+    if (ref) {
+      const messageRef = await ref.collection('messages').add({
+        conversationId: req.params.id,
+        ...outgoingMessage,
+      });
+
+      await ref.update({
+        status: 'open',
+        lastMessagePreview: preview(data.message),
+        lastMessageAt: createdAt,
+        unreadForAdmin: FieldValue.increment(1),
+        updatedAt: createdAt,
+      });
+      savedMessage = messageFromDoc(await messageRef.get());
+    } else {
+      savedMessage = await addLocalSupportMessage(req.params.id, outgoingMessage, {
+        status: 'open',
+        lastMessagePreview: preview(data.message),
+        lastMessageAt: createdAt,
+        unreadForAdmin: Number(conversation.unreadForAdmin || 0) + 1,
+        updatedAt: createdAt,
+      });
+      if (!savedMessage) supportError('SUPPORT_CONVERSATION_NOT_FOUND', 404);
+    }
 
     await createSupportStaffNotification({
       category: 'support',
@@ -465,9 +556,7 @@ supportRouter.post('/conversations/:id/messages', async (req, res, next) => {
       metadata: { conversationId: req.params.id, ownerUid: user.localId },
     }).catch((error) => console.warn('[notifications] support staff skipped:', error instanceof Error ? error.message : error));
 
-    res.status(201).json({
-      message: messageFromDoc(await messageRef.get()),
-    });
+    res.status(201).json({ message: savedMessage });
   } catch (error) {
     next(error);
   }
@@ -475,9 +564,12 @@ supportRouter.post('/conversations/:id/messages', async (req, res, next) => {
 
 supportRouter.get('/admin/conversations', requireSupportStaff, async (_req, res, next) => {
   try {
-    const db = getDb();
-    const snap = await db.collection('supportConversations').orderBy('lastMessageAt', 'desc').limit(100).get();
-    res.json({ conversations: snap.docs.map(conversationFromDoc) });
+    const db = getOptionalDb();
+    const conversations = db
+      ? (await db.collection('supportConversations').orderBy('lastMessageAt', 'desc').limit(100).get()).docs.map(conversationFromDoc)
+      : await listLocalSupportConversations({ limit: 100 });
+
+    res.json({ conversations });
   } catch (error) {
     next(error);
   }
@@ -504,7 +596,7 @@ supportRouter.post('/admin/conversations', requireSupportStaff, async (req, res,
     const conversationRef = db.collection('supportConversations').doc();
     const conversation = {
       ownerUid: target.uid,
-      accessLevel: 'authenticated',
+      accessLevel: 'authenticated' as const,
       source: 'app',
       userName: target.name || target.email || 'Usuário',
       userEmail: target.email,
@@ -556,9 +648,14 @@ supportRouter.get('/admin/conversations/:id/messages', requireSupportStaff, asyn
   try {
     const { ref, data } = await getConversation(req.params.id);
     const messages = await listMessages(req.params.id);
-    await ref.update({ unreadForAdmin: 0, updatedAt: nowIso() });
+    const updatedAt = nowIso();
+    if (ref) {
+      await ref.update({ unreadForAdmin: 0, updatedAt });
+    } else {
+      await updateLocalSupportConversation(req.params.id, { unreadForAdmin: 0, updatedAt });
+    }
 
-    res.json({ conversation: { ...data, unreadForAdmin: 0 }, messages });
+    res.json({ conversation: { ...data, unreadForAdmin: 0, updatedAt }, messages });
   } catch (error) {
     next(error);
   }
@@ -568,27 +665,43 @@ supportRouter.post('/admin/conversations/:id/messages', requireSupportStaff, asy
   try {
     const adminUser = res.locals.user;
     const data = messageSchema.parse(req.body);
-    const { ref } = await getConversation(req.params.id);
+    const { ref, data: currentConversation } = await getConversation(req.params.id);
     const createdAt = nowIso();
 
-    const messageRef = await ref.collection('messages').add({
-      conversationId: req.params.id,
+    const outgoingMessage = {
       senderUid: adminUser.uid,
-      senderRole: adminUser.role === 'support' ? 'support' : 'admin',
+      senderRole: (adminUser.role === 'support' ? 'support' : 'admin') as 'support' | 'admin',
       senderName: adminUser.name || (adminUser.role === 'support' ? 'Suporte' : 'Admin'),
       body: data.message,
       createdAt,
-    });
-
-    await ref.update({
+    };
+    const conversationPatch = {
       status: 'answered',
       lastMessagePreview: preview(data.message),
       lastMessageAt: createdAt,
-      unreadForUser: FieldValue.increment(1),
+      unreadForUser: Number(currentConversation.unreadForUser || 0) + 1,
       updatedAt: createdAt,
-    });
+    };
 
-    const conversation = conversationFromDoc(await ref.get());
+    let savedMessage;
+    let conversation;
+    if (ref) {
+      const messageRef = await ref.collection('messages').add({
+        conversationId: req.params.id,
+        ...outgoingMessage,
+      });
+
+      await ref.update({
+        ...conversationPatch,
+        unreadForUser: FieldValue.increment(1),
+      });
+      savedMessage = messageFromDoc(await messageRef.get());
+      conversation = conversationFromDoc(await ref.get());
+    } else {
+      savedMessage = await addLocalSupportMessage(req.params.id, outgoingMessage, conversationPatch);
+      if (!savedMessage) supportError('SUPPORT_CONVERSATION_NOT_FOUND', 404);
+      conversation = { ...currentConversation, ...conversationPatch };
+    }
     await createNotification({
       recipientUid: conversation.ownerUid,
       category: 'support',
@@ -599,9 +712,7 @@ supportRouter.post('/admin/conversations/:id/messages', requireSupportStaff, asy
       metadata: { conversationId: req.params.id },
     }).catch((error) => console.warn('[notifications] support user skipped:', error instanceof Error ? error.message : error));
 
-    res.status(201).json({
-      message: messageFromDoc(await messageRef.get()),
-    });
+    res.status(201).json({ message: savedMessage });
   } catch (error) {
     next(error);
   }

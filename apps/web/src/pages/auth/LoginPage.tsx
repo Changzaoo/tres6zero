@@ -192,7 +192,7 @@ export default function LoginPage() {
                   variants={formItem}
                   src="/brand/six3-logo.png"
                   alt="SIX3"
-                  className="mx-auto mb-6 h-10 w-auto select-none object-contain"
+                  className="mx-auto mb-6 h-20 w-auto select-none object-contain"
                   draggable={false}
                 />
                 <motion.h1 variants={formItem} className="text-[22px] font-extrabold leading-tight text-[#f8fafc]">

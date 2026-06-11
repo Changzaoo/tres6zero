@@ -3,31 +3,104 @@ import { getAuth, UserRecord } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 type ServiceAccount = {
-  project_id: string;
-  client_email: string;
-  private_key: string;
+  project_id?: string;
+  projectId?: string;
+  client_email?: string;
+  clientEmail?: string;
+  private_key?: string;
+  privateKey?: string;
 };
 
-function parseServiceAccount() {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+type ParsedServiceAccount = {
+  projectId: string;
+  clientEmail: string;
+  privateKey: string;
+  source: string;
+};
+
+const placeholderPattern = /^(cole_|your_|replace_|placeholder|todo)/i;
+
+function envValue(name: string) {
+  const value = process.env[name]?.trim();
+  return value && !placeholderPattern.test(value) ? value : '';
+}
+
+function normalizePrivateKey(value: string) {
+  return value.replace(/\\n/g, '\n');
+}
+
+function configError(message: string): never {
+  const err = new Error(message);
+  (err as any).status = 500;
+  (err as any).code = message;
+  throw err;
+}
+
+function normalizeServiceAccount(parsed: ServiceAccount, source: string): ParsedServiceAccount {
+  const projectId = parsed.project_id || parsed.projectId;
+  const clientEmail = parsed.client_email || parsed.clientEmail;
+  const privateKey = parsed.private_key || parsed.privateKey;
+
+  if (!projectId || !clientEmail || !privateKey) {
+    configError(`${source}_MISSING_REQUIRED_FIELDS`);
+  }
+
+  return {
+    projectId,
+    clientEmail,
+    privateKey: normalizePrivateKey(privateKey),
+    source,
+  };
+}
+
+function parseServiceAccountJson(raw: string, source: string) {
+  try {
+    return normalizeServiceAccount(JSON.parse(raw) as ServiceAccount, source);
+  } catch (error) {
+    if (error instanceof Error && error.message.endsWith('_MISSING_REQUIRED_FIELDS')) {
+      throw error;
+    }
+
+    configError(`${source}_INVALID`);
+  }
+}
+
+function parseBase64ServiceAccount() {
+  const raw = envValue('FIREBASE_SERVICE_ACCOUNT_JSON_BASE64');
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw) as Partial<ServiceAccount>;
-    if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
-      throw new Error('missing required fields');
+    return parseServiceAccountJson(Buffer.from(raw, 'base64').toString('utf8'), 'FIREBASE_SERVICE_ACCOUNT_JSON_BASE64');
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('FIREBASE_SERVICE_ACCOUNT_JSON_BASE64_')) {
+      throw error;
     }
 
-    return {
-      projectId: parsed.project_id,
-      clientEmail: parsed.client_email,
-      privateKey: parsed.private_key,
-    };
-  } catch (error) {
-    const err = new Error('FIREBASE_SERVICE_ACCOUNT_JSON_INVALID');
-    (err as any).status = 500;
-    throw err;
+    configError('FIREBASE_SERVICE_ACCOUNT_JSON_BASE64_INVALID');
   }
+}
+
+function parseJsonServiceAccount() {
+  const raw = envValue('FIREBASE_SERVICE_ACCOUNT_JSON');
+  return raw ? parseServiceAccountJson(raw, 'FIREBASE_SERVICE_ACCOUNT_JSON') : null;
+}
+
+function parseSplitServiceAccount() {
+  const clientEmail = envValue('FIREBASE_CLIENT_EMAIL');
+  const privateKey = envValue('FIREBASE_PRIVATE_KEY');
+  if (!clientEmail && !privateKey) return null;
+
+  const projectId = envValue('FIREBASE_PROJECT_ID') || envValue('GOOGLE_CLOUD_PROJECT') || envValue('VITE_FIREBASE_PROJECT_ID');
+
+  return normalizeServiceAccount({
+    projectId,
+    clientEmail,
+    privateKey,
+  }, 'FIREBASE_SERVICE_ACCOUNT_SPLIT_ENV');
+}
+
+function parseServiceAccount() {
+  return parseBase64ServiceAccount() || parseJsonServiceAccount() || parseSplitServiceAccount();
 }
 
 function getFirebaseAdminApp(): App | null {
@@ -36,9 +109,10 @@ function getFirebaseAdminApp(): App | null {
 
   if (getApps().length > 0) return getApps()[0];
 
+  const { projectId, clientEmail, privateKey } = serviceAccount;
   return initializeApp({
-    credential: cert(serviceAccount),
-    projectId: serviceAccount.projectId,
+    credential: cert({ projectId, clientEmail, privateKey }),
+    projectId,
   });
 }
 
@@ -50,6 +124,23 @@ export function getFirebaseAdminAuth() {
 export function getFirebaseAdminFirestore() {
   const app = getFirebaseAdminApp();
   return app ? getFirestore(app) : null;
+}
+
+export function getFirebaseAdminConfigStatus() {
+  try {
+    const serviceAccount = parseServiceAccount();
+    return {
+      configured: Boolean(serviceAccount),
+      source: serviceAccount?.source || null,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      configured: false,
+      source: null,
+      error: error instanceof Error ? error.message : 'FIREBASE_ADMIN_CONFIG_INVALID',
+    };
+  }
 }
 
 export function toFirebaseUserRecord(record: UserRecord) {
