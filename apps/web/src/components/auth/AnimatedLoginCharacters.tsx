@@ -417,14 +417,21 @@ const charactersCss = `
   transform: scaleY(1.12) skewX(-2.5deg);
 }
 
+/* olhos arregalados de curiosidade */
 .animated-login-characters[data-mood="typing"] .alc-purple .alc-eye {
   --eye-mx: 7px;
   --eye-my: -15px;
+  animation: none;
+  transform: translate3d(calc(var(--px) * 1.6px + var(--eye-mx)), calc(var(--py) * 1.1px + var(--eye-my)), 0) scale(1.25);
 }
 
+/* boca abre em "O" de surpresa */
 .animated-login-characters[data-mood="typing"] .alc-purple .purple-mouth {
-  --eye-mx: 7px;
-  --eye-my: -13px;
+  --eye-mx: 8px;
+  --eye-my: -14px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
 }
 
 .animated-login-characters[data-mood="typing"] .alc-black .alc-react {
@@ -455,11 +462,14 @@ const charactersCss = `
   transform: translate3d(var(--eye-mx), var(--eye-my), 0) scaleY(0.7);
 }
 
+/* boca pequena e aberta de preocupacao */
 .animated-login-characters[data-mood="shy"] .alc-purple .purple-mouth {
   --eye-mx: -3px;
-  --eye-my: 4px;
-  width: 9px;
-  transform: translate3d(var(--eye-mx), var(--eye-my), 0) rotate(-9deg);
+  --eye-my: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  transform: translate3d(var(--eye-mx), var(--eye-my), 0);
 }
 
 /* azul fecha os olhos */
@@ -470,7 +480,7 @@ const charactersCss = `
 
 /* o "passaro" vira para o outro lado */
 .animated-login-characters[data-mood="shy"] .alc-yellow .alc-react {
-  transform: translate3d(-2px, 0, 0) rotate(-4deg);
+  transform: translate3d(-3px, 0, 0) rotate(-6deg);
 }
 
 .animated-login-characters[data-mood="shy"] .yellow-beak {
@@ -478,14 +488,18 @@ const charactersCss = `
 }
 
 .animated-login-characters[data-mood="shy"] .yellow-eye {
-  --eye-mx: -4px;
+  --eye-mx: -6px;
   --eye-my: 0px;
 }
 
-/* o grafite continua encarando (a piada) */
+/* o grafite tambem desvia o olhar para o lado oposto */
+.animated-login-characters[data-mood="shy"] .alc-black .alc-react {
+  transform: translate3d(-2px, 0, 0) rotate(-3deg);
+}
+
 .animated-login-characters[data-mood="shy"] .alc-black .alc-eye {
   animation: none;
-  transform: translate3d(2px, -1px, 0) scale(1.25);
+  transform: translate3d(-4.5px, -1px, 0);
 }
 
 /* erro: desconfianca + shake */
@@ -495,6 +509,13 @@ const charactersCss = `
 
 .animated-login-characters[data-mood="error"] .alc-purple .alc-react {
   transform: translate3d(-2px, 0, 0) rotate(-5deg);
+}
+
+/* boca tensa, esticada de desconfianca */
+.animated-login-characters[data-mood="error"] .alc-purple .purple-mouth {
+  --eye-mx: -2px;
+  width: 15px;
+  height: 2.5px;
 }
 
 .animated-login-characters[data-mood="error"] .alc-black .alc-react {
@@ -522,6 +543,19 @@ const charactersCss = `
   animation: alc-yellow-success 500ms ease-out both;
 }
 
+/* sorrisos no sucesso */
+.animated-login-characters[data-mood="success"] .alc-orange .orange-mouth {
+  --eye-mx: -3px;
+  width: 22px;
+  height: 11px;
+}
+
+.animated-login-characters[data-mood="success"] .alc-purple .purple-mouth {
+  width: 12px;
+  height: 6px;
+  border-radius: 0 0 10px 10px;
+}
+
 /* ---- Olhos, bocas e bico ---- */
 
 .alc-eye,
@@ -530,7 +564,7 @@ const charactersCss = `
   position: absolute;
   display: block;
   pointer-events: none;
-  transition: transform 300ms ease-out, width 300ms ease-out;
+  transition: transform 300ms ease-out, width 300ms ease-out, height 300ms ease-out, border-radius 300ms ease-out;
 }
 
 .alc-eye {
