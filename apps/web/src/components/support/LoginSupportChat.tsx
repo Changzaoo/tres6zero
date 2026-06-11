@@ -215,7 +215,7 @@ export function LoginSupportChat() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-950"
       >
         <LifeBuoy className="h-4 w-4" />
         Entrar em contato com suporte

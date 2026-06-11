@@ -27,7 +27,7 @@ Do not add backend secrets to Vercel unless they are required by a serverless fu
 
 ## Render
 
-Render hosts the Express backend at `https://tres6zero.onrender.com`.
+Render hosts the Express backend at `https://six3-m0wr.onrender.com`.
 
 Configure these in Render:
 
