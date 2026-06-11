@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,6 +18,7 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+type LoginField = 'email' | 'password';
 
 // Easing premium usado em todas as entradas
 const easePremium: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -27,55 +28,109 @@ export default function LoginPage() {
   const reduceMotion = useReducedMotion();
   const [showPass, setShowPass] = useState(false);
   const [mood, setMood] = useState<CharacterMood>('idle');
+  const [activeField, setActiveField] = useState<LoginField | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const activeFieldRef = useRef<LoginField | null>(null);
   const errorMoodTimer = useRef<number>();
+  const typingReturnTimer = useRef<number>();
+  const typingLockTimer = useRef<number>();
+  const typingLockedRef = useRef(false);
   const [banNotice, setBanNotice] = useState<{ reason?: string | null; expiresAt?: string | null } | null>(null);
   const setUser = useAuthStore((state) => state.setUser);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  useEffect(() => () => window.clearTimeout(errorMoodTimer.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(errorMoodTimer.current);
+    window.clearTimeout(typingReturnTimer.current);
+    window.clearTimeout(typingLockTimer.current);
+  }, []);
 
   // Shake curto na ilustracao; volta sozinho para idle
   function triggerErrorMood() {
+    window.clearTimeout(typingReturnTimer.current);
     setMood('error');
     window.clearTimeout(errorMoodTimer.current);
     errorMoodTimer.current = window.setTimeout(() => {
-      setMood((current) => (current === 'error' ? 'idle' : current));
-    }, 700);
+      setMood((current) => (current === 'error' ? (activeFieldRef.current ? 'focus' : 'idle') : current));
+    }, 650);
+  }
+
+  function triggerTypingMood(field: LoginField) {
+    activeFieldRef.current = field;
+    setActiveField(field);
+    setLoginError(null);
+
+    if (!typingLockedRef.current) {
+      setMood('typing');
+      typingLockedRef.current = true;
+      window.clearTimeout(typingLockTimer.current);
+      typingLockTimer.current = window.setTimeout(() => {
+        typingLockedRef.current = false;
+      }, 1000);
+    }
+
+    window.clearTimeout(typingReturnTimer.current);
+    typingReturnTimer.current = window.setTimeout(() => {
+      setMood(activeFieldRef.current ? 'focus' : 'idle');
+    }, 1750);
   }
 
   async function onSubmit(data: FormData) {
     try {
+      setLoginError(null);
       const session = await login(data.email, data.password);
       setUser(session.user);
-      // Reacao positiva dos personagens; a navegacao segue imediatamente
       setMood('success');
+      if (!reduceMotion) {
+        await new Promise((resolve) => window.setTimeout(resolve, 120));
+      }
       navigate(session.user.subscriptionStatus === 'active' ? '/app/dashboard' : '/app/billing');
     } catch (error: any) {
       if (error?.code === 'BAN_ACTIVE') {
         setBanNotice({ reason: error.banReason, expiresAt: error.banExpiresAt });
         return;
       }
+      const message = parseFirebaseError(error.code);
+      setLoginError(message);
       triggerErrorMood();
-      toast.error(parseFirebaseError(error.code));
+      toast.error(message);
     }
   }
 
-  // Foco nos inputs: personagens "olham" para o formulario
+  function onInvalidSubmit() {
+    setLoginError('Revise os campos e tente novamente.');
+    triggerErrorMood();
+  }
+
   const emailField = register('email');
   const passwordField = register('password');
 
-  function handleFieldFocus() {
+  function handleFieldFocus(field: LoginField) {
+    activeFieldRef.current = field;
+    setActiveField(field);
     setMood((current) => (current === 'error' ? current : 'focus'));
   }
 
-  function handleFieldBlur() {
+  function handleFieldBlur(field: LoginField) {
+    if (activeFieldRef.current === field) {
+      activeFieldRef.current = null;
+      setActiveField(null);
+    }
     setMood((current) => (current === 'focus' ? 'idle' : current));
   }
 
-  // Cascata do formulario: logo -> titulo -> subtitulo -> inputs -> acoes -> rodape
+  function handleFieldChange(
+    event: ChangeEvent<HTMLInputElement>,
+    field: LoginField,
+    fieldOnChange: (event: ChangeEvent<HTMLInputElement>) => void,
+  ) {
+    fieldOnChange(event);
+    triggerTypingMood(field);
+  }
+
   const formContainer: Variants = {
     hidden: {},
-    visible: { transition: { staggerChildren: 0.08, delayChildren: 0.5 } },
+    visible: { transition: { staggerChildren: 0.08, delayChildren: reduceMotion ? 0.15 : 1.05 } },
   };
   const formItem: Variants = reduceMotion
     ? { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.4 } } }
@@ -90,12 +145,11 @@ export default function LoginPage() {
       <motion.section
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
         animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.8, ease: easePremium }}
+        transition={{ duration: 0.8, delay: reduceMotion ? 0 : 0.28, ease: easePremium }}
         className="relative z-10 grid w-full max-w-[820px] overflow-hidden rounded-[16px] bg-[#151821] shadow-[0_30px_90px_-20px_rgba(59,109,255,0.3)] ring-1 ring-white/10 md:grid-cols-2"
       >
-        {/* Coluna da ilustracao: escura, com contraste sutil em relacao ao card */}
         <div className="relative flex min-h-[260px] items-center justify-center bg-[#11141d] p-8 sm:min-h-[330px] md:min-h-[520px] md:p-10">
-          <AnimatedLoginCharacters mood={mood} />
+          <AnimatedLoginCharacters mood={mood} activeField={activeField} />
         </div>
 
         <div className="flex min-h-[460px] items-center justify-center px-7 py-10 sm:px-10 md:min-h-[520px]">
@@ -104,12 +158,11 @@ export default function LoginPage() {
               variants={formContainer}
               initial="hidden"
               animate="visible"
-              onSubmit={handleSubmit(onSubmit, triggerErrorMood)}
+              onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
               className="space-y-5"
               noValidate
             >
               <div className="text-center">
-                {/* Logo oficial do projeto (wordmark branco, ideal no card escuro) */}
                 <motion.img
                   variants={formItem}
                   src="/brand/six3-logo.png"
@@ -134,10 +187,11 @@ export default function LoginPage() {
                     placeholder="example@email.com"
                     className="mt-1 w-full border-0 border-b border-white/15 bg-transparent px-0 py-1.5 text-[12px] font-medium text-[#f8fafc] outline-none transition-colors duration-200 placeholder:text-white/25 autofill:shadow-[inset_0_0_0_1000px_#151821] autofill:[-webkit-text-fill-color:#f8fafc] focus:border-brand-400 focus:ring-0"
                     {...emailField}
-                    onFocus={handleFieldFocus}
+                    onFocus={() => handleFieldFocus('email')}
+                    onChange={(event) => handleFieldChange(event, 'email', emailField.onChange)}
                     onBlur={(event) => {
                       void emailField.onBlur(event);
-                      handleFieldBlur();
+                      handleFieldBlur('email');
                     }}
                   />
                   {errors.email && <p className="mt-1 text-[11px] text-red-400">{errors.email.message}</p>}
@@ -152,10 +206,11 @@ export default function LoginPage() {
                       placeholder="********"
                       className="mt-1 w-full border-0 border-b border-white/15 bg-transparent px-0 py-1.5 pr-9 text-[12px] font-medium text-[#f8fafc] outline-none transition-colors duration-200 placeholder:text-white/25 autofill:shadow-[inset_0_0_0_1000px_#151821] autofill:[-webkit-text-fill-color:#f8fafc] focus:border-brand-400 focus:ring-0"
                       {...passwordField}
-                      onFocus={handleFieldFocus}
+                      onFocus={() => handleFieldFocus('password')}
+                      onChange={(event) => handleFieldChange(event, 'password', passwordField.onChange)}
                       onBlur={(event) => {
                         void passwordField.onBlur(event);
-                        handleFieldBlur();
+                        handleFieldBlur('password');
                       }}
                     />
                     <button
@@ -188,6 +243,17 @@ export default function LoginPage() {
                 </Link>
               </motion.div>
 
+              {loginError && (
+                <motion.p
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  role="alert"
+                  className="rounded-full border border-red-400/20 bg-red-500/10 px-3 py-2 text-center text-[11px] font-semibold text-red-200"
+                >
+                  {loginError}
+                </motion.p>
+              )}
+
               <div className="space-y-3 pt-1">
                 <motion.button
                   variants={formItem}
@@ -205,11 +271,6 @@ export default function LoginPage() {
                   )}
                 </motion.button>
 
-                {/*
-                  Login com Google ainda nao existe no backend (authService so expoe login por e-mail/senha).
-                  Para integrar: criar signInWithGoogle() em src/services/authService.ts e chamar aqui no onClick,
-                  seguindo o mesmo fluxo de onSubmit (setUser + navigate).
-                */}
                 <motion.button
                   variants={formItem}
                   type="button"

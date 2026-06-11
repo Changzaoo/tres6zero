@@ -222,7 +222,7 @@ export function LoginSupportChat({ variant = 'inline' }: LoginSupportChatProps) 
           onClick={() => setOpen(true)}
           aria-label="Entrar em contato com suporte"
           title="Entrar em contato com suporte"
-          className="fixed bottom-4 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white text-neutral-950 shadow-2xl shadow-black/30 transition hover:scale-105 hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          className="fixed bottom-4 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#151821] text-white shadow-2xl shadow-black/35 transition hover:scale-105 hover:bg-[#1f2430] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <LifeBuoy className="h-5 w-5" />
         </button>
