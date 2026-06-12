@@ -153,16 +153,23 @@ async function toObjectUrl(url?: string) {
   if (!url) return undefined;
   if (url.startsWith('blob:') || url.startsWith('data:')) return { src: url };
 
-  try {
-    const response = await fetch(url, { mode: 'cors', cache: 'force-cache' });
-    if (!response.ok) return undefined;
+  // Duas tentativas: cache primeiro e, se falhar (rede instável/cache corrompido),
+  // busca direto da rede antes de desistir do asset.
+  const strategies: RequestCache[] = ['force-cache', 'reload'];
+  for (const cache of strategies) {
+    try {
+      const response = await fetch(url, { mode: 'cors', cache });
+      if (!response.ok) continue;
 
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    return { src: objectUrl, objectUrl };
-  } catch {
-    return undefined;
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      return { src: objectUrl, objectUrl };
+    } catch {
+      // Tenta a próxima estratégia.
+    }
   }
+
+  return undefined;
 }
 
 async function loadImage(url?: string): Promise<LoadedAsset<HTMLImageElement> | undefined> {

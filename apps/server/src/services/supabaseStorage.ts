@@ -8,7 +8,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 
-const DEFAULT_SUPABASE_URL = 'https://xmuawzcpydmbcqackgoz.supabase.co';
+const DEFAULT_SUPABASE_URL = 'https://fepyzmawcsetlyinztjc.supabase.co';
 
 function env(name: string) {
   const value = process.env[name];

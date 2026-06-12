@@ -1,4 +1,4 @@
-const DEFAULT_SUPABASE_URL = 'https://xmuawzcpydmbcqackgoz.supabase.co';
+const DEFAULT_SUPABASE_URL = 'https://fepyzmawcsetlyinztjc.supabase.co';
 export const DEFAULT_TEMPLATE_BUCKET = 'six3-project-templates';
 
 function supabaseUrl() {

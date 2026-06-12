@@ -1,13 +1,14 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
-import { downloadToTempFile, publicUrl, SUPABASE_BUCKETS, uploadFileToSupabase } from './supabaseStorage';
+import { downloadToTempFile, ensurePublicBucket, publicUrl, SUPABASE_BUCKETS, uploadFileToSupabase } from './supabaseStorage';
 import { BASIC_EFFECTS, POPULAR_EFFECTS, AI_EFFECTS } from './planEntitlements';
 import { getAIVideoDirection, getFallbackAIVideoDirection } from './openaiVideoDirector';
 import { buildMusicCatalog } from './musicCatalog';
+import { GENERATED_TEMPLATE_CATALOG_SIZE, buildGeneratedTemplates, renderTemplatePng } from './generatedTemplates';
 
 export type ProcessingConfig = {
   videoId: string;
@@ -134,6 +135,24 @@ function parseEditorEffect(stdout: string, fallback?: string) {
   }
 }
 
+const RETRY_DELAYS_MS = [400, 1200, 2500];
+
+async function withRetries<T>(label: string, task: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      console.warn(`[videoProcessor] ${label} (tentativa ${attempt + 1}) falhou:`, error instanceof Error ? error.message : error);
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`${label.toUpperCase()}_FAILED`);
+}
+
 function fallbackExtFromUrl(url?: string) {
   if (!url) return '.bin';
   if (url.startsWith('data:image/svg+xml')) return '.svg';
@@ -185,6 +204,109 @@ async function extractAnalysisFrame(inputPath: string, dir: string) {
   return outputPath;
 }
 
+const FALLBACK_EFFECT_FILTERS: Record<string, string> = {
+  clean: 'eq=contrast=1.05:saturation=1.08:brightness=0.01',
+  slow_motion: 'setpts=1.35*PTS,eq=contrast=1.04:saturation=1.08',
+  speed_ramp: 'setpts=0.82*PTS,eq=contrast=1.1:saturation=1.18',
+  boomerang: 'eq=contrast=1.08:saturation=1.12',
+  cinematic: 'eq=contrast=1.12:saturation=0.95:brightness=-0.02,unsharp=5:5:0.6',
+  neon: 'eq=contrast=1.18:saturation=1.55,hue=s=1.15',
+  party: 'eq=contrast=1.12:saturation=1.35,vignette=PI/5',
+  luxury: 'eq=contrast=1.08:saturation=1.05:gamma=0.95,unsharp=3:3:0.35',
+  glitch_flash: 'tblend=all_mode=lighten:all_opacity=0.16,eq=contrast=1.25:saturation=1.35',
+  wedding_soft: 'eq=contrast=0.98:saturation=1.05:brightness=0.03,gblur=sigma=0.25',
+  corporate_sharp: 'eq=contrast=1.08:saturation=0.92,unsharp=5:5:0.9',
+  ai_auto: 'eq=contrast=1.12:saturation=0.95:brightness=-0.02,unsharp=5:5:0.6',
+};
+
+// Regenera a moldura localmente a partir do catálogo quando o download falha:
+// garante que o vídeo nunca sai sem a moldura escolhida.
+async function renderLocalTemplateOverlay(templateId: string | undefined, dir: string) {
+  if (!templateId) return undefined;
+  const normalized = templateId.replace(/\.(png|webm)$/i, '').replace(/^animated-/, '');
+  const match = /^(?:generated|idea)-(\d+)$/.exec(normalized);
+  if (!match) return undefined;
+
+  const index = Number(match[1]);
+  if (!Number.isInteger(index) || index < 1 || index > GENERATED_TEMPLATE_CATALOG_SIZE) return undefined;
+
+  const template = buildGeneratedTemplates(1, index - 1, { includeSvg: true, includeDataUrl: false })[0];
+  if (!template?.svg) return undefined;
+
+  const filePath = path.join(dir, 'local-overlay.png');
+  await writeFile(filePath, await renderTemplatePng(template.svg));
+  return filePath;
+}
+
+async function resolveOverlayFile(config: ProcessingConfig, fallbackDir: string) {
+  const sources = [config.animationUrl, config.overlayUrl]
+    .filter((url, index, list): url is string => Boolean(url) && list.indexOf(url) === index);
+
+  for (const source of sources) {
+    try {
+      const temp = await withRetries('download da moldura', () => downloadToTempFile(source, fallbackExtFromUrl(source)));
+      return { filePath: await rasterOverlayIfNeeded(temp.filePath), cleanup: temp.cleanup };
+    } catch (error) {
+      console.warn('[videoProcessor] Moldura indisponível na URL, tentando próxima fonte:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  try {
+    const localPath = await renderLocalTemplateOverlay(config.templateId, fallbackDir);
+    if (localPath) {
+      console.warn('[videoProcessor] Moldura regenerada localmente a partir do catálogo:', config.templateId);
+      return { filePath: localPath, cleanup: async () => undefined };
+    }
+  } catch (error) {
+    console.warn('[videoProcessor] Falha ao regenerar moldura local:', error instanceof Error ? error.message : error);
+  }
+
+  return undefined;
+}
+
+async function runFfmpegFallback(params: {
+  inputPath: string;
+  outputPath: string;
+  effect: string;
+  overlayPath?: string;
+  musicPath?: string;
+  durationSeconds?: number;
+}) {
+  const filter = FALLBACK_EFFECT_FILTERS[params.effect] || FALLBACK_EFFECT_FILTERS.clean;
+  let graph = `[0:v]${filter},scale=trunc(iw/2)*2:trunc(ih/2)*2,fps=30,format=yuv420p[base]`;
+  const args = ['-y', '-i', params.inputPath];
+
+  if (params.overlayPath) {
+    const overlayExt = path.extname(params.overlayPath).toLowerCase();
+    const animatedOverlay = ['.webm', '.mp4', '.mov', '.gif'].includes(overlayExt);
+    if (animatedOverlay) args.push('-stream_loop', '-1');
+    if (overlayExt === '.webm') args.push('-c:v', 'libvpx-vp9');
+    args.push('-i', params.overlayPath);
+    graph += ';[1:v]format=rgba[overlay_src];'
+      + '[overlay_src][base]scale2ref=w=main_w:h=main_h:flags=lanczos[ov][video];'
+      + `[video][ov]overlay=0:0:format=auto:eof_action=repeat${animatedOverlay ? ':shortest=1' : ''}[v]`;
+  } else {
+    graph += ';[base]null[v]';
+  }
+
+  let audioIndex: number | null = null;
+  if (params.musicPath) {
+    audioIndex = params.overlayPath ? 2 : 1;
+    args.push('-stream_loop', '-1', '-i', params.musicPath);
+  }
+
+  args.push('-filter_complex', graph, '-map', '[v]');
+  if (audioIndex !== null) {
+    args.push('-map', `${audioIndex}:a`, '-shortest', '-c:a', 'aac', '-b:a', '128k');
+  } else {
+    args.push('-an');
+  }
+  if (params.durationSeconds) args.push('-t', params.durationSeconds.toFixed(3));
+  args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-movflags', '+faststart', params.outputPath);
+
+  await runBinary(ffmpegPath || 'ffmpeg', args);
+}
+
 function publicLibraryMusicUrlForTheme(theme?: string) {
   if (!theme || theme === 'none') return undefined;
   const tracks = buildMusicCatalog();
@@ -212,17 +334,17 @@ async function processVideoInSlot(config: ProcessingConfig): Promise<ProcessingR
   }
 
   let inputTemp: Awaited<ReturnType<typeof downloadToTempFile>> | null = null;
-  let overlayTemp: Awaited<ReturnType<typeof downloadToTempFile>> | null = null;
+  let overlayFile: { filePath: string; cleanup: () => Promise<unknown> } | undefined;
   let musicTemp: Awaited<ReturnType<typeof downloadToTempFile>> | null = null;
 
   try {
-    inputTemp = await downloadToTempFile(config.inputUrl, '.mp4');
-    const overlaySourceUrl = config.animationUrl || config.overlayUrl;
-    if (overlaySourceUrl) {
-      overlayTemp = await downloadToTempFile(overlaySourceUrl, fallbackExtFromUrl(overlaySourceUrl));
-    }
+    inputTemp = await withRetries('download do vídeo de entrada', () => downloadToTempFile(config.inputUrl!, '.mp4'));
+    overlayFile = await resolveOverlayFile(config, inputTemp.dir);
     if (config.musicUrl) {
-      musicTemp = await downloadToTempFile(config.musicUrl, '.wav');
+      musicTemp = await withRetries('download da música', () => downloadToTempFile(config.musicUrl!, '.wav')).catch((error) => {
+        console.warn('[videoProcessor] Música explícita indisponível, usando trilha do tema:', error instanceof Error ? error.message : error);
+        return null;
+      });
     }
 
     const script = resolvePythonScript();
@@ -268,33 +390,83 @@ async function processVideoInSlot(config: ProcessingConfig): Promise<ProcessingR
       '--ffmpeg', ffmpegPath || 'ffmpeg',
     ];
 
-    if (overlayTemp) args.push('--overlay', await rasterOverlayIfNeeded(overlayTemp.filePath));
+    if (overlayFile) args.push('--overlay', overlayFile.filePath);
     if (musicTemp) args.push('--music-file', musicTemp.filePath);
     if (config.durationSeconds) args.push('--duration-seconds', String(config.durationSeconds));
     if (config.effectSegments?.length) args.push('--effect-segments', JSON.stringify(config.effectSegments));
 
-    const editor = await runPythonEditor(args);
-    const uploaded = await uploadFileToSupabase({
+    let editorStdout = '';
+    try {
+      const editor = await runPythonEditor(args);
+      editorStdout = editor.stdout;
+    } catch (pythonError) {
+      // Plano B: o editor Python falhou (ou Python indisponível); aplica o mesmo
+      // pipeline (efeito + moldura + música) direto com ffmpeg, sem segmentos.
+      console.warn('[videoProcessor] Editor Python falhou, usando pipeline ffmpeg direto:', pythonError instanceof Error ? pythonError.message : pythonError);
+      await runFfmpegFallback({
+        inputPath: inputTemp.filePath,
+        outputPath,
+        effect: selectedEffect,
+        overlayPath: overlayFile?.filePath,
+        musicPath: musicTemp?.filePath,
+        durationSeconds: config.durationSeconds,
+      });
+    }
+
+    await ensurePublicBucket(SUPABASE_BUCKETS.videos).catch((error) => {
+      console.warn('[videoProcessor] ensurePublicBucket:', error instanceof Error ? error.message : error);
+    });
+    const uploaded = await withRetries('upload do vídeo processado', () => uploadFileToSupabase({
       bucket: 'videos',
       prefix: `processed/${config.userId || 'unknown'}`,
       fileName: `${config.videoId}.mp4`,
       fallbackExt: '.mp4',
       filePath: outputPath,
       contentType: 'video/mp4',
-    });
+    }));
 
     return {
       videoId: config.videoId,
       status: 'processed',
       outputUrl: uploaded.publicUrl,
       storagePath: uploaded.path,
-      effect: parseEditorEffect(editor.stdout, selectedEffect),
+      effect: parseEditorEffect(editorStdout, selectedEffect),
       musicTheme: selectedMusicTheme,
       aiRationale,
       processedAt,
     };
   } catch (error) {
     console.error('[videoProcessor] Failed:', error instanceof Error ? error.message : error);
+
+    // Último recurso: entrega o vídeo original sem reprocessar, para o usuário
+    // nunca ficar sem o arquivo (melhor um vídeo sem pós-produção do que erro).
+    if (inputTemp) {
+      try {
+        await ensurePublicBucket(SUPABASE_BUCKETS.videos).catch(() => undefined);
+        const uploadedOriginal = await withRetries('upload do vídeo original (último recurso)', () => uploadFileToSupabase({
+          bucket: 'videos',
+          prefix: `processed/${config.userId || 'unknown'}`,
+          fileName: `${config.videoId}.mp4`,
+          fallbackExt: '.mp4',
+          filePath: inputTemp!.filePath,
+          contentType: 'video/mp4',
+        }));
+
+        return {
+          videoId: config.videoId,
+          status: 'processed',
+          outputUrl: uploadedOriginal.publicUrl,
+          storagePath: uploadedOriginal.path,
+          effect: 'clean',
+          musicTheme: config.musicTheme || 'none',
+          aiRationale: undefined,
+          processedAt,
+        };
+      } catch (lastResortError) {
+        console.error('[videoProcessor] Último recurso falhou:', lastResortError instanceof Error ? lastResortError.message : lastResortError);
+      }
+    }
+
     return {
       videoId: config.videoId,
       status: 'failed',
@@ -303,7 +475,7 @@ async function processVideoInSlot(config: ProcessingConfig): Promise<ProcessingR
     };
   } finally {
     await inputTemp?.cleanup().catch(() => undefined);
-    await overlayTemp?.cleanup().catch(() => undefined);
+    await overlayFile?.cleanup().catch(() => undefined);
     await musicTemp?.cleanup().catch(() => undefined);
   }
 }
