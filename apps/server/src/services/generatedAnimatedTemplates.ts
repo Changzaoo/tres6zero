@@ -301,7 +301,133 @@ function spotlightSweep(template: BaseTemplate, width: number, height: number, f
   `;
 }
 
+function flameMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  const baseY = height * 0.965;
+  const count = template.aspectRatio === '16:9' ? 16 : 11;
+  const slot = (width * 0.92) / count;
+  const colors = [template.colors.primary, template.colors.secondary, '#fbbf24'];
+
+  // Chamas tremulam: altura e inclinação variam com o frame, como fogo de verdade.
+  const flames = Array.from({ length: count }, (_, i) => {
+    const flicker = 0.74 + Math.abs(wave(frame, frames, i * 1.7)) * 0.5;
+    const sway = wave(frame, frames, i * 0.9) * slot * 0.16;
+    const x = width * 0.04 + i * slot + slot * 0.2;
+    const h = Math.min(width, height) * 0.115 * flicker;
+    const w = slot * 0.9;
+    const tipX = x + w * 0.32 + sway;
+    const fill = colors[i % colors.length];
+    return `
+      <path d="M${x.toFixed(2)} ${baseY.toFixed(2)} C${(x - w * 0.5).toFixed(2)} ${(baseY - h * 0.36).toFixed(2)}, ${(x + w * 0.1).toFixed(2)} ${(baseY - h * 0.5).toFixed(2)}, ${tipX.toFixed(2)} ${(baseY - h).toFixed(2)} C${(x + w * 0.6).toFixed(2)} ${(baseY - h * 0.5).toFixed(2)}, ${(x + w * 0.72).toFixed(2)} ${(baseY - h * 0.28).toFixed(2)}, ${(x + w * 0.48).toFixed(2)} ${baseY.toFixed(2)} Z" fill="${fill}" opacity="${(0.66 + Math.abs(wave(frame, frames, i)) * 0.3).toFixed(2)}"/>
+      <path d="M${(x + w * 0.18).toFixed(2)} ${baseY.toFixed(2)} C${(x - w * 0.08).toFixed(2)} ${(baseY - h * 0.24).toFixed(2)}, ${(x + w * 0.16).toFixed(2)} ${(baseY - h * 0.3).toFixed(2)}, ${(tipX - w * 0.06).toFixed(2)} ${(baseY - h * 0.62).toFixed(2)} C${(x + w * 0.46).toFixed(2)} ${(baseY - h * 0.3).toFixed(2)}, ${(x + w * 0.52).toFixed(2)} ${(baseY - h * 0.18).toFixed(2)}, ${(x + w * 0.4).toFixed(2)} ${baseY.toFixed(2)} Z" fill="#fde047" opacity="${(0.5 + Math.abs(wave(frame, frames, i + 2)) * 0.34).toFixed(2)}"/>
+    `;
+  }).join('');
+
+  // Brasas sobem em loop: posição vertical avança com o frame e reinicia.
+  const embers = Array.from({ length: 16 }, (_, i) => {
+    const x = width * 0.05 + ((i * 127) % Math.round(width * 0.9)) + wave(frame, frames, i) * width * 0.012;
+    const travel = height * 0.3;
+    const y = baseY - height * 0.04 - (((i * 53 + frame * (travel / frames)) % travel));
+    const r = Math.max(2.5, width * (0.0035 + (i % 3) * 0.002));
+    const fade = 1 - ((baseY - y) / travel);
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r.toFixed(2)}" fill="${i % 2 ? '#fbbf24' : template.colors.secondary}" opacity="${(0.25 + fade * 0.6).toFixed(2)}"/>`;
+  }).join('');
+
+  return `${flames}${embers}`;
+}
+
+function frostMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  // Neve caindo em loop contínuo + flocos girando nos cantos.
+  const snow = Array.from({ length: 26 }, (_, i) => {
+    const travel = height * 1.04;
+    const x = ((i * 113) % Math.round(width * 0.94)) + width * 0.03 + wave(frame, frames, i * 0.8) * width * 0.02;
+    const y = ((i * 211 + frame * (travel / frames)) % travel) - height * 0.02;
+    const r = Math.max(2.5, width * (0.003 + (i % 4) * 0.0022));
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r.toFixed(2)}" fill="#ffffff" opacity="${(0.4 + (i % 3) * 0.2).toFixed(2)}"/>`;
+  }).join('');
+
+  const spin = (frame / frames) * 60;
+  const flake = (cx: number, cy: number, r: number, color: string, dir: number) => {
+    const arms = Array.from({ length: 6 }, (_, i) => {
+      const angle = (Math.PI * i) / 3;
+      return `<path d="M0 0 L${(Math.cos(angle) * r).toFixed(2)} ${(Math.sin(angle) * r).toFixed(2)}" stroke="${color}" stroke-width="${Math.max(2, r * 0.14).toFixed(2)}" stroke-linecap="round"/>`;
+    }).join('');
+    return `<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${(spin * dir).toFixed(2)})" opacity="0.85">${arms}</g>`;
+  };
+
+  return `${snow}
+    ${flake(width * 0.09, height * 0.88, width * 0.032, template.colors.secondary, 1)}
+    ${flake(width * 0.91, height * 0.87, width * 0.027, '#bae6fd', -1)}
+    ${flake(width * 0.9, height * 0.12, width * 0.02, template.colors.secondary, 1)}
+  `;
+}
+
+function waveMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  // Ondas deslizam horizontalmente (fase contínua = loop perfeito) + bolhas sobem.
+  const baseY = height * 0.93;
+  const amp = height * 0.018;
+  const wavePath = (offsetY: number, phaseOffset: number, color: string, opacity: number, widthFactor: number) => {
+    const segments = 24;
+    const points = Array.from({ length: segments + 1 }, (_, i) => {
+      const x = (width * i) / segments;
+      const y = baseY + offsetY + Math.sin(phase(frame, frames) * widthFactor + (i / segments) * Math.PI * 4 + phaseOffset) * amp;
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
+    }).join(' ');
+    return `<path d="${points}" fill="none" stroke="${color}" stroke-width="${Math.max(4, width * 0.007)}" stroke-linecap="round" opacity="${opacity}"/>`;
+  };
+
+  const bubbles = Array.from({ length: 12 }, (_, i) => {
+    const travel = height * 0.5;
+    const x = (i % 2 ? width * 0.06 : width * 0.94) + wave(frame, frames, i) * width * 0.014;
+    const y = baseY - (((i * 89 + frame * (travel / frames)) % travel));
+    const r = Math.max(2.5, width * (0.004 + (i % 3) * 0.0025));
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r.toFixed(2)}" fill="none" stroke="${i % 2 ? template.colors.secondary : '#a5f3fc'}" stroke-width="${Math.max(1.5, r * 0.3).toFixed(2)}" opacity="${(0.35 + (i % 3) * 0.18).toFixed(2)}"/>`;
+  }).join('');
+
+  return `
+    ${wavePath(0, 0, template.colors.primary, 0.8, 1)}
+    ${wavePath(amp * 2.2, Math.PI / 2, template.colors.secondary, 0.62, 1)}
+    ${wavePath(amp * 4.2, Math.PI, '#a5f3fc', 0.4, 1)}
+    ${bubbles}
+  `;
+}
+
+function cosmicMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  // Estrelas piscam, cometa cruza o topo em loop e o anel do planeta pulsa.
+  const stars = Array.from({ length: 24 }, (_, i) => {
+    const x = width * 0.04 + ((i * 151) % Math.round(width * 0.92));
+    const band = i % 2 === 0
+      ? height * 0.03 + ((i * 67) % Math.round(height * 0.15))
+      : height * 0.97 - ((i * 67) % Math.round(height * 0.15));
+    const r = Math.max(2, width * (0.0028 + (i % 4) * 0.0018));
+    const twinkle = 0.2 + Math.abs(wave(frame, frames, i * 1.3)) * 0.75;
+    return `<circle cx="${x.toFixed(2)}" cy="${band.toFixed(2)}" r="${r.toFixed(2)}" fill="${i % 3 === 0 ? template.colors.secondary : '#ffffff'}" opacity="${twinkle.toFixed(2)}"/>`;
+  }).join('');
+
+  const p = (frame % frames) / frames;
+  const cometX = -width * 0.1 + p * width * 1.2;
+  const cometY = height * 0.16 - p * height * 0.05;
+  const comet = `
+    <path d="M${cometX.toFixed(2)} ${cometY.toFixed(2)} L${(cometX - width * 0.12).toFixed(2)} ${(cometY + height * 0.02).toFixed(2)}" stroke="${template.colors.secondary}" stroke-width="${Math.max(3, width * 0.005)}" stroke-linecap="round" opacity="0.7"/>
+    <circle cx="${cometX.toFixed(2)}" cy="${cometY.toFixed(2)}" r="${(width * 0.01).toFixed(2)}" fill="#ffffff" opacity="0.95"/>
+  `;
+
+  const pr = width * 0.045;
+  const px = width * 0.88;
+  const py = height * 0.1;
+  const ringPulse = 1 + Math.abs(wave(frame, frames)) * 0.12;
+  const planet = `
+    <circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${pr.toFixed(2)}" fill="${template.colors.primary}" opacity="0.9"/>
+    <ellipse cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" rx="${(pr * 1.7 * ringPulse).toFixed(2)}" ry="${(pr * 0.5 * ringPulse).toFixed(2)}" fill="none" stroke="${template.colors.secondary}" stroke-width="${Math.max(2.5, width * 0.004)}" opacity="0.8" transform="rotate(-18 ${px.toFixed(2)} ${py.toFixed(2)})"/>
+  `;
+
+  return `${stars}${comet}${planet}`;
+}
+
 function layoutMotion(template: BaseTemplate, width: number, height: number, frame: number, frames: number) {
+  if (template.layout === 'flame_frame') return flameMotion(template, width, height, frame, frames);
+  if (template.layout === 'frost_frame') return frostMotion(template, width, height, frame, frames);
+  if (template.layout === 'wave_frame') return waveMotion(template, width, height, frame, frames);
+  if (template.layout === 'cosmic_frame') return cosmicMotion(template, width, height, frame, frames);
   if (template.layout === 'orbital_focus') return orbitMotion(template, width, height, frame, frames);
   if (template.layout === 'tech_hud' || template.layout === 'brand_slate') return hudPulse(template, width, height, frame, frames);
   if (template.layout === 'split_ribbon') return ribbonSweep(template, width, height, frame, frames);

@@ -55,6 +55,10 @@ const templateCategoryLabels: Record<string, string> = {
   gamer_neon: 'Gamer neon',
   tropical: 'Tropical',
   booth_360: '360 Booth',
+  fogo: 'Fogo e chamas',
+  gelo: 'Gelo e inverno',
+  oceano: 'Oceano e praia',
+  galaxia: 'Galáxia e espaço',
 };
 
 const aspectOptions = [

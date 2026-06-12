@@ -40,6 +40,10 @@ export const TEMPLATE_TO_MUSIC_CATEGORY: Record<TemplateCategory | 'ambient', Mu
   gamer_neon: 'gamer',
   tropical: 'tropical',
   booth_360: 'balada_neon',
+  fogo: 'balada_neon',
+  gelo: 'cinematico',
+  oceano: 'tropical',
+  galaxia: 'gamer',
   ambient: 'minimalista',
 };
 

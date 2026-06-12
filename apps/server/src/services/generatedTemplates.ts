@@ -4,7 +4,7 @@ const LEGACY_CATEGORIES = [
   'party', 'wedding', 'corporate', 'birthday', 'viral', 'premium',
   'infantil', 'esportivo', 'natal', 'carnaval', 'cha_revelacao', 'halloween',
 ] as const;
-const CATEGORIES = [...LEGACY_CATEGORIES, 'graduation', 'store', 'church'] as const;
+const CATEGORIES = [...LEGACY_CATEGORIES, 'graduation', 'store', 'church', 'fogo', 'gelo', 'oceano', 'galaxia'] as const;
 const ASPECTS = ['9:16', '16:9'] as const;
 
 type TemplateCategory = (typeof CATEGORIES)[number];
@@ -38,7 +38,11 @@ type LayoutKey =
   | 'minimal_editorial'
   | 'brand_slate'
   | 'romantic_lace'
-  | 'geometric_lux';
+  | 'geometric_lux'
+  | 'flame_frame'
+  | 'frost_frame'
+  | 'wave_frame'
+  | 'cosmic_frame';
 
 type ThemePack = {
   title: string;
@@ -84,6 +88,10 @@ const LAYOUT_LABELS: Record<LayoutKey, string> = {
   brand_slate: 'Brand Slate',
   romantic_lace: 'Romantic Lace',
   geometric_lux: 'Geometric Luxe',
+  flame_frame: 'Flame Frame',
+  frost_frame: 'Frost Frame',
+  wave_frame: 'Wave Frame',
+  cosmic_frame: 'Cosmic Frame',
 };
 
 const EFFECTS_BY_CATEGORY: Record<TemplateCategory, string[]> = {
@@ -102,6 +110,10 @@ const EFFECTS_BY_CATEGORY: Record<TemplateCategory, string[]> = {
   carnaval: ['party', 'neon', 'boomerang'],
   cha_revelacao: ['wedding_soft', 'slow_motion', 'cinematic'],
   halloween: ['glitch_flash', 'neon', 'party'],
+  fogo: ['party', 'neon', 'speed_ramp'],
+  gelo: ['cinematic', 'clean', 'slow_motion'],
+  oceano: ['wedding_soft', 'slow_motion', 'cinematic'],
+  galaxia: ['neon', 'cinematic', 'glitch_flash'],
 };
 
 const THEMES: Record<LegacyTemplateCategory, ThemePack[]> = {
@@ -692,6 +704,96 @@ const TEMPLATE_IDEA_GROUPS: Partial<Record<TemplateCategory, string[]>> = {
     'Sombras animadas misterio',
     'Neon spooky dark',
   ],
+  // Novos grupos sempre no FINAL do objeto: a ordem das chaves define os índices
+  // do catálogo e mudar a ordem quebraria os IDs já publicados no storage.
+  fogo: [
+    'Chamas vivas na base',
+    'Fogo neon laranja',
+    'Brasas e faiscas',
+    'Labareda premium dourada',
+    'Fogo azul místico',
+    'Anel de fogo central',
+    'Chamas de churrasco fest',
+    'Fogueira de festa junina',
+    'Inferno chic dark',
+    'Fenix em chamas',
+    'Fogo de artificio quente',
+    'Chama olimpica esportiva',
+    'Pimenta em chamas',
+    'Hot party em chamas',
+    'Lava derretida vibrante',
+    'Chamas com fumaca leve',
+    'Fogo gamer neon',
+    'Coracao em chamas',
+    'Moldura tocha dupla',
+    'Explosao de calor festa',
+  ],
+  gelo: [
+    'Cristais de gelo azul',
+    'Neve caindo suave',
+    'Inverno premium prata',
+    'Flocos delicados pastel',
+    'Geleira azul profunda',
+    'Frozen party kids',
+    'Gelo neon ciano',
+    'Aurora boreal gelada',
+    'Diamantes de gelo luxo',
+    'Vidro congelado fosco',
+    'Estalactites no topo',
+    'Frio elegante minimal',
+    'Festa no gelo vibrante',
+    'Cristal lapidado premium',
+    'Brisa congelante azul',
+    'Neve dourada de luxo',
+    'Pista de gelo party',
+    'Floco gigante central',
+    'Gelo e fogo contraste',
+    'Winter wonderland chic',
+  ],
+  oceano: [
+    'Ondas na base azul',
+    'Mar tropical turquesa',
+    'Bolhas subindo suaves',
+    'Praia paradisiaca clean',
+    'Sereia glam brilhante',
+    'Oceano profundo dark',
+    'Surf wave radical',
+    'Coral colorido vivo',
+    'Maré neon azul',
+    'Festa na piscina fresh',
+    'Espuma do mar branca',
+    'Gotas de agua macro',
+    'Por do sol no mar',
+    'Vibe nautica navy',
+    'Aquario encantado kids',
+    'Onda gigante cinematica',
+    'Lagoa azul serena',
+    'Verao na praia quente',
+    'Cruzeiro de luxo',
+    'Mergulho profundo azul',
+  ],
+  galaxia: [
+    'Estrelas cadentes neon',
+    'Nebulosa roxa profunda',
+    'Planeta com aneis',
+    'Via lactea brilhante',
+    'Cometa atravessando',
+    'Constelacao dourada',
+    'Astronauta party kids',
+    'Buraco negro dramatico',
+    'Aurora cosmica vibrante',
+    'Lua cheia prateada',
+    'Galaxia espiral roxa',
+    'Chuva de meteoros',
+    'Espaco profundo dark',
+    'Sol em eclipse total',
+    'Orbita neon futurista',
+    'Poeira estelar dourada',
+    'Universo infantil fofo',
+    'Foguete decolando festa',
+    'Ceu estrelado romantico',
+    'Galaxia premium luxo',
+  ],
 };
 
 type TemplateIdea = {
@@ -805,6 +907,10 @@ function defaultBadge(category: TemplateCategory) {
     carnaval: 'CARNAVAL',
     cha_revelacao: 'BABY SHOWER',
     halloween: 'HALLOWEEN',
+    fogo: 'EM CHAMAS',
+    gelo: 'PURO GELO',
+    oceano: 'VIBE OCEANO',
+    galaxia: 'MODO GALAXIA',
   };
   return labels[category];
 }
@@ -817,6 +923,10 @@ function ideaFooter(title: string) {
 function ideaLayout(category: TemplateCategory, title: string, index: number): LayoutKey {
   const text = title.toLowerCase();
 
+  if (category === 'fogo' || /chama|fogo|brasa|labareda|lava|fenix|inferno|fogueira/.test(text)) return 'flame_frame';
+  if (category === 'gelo' || /gelo|neve|frozen|cristal|floco|inverno|congel/.test(text)) return 'frost_frame';
+  if (category === 'oceano' || /onda|oceano|mar |praia|piscina|bolha|aqua/.test(text)) return 'wave_frame';
+  if (category === 'galaxia' || /galaxia|estrela cadente|nebulosa|planeta|cosmic|espaco|meteoro|astronauta/.test(text)) return 'cosmic_frame';
   if (/neon|laser|led|gamer|glitch|holographic|tech/.test(text)) return pick(['neon_corners', 'glitch_reel', 'applay_flow', 'tech_hud'], index);
   if (/floral|flores|petalas|jardim|boho|aquarel/.test(text)) return pick(['floral_crown', 'romantic_lace', 'liquid_waves'], index);
   if (/logo|marca|slogan|patrocin|empresa|linkedin|grid|lead|metrica|qr/.test(text)) return pick(['brand_slate', 'tech_hud', 'cinematic_band', 'event_badge'], index);
@@ -844,6 +954,10 @@ function ideaLayout(category: TemplateCategory, title: string, index: number): L
     carnaval: ['confetti_arch', 'neon_corners', 'sticker_burst', 'applay_flow'],
     cha_revelacao: ['romantic_lace', 'floral_crown', 'liquid_waves', 'orbital_focus'],
     halloween: ['glitch_reel', 'retro_vhs', 'neon_corners', 'orbital_focus'],
+    fogo: ['flame_frame', 'flame_frame', 'flame_frame', 'flame_frame'],
+    gelo: ['frost_frame', 'frost_frame', 'frost_frame', 'frost_frame'],
+    oceano: ['wave_frame', 'wave_frame', 'wave_frame', 'wave_frame'],
+    galaxia: ['cosmic_frame', 'cosmic_frame', 'cosmic_frame', 'cosmic_frame'],
   };
 
   return pick(byCategory[category], index);
@@ -876,6 +990,10 @@ function ideaPalettes(category: TemplateCategory, title: string): [string, strin
     carnaval: [['#f97316', '#8b5cf6', '#22d3ee'], ['#f43f5e', '#84cc16', '#fbbf24']],
     cha_revelacao: [['#fbcfe8', '#93c5fd', '#fef9c3'], ['#f8fafc', '#f472b6', '#60a5fa']],
     halloween: [['#1c0030', '#f97316', '#a855f7'], ['#050505', '#f97316', '#86efac']],
+    fogo: [['#dc2626', '#f97316', '#fde047'], ['#ea580c', '#ef4444', '#fbbf24']],
+    gelo: [['#0c4a6e', '#67e8f9', '#f0f9ff'], ['#1e3a5f', '#bae6fd', '#e0f2fe']],
+    oceano: [['#0c4a6e', '#22d3ee', '#a5f3fc'], ['#042f2e', '#2dd4bf', '#f0fdfa']],
+    galaxia: [['#1e1b4b', '#a855f7', '#67e8f9'], ['#0a0118', '#8b5cf6', '#fbbf24']],
   };
 
   return defaults[category];
@@ -1748,8 +1866,169 @@ function categoryAccent(ctx: TemplateContext) {
   return sparkles(ctx, 12);
 }
 
+function flameTongue(x: number, baseY: number, w: number, h: number, fill: string, opacity: number) {
+  // Chama estilizada: corpo em curvas com ponta deslocada para dar movimento.
+  const tipX = x + w * 0.18;
+  return `<path d="M${round(x)} ${round(baseY)} C${round(x - w * 0.55)} ${round(baseY - h * 0.34)}, ${round(x + w * 0.12)} ${round(baseY - h * 0.46)}, ${round(tipX)} ${round(baseY - h)} C${round(x + w * 0.62)} ${round(baseY - h * 0.52)}, ${round(x + w * 0.72)} ${round(baseY - h * 0.3)}, ${round(x + w * 0.5)} ${round(baseY)} Z" fill="${fill}" opacity="${opacity}"/>`;
+}
+
+function flameEdge(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const baseY = height - margin * 0.55;
+  const count = ctx.aspectRatio === '16:9' ? 16 : 11;
+  const slot = (width - margin * 1.4) / count;
+
+  const flames = Array.from({ length: count }, (_, i) => {
+    const x = margin * 0.7 + i * slot + slot * 0.18;
+    const h = Math.min(width, height) * (0.085 + (((i * 37 + index * 13) % 50) / 100) * 0.075);
+    const w = slot * 0.95;
+    const inner = flameTongue(x + w * 0.22, baseY, w * 0.55, h * 0.62, accent, 0.92);
+    return `${flameTongue(x, baseY, w, h, i % 2 ? primary : secondary, 0.88)}${inner}`;
+  }).join('');
+
+  const corners = `
+    ${flameTongue(margin * 0.9, margin * 1.9, width * 0.05, height * 0.085, secondary, 0.85)}
+    ${flameTongue(width - margin * 0.9 - width * 0.05, margin * 1.9, width * 0.05, height * 0.085, primary, 0.85)}
+  `;
+
+  const embers = Array.from({ length: 14 }, (_, i) => {
+    const x = margin + ((i * 131 + index * 41) % Math.round(width - margin * 2));
+    const y = baseY - height * 0.1 - ((i * 71) % Math.round(height * 0.2));
+    const r = Math.max(3, Math.min(width, height) * (0.004 + (i % 3) * 0.002));
+    return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(r)}" fill="${i % 2 ? accent : secondary}" opacity="${0.5 + (i % 3) * 0.15}"/>`;
+  }).join('');
+
+  return `<g filter="url(#softGlow)">${flames}${corners}${embers}</g>`;
+}
+
+function frostEdge(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const snowflake = (x: number, y: number, r: number, color: string, opacity: number) => {
+    const arms = Array.from({ length: 6 }, (_, i) => {
+      const angle = (Math.PI * i) / 3;
+      const x2 = x + Math.cos(angle) * r;
+      const y2 = y + Math.sin(angle) * r;
+      const bx = x + Math.cos(angle) * r * 0.62;
+      const by = y + Math.sin(angle) * r * 0.62;
+      const ba = angle + Math.PI / 5;
+      const bb = angle - Math.PI / 5;
+      return `
+        <path d="M${round(x)} ${round(y)} L${round(x2)} ${round(y2)}" stroke="${color}" stroke-width="${Math.max(2, r * 0.14)}" stroke-linecap="round"/>
+        <path d="M${round(bx)} ${round(by)} L${round(bx + Math.cos(ba) * r * 0.3)} ${round(by + Math.sin(ba) * r * 0.3)}" stroke="${color}" stroke-width="${Math.max(2, r * 0.1)}" stroke-linecap="round"/>
+        <path d="M${round(bx)} ${round(by)} L${round(bx + Math.cos(bb) * r * 0.3)} ${round(by + Math.sin(bb) * r * 0.3)}" stroke="${color}" stroke-width="${Math.max(2, r * 0.1)}" stroke-linecap="round"/>
+      `;
+    }).join('');
+    return `<g opacity="${opacity}">${arms}</g>`;
+  };
+
+  const icicles = Array.from({ length: ctx.aspectRatio === '16:9' ? 14 : 9 }, (_, i) => {
+    const slot = (width - margin * 2) / (ctx.aspectRatio === '16:9' ? 14 : 9);
+    const x = margin + i * slot + slot * 0.3;
+    const h = height * (0.03 + (((i * 53 + index * 17) % 60) / 100) * 0.045);
+    return `<path d="M${round(x)} ${round(margin * 0.8)} L${round(x + slot * 0.2)} ${round(margin * 0.8)} L${round(x + slot * 0.1)} ${round(margin * 0.8 + h)} Z" fill="${i % 2 ? secondary : accent}" opacity="0.78"/>`;
+  }).join('');
+
+  const flakes = [
+    snowflake(margin * 1.5, height - margin * 1.7, Math.min(width, height) * 0.045, secondary, 0.92),
+    snowflake(width - margin * 1.5, height - margin * 1.7, Math.min(width, height) * 0.038, accent, 0.88),
+    snowflake(width - margin * 1.2, margin * 2.4, Math.min(width, height) * 0.028, secondary, 0.8),
+    snowflake(margin * 1.2, margin * 2.5, Math.min(width, height) * 0.024, accent, 0.78),
+  ].join('');
+
+  const dots = Array.from({ length: 16 }, (_, i) => {
+    const side = i % 2 === 0;
+    const x = side ? margin * 0.8 + ((i * 23) % Math.round(width * 0.08)) : width - margin * 0.8 - ((i * 23) % Math.round(width * 0.08));
+    const y = margin + ((i * 97 + index * 31) % Math.round(height - margin * 2));
+    return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(Math.max(2.5, Math.min(width, height) * 0.004))}" fill="#ffffff" opacity="${0.4 + (i % 3) * 0.18}"/>`;
+  }).join('');
+
+  return `<g filter="url(#softGlow)">${icicles}${flakes}${dots}</g>`;
+}
+
+function waveEdge(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const baseY = height - margin * 1.15;
+  const amp = height * 0.022;
+  const wavePath = (offsetY: number, phaseShift: number, color: string, opacity: number) => {
+    const segments = 6;
+    const segW = (width - margin * 1.2) / segments;
+    let d = `M${round(margin * 0.6)} ${round(baseY + offsetY)}`;
+    for (let i = 0; i < segments; i += 1) {
+      const x1 = margin * 0.6 + segW * (i + 0.5);
+      const x2 = margin * 0.6 + segW * (i + 1);
+      const up = (i + phaseShift) % 2 === 0 ? -amp : amp;
+      d += ` Q${round(x1)} ${round(baseY + offsetY + up * 2)}, ${round(x2)} ${round(baseY + offsetY)}`;
+    }
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(5, ctx.stroke * 0.42)}" stroke-linecap="round" opacity="${opacity}"/>`;
+  };
+
+  const bubbles = Array.from({ length: 12 }, (_, i) => {
+    const side = i % 2 === 0;
+    const x = side ? margin + ((i * 29) % Math.round(width * 0.1)) : width - margin - ((i * 29) % Math.round(width * 0.1));
+    const y = height * 0.3 + ((i * 83 + index * 19) % Math.round(height * 0.5));
+    const r = Math.max(3, Math.min(width, height) * (0.005 + (i % 3) * 0.003));
+    return `<circle cx="${round(x)}" cy="${round(y)}" r="${round(r)}" fill="none" stroke="${i % 2 ? secondary : accent}" stroke-width="${Math.max(2, r * 0.3)}" opacity="${0.42 + (i % 3) * 0.16}"/>`;
+  }).join('');
+
+  const droplet = (x: number, y: number, s: number, color: string) => `<path d="M${round(x)} ${round(y - s)} C${round(x + s * 0.8)} ${round(y - s * 0.1)}, ${round(x + s * 0.55)} ${round(y + s * 0.6)}, ${round(x)} ${round(y + s * 0.6)} C${round(x - s * 0.55)} ${round(y + s * 0.6)}, ${round(x - s * 0.8)} ${round(y - s * 0.1)}, ${round(x)} ${round(y - s)} Z" fill="${color}" opacity="0.82"/>`;
+
+  return `<g filter="url(#softGlow)">
+    ${wavePath(0, 0, primary, 0.85)}
+    ${wavePath(amp * 1.9, 1, secondary, 0.7)}
+    ${wavePath(amp * 3.6, 0, accent, 0.5)}
+    ${droplet(margin * 1.6, margin * 2.2, Math.min(width, height) * 0.028, secondary)}
+    ${droplet(width - margin * 1.6, margin * 2.3, Math.min(width, height) * 0.024, accent)}
+    ${bubbles}
+  </g>`;
+}
+
+function cosmicEdge(ctx: TemplateContext) {
+  const { width, height, margin, primary, secondary, accent, index } = ctx;
+  const planetR = Math.min(width, height) * 0.055;
+  const px = width - margin * 1.7;
+  const py = margin * 2.3;
+
+  const stars = Array.from({ length: 26 }, (_, i) => {
+    const x = margin * 0.7 + ((i * 149 + index * 37) % Math.round(width - margin * 1.4));
+    const band = i % 2 === 0
+      ? margin * 0.6 + ((i * 67) % Math.round(height * 0.16))
+      : height - margin * 0.6 - ((i * 67) % Math.round(height * 0.16));
+    const r = Math.max(2.5, Math.min(width, height) * (0.003 + (i % 4) * 0.002));
+    return `<circle cx="${round(x)}" cy="${round(band)}" r="${round(r)}" fill="${i % 3 === 0 ? accent : '#ffffff'}" opacity="${0.45 + (i % 3) * 0.22}"/>`;
+  }).join('');
+
+  const comet = `
+    <path d="M${round(margin * 1.1)} ${round(height * 0.22)} L${round(margin * 1.1 + width * 0.16)} ${round(height * 0.17)}" stroke="url(#strokeGradient)" stroke-width="${Math.max(3, ctx.stroke * 0.2)}" stroke-linecap="round" opacity="0.75"/>
+    <circle cx="${round(margin * 1.1 + width * 0.16)}" cy="${round(height * 0.17)}" r="${round(Math.min(width, height) * 0.012)}" fill="#ffffff" opacity="0.95"/>
+  `;
+
+  const planet = `
+    <circle cx="${round(px)}" cy="${round(py)}" r="${round(planetR)}" fill="${primary}" opacity="0.92"/>
+    <circle cx="${round(px - planetR * 0.3)}" cy="${round(py - planetR * 0.25)}" r="${round(planetR * 0.22)}" fill="${secondary}" opacity="0.55"/>
+    <ellipse cx="${round(px)}" cy="${round(py)}" rx="${round(planetR * 1.75)}" ry="${round(planetR * 0.5)}" fill="none" stroke="${accent}" stroke-width="${Math.max(3, ctx.stroke * 0.2)}" opacity="0.85" transform="rotate(-18 ${round(px)} ${round(py)})"/>
+  `;
+
+  return `<g filter="url(#softGlow)">${stars}${comet}${planet}${sparkles(ctx, 10)}</g>`;
+}
+
 function renderLayout(ctx: TemplateContext) {
   const common = [edgeTrace(ctx), lineFrame(ctx)];
+
+  if (ctx.layout === 'flame_frame') {
+    return [...common, flameEdge(ctx)].join('');
+  }
+
+  if (ctx.layout === 'frost_frame') {
+    return [...common, frostEdge(ctx)].join('');
+  }
+
+  if (ctx.layout === 'wave_frame') {
+    return [...common, waveEdge(ctx)].join('');
+  }
+
+  if (ctx.layout === 'cosmic_frame') {
+    return [...common, cosmicEdge(ctx)].join('');
+  }
 
   if (ctx.layout === 'poster_clip') {
     return [...common, filmEdge(ctx), cornerFans(ctx), confetti(ctx, ctx.aspectRatio === '16:9' ? 30 : 42, 'top'), categoryAccent(ctx)].join('');
