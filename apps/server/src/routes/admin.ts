@@ -31,6 +31,21 @@ const createSupportUserSchema = z.object({
 });
 
 const adminPlanOriginSchema = z.enum(['payment', 'manual_admin', 'affiliate', 'coupon', 'trial', 'promotion', 'support']);
+const DEFAULT_ADMIN_PLAN_REASON = 'Alteracao manual de plano pelo admin';
+
+function optionalAdminReason(defaultReason = DEFAULT_ADMIN_PLAN_REASON) {
+  return z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().trim().max(500).optional().default(defaultReason),
+  );
+}
+
+function optionalAdminPlanOrigin(defaultOrigin: AdminPlanOrigin = 'manual_admin') {
+  return z.preprocess(
+    (value) => adminPlanOriginSchema.safeParse(value).success ? value : undefined,
+    adminPlanOriginSchema.optional().default(defaultOrigin),
+  );
+}
 
 const manualPlanSchema = z.object({
   planId: z.enum(['starter', 'pro', 'unlimited']),
@@ -39,10 +54,10 @@ const manualPlanSchema = z.object({
   keepCurrentExpiration: z.boolean().optional().default(false),
   lifetime: z.boolean().optional().default(false),
   special: z.boolean().optional().default(false),
-  origin: adminPlanOriginSchema.optional().default('manual_admin'),
+  origin: optionalAdminPlanOrigin(),
   resetLimits: z.boolean().optional().default(false),
   applyPlanLimits: z.boolean().optional().default(true),
-  reason: z.string().trim().min(3).max(500),
+  reason: optionalAdminReason(),
 });
 
 const adjustPlanDaysSchema = z.object({
@@ -61,7 +76,7 @@ const trialSchema = z.object({
 const lifetimeSchema = z.object({
   planId: z.enum(['starter', 'pro', 'unlimited']),
   special: z.boolean().optional().default(false),
-  reason: z.string().trim().min(3).max(500),
+  reason: optionalAdminReason(),
 });
 
 const suspendSchema = z.object({
@@ -1194,10 +1209,17 @@ adminRouter.post('/users/:uid/plan', requireAdmin, async (req, res, next) => {
       return;
     }
 
+    const currentExpiration = target.user.currentPeriodEnd || target.user.planExpiresAt || null;
+    const currentExpirationDate = parseIsoDate(currentExpiration);
+    const canKeepCurrentExpiration = Boolean(
+      input.keepCurrentExpiration
+      && currentExpirationDate
+      && currentExpirationDate.getTime() > now.getTime()
+    );
     const expiresAt = input.lifetime
       ? null
-      : input.keepCurrentExpiration && target.user.currentPeriodEnd
-        ? target.user.currentPeriodEnd
+      : canKeepCurrentExpiration && currentExpirationDate
+        ? currentExpirationDate.toISOString()
         : input.expiresAt || addDays(now, 30).toISOString();
 
     if (!input.lifetime) {

@@ -164,6 +164,45 @@ async function qrCodeDataUrlFromPixCode(pixCode?: string | null) {
   }
 }
 
+// Exigência PixGo a partir de 25/06/2026: toda cobrança precisa do CPF/CNPJ
+// do pagador (receiver_cpf). Validação com dígito verificador feita aqui.
+function cpfCheckDigit(digits: number[], factor: number) {
+  const sum = digits.reduce((acc, digit, index) => acc + digit * (factor - index), 0);
+  const rest = (sum * 10) % 11;
+  return rest === 10 ? 0 : rest;
+}
+
+function isValidCpf(value: string) {
+  if (!/^\d{11}$/.test(value) || /^(\d)\1{10}$/.test(value)) return false;
+  const digits = value.split('').map(Number);
+  return cpfCheckDigit(digits.slice(0, 9), 10) === digits[9]
+    && cpfCheckDigit(digits.slice(0, 10), 11) === digits[10];
+}
+
+function cnpjCheckDigit(digits: number[]) {
+  const weights = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2].slice(13 - digits.length);
+  const sum = digits.reduce((acc, digit, index) => acc + digit * weights[index], 0);
+  const rest = sum % 11;
+  return rest < 2 ? 0 : 11 - rest;
+}
+
+function isValidCnpj(value: string) {
+  if (!/^\d{14}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
+  const digits = value.split('').map(Number);
+  return cnpjCheckDigit(digits.slice(0, 12)) === digits[12]
+    && cnpjCheckDigit(digits.slice(0, 13)) === digits[13];
+}
+
+export function normalizePayerDocument(value: string) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (isValidCpf(digits) || isValidCnpj(digits)) return digits;
+
+  const err = new Error('INVALID_PAYER_DOCUMENT');
+  (err as any).status = 400;
+  (err as any).code = 'INVALID_PAYER_DOCUMENT';
+  throw err;
+}
+
 function createExternalId(userId: string, planId: BillingPlanId) {
   const suffix = crypto.randomBytes(4).toString('hex');
   return `six3_${userId.slice(0, 8)}_${planId}_${Date.now().toString(36)}_${suffix}`.slice(0, 50);
@@ -285,7 +324,11 @@ async function activatePixGoPayment(record: StoredPixGoPayment, sourceEventId?: 
   return updated;
 }
 
-export async function createPixGoPayment(user: AuthenticatedBillingUser, planId: BillingPlanId) {
+export async function createPixGoPayment(
+  user: AuthenticatedBillingUser,
+  planId: BillingPlanId,
+  payer: { document: string; name?: string },
+) {
   const plan = getPlan(planId);
   if (!plan) {
     const err = new Error('INVALID_PLAN');
@@ -300,6 +343,8 @@ export async function createPixGoPayment(user: AuthenticatedBillingUser, planId:
     throw err;
   }
 
+  const payerDocument = normalizePayerDocument(payer.document);
+  const payerName = (payer.name?.trim() || user.displayName || user.email || 'Usuário SIX3').slice(0, 120);
   const externalId = createExternalId(user.localId, plan.id);
   const webhookUrl = getConfiguredWebhookUrl();
   const requestBody: Record<string, unknown> = {
@@ -307,6 +352,10 @@ export async function createPixGoPayment(user: AuthenticatedBillingUser, planId:
     description: `Plano ${plan.name} - SIX3`,
     customer_name: user.displayName || user.email || 'Usuário SIX3',
     customer_email: user.email || undefined,
+    // Obrigatório a partir de 25/06/2026: só o documento informado consegue
+    // pagar o QR Code gerado.
+    receiver_cpf: payerDocument,
+    receiver_name: payerName,
     external_id: externalId,
     webhook_url: webhookUrl,
   };

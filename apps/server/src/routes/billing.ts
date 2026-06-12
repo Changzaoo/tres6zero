@@ -22,6 +22,13 @@ const checkoutSchema = z.object({
 
 const pixgoPaymentSchema = z.object({
   planId: z.enum(['starter', 'pro', 'unlimited']),
+  // CPF (11 dígitos) ou CNPJ (14) de quem vai pagar o Pix; obrigatório pela
+  // PixGo a partir de 25/06/2026. Aceita máscara; o serviço valida o DV.
+  payerDocument: z.string().trim().min(11).max(20),
+  payerName: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().trim().min(1).max(120).optional(),
+  ),
 });
 
 function frontendUrl() {
@@ -126,7 +133,12 @@ billingRouter.post('/pixgo/create-payment', async (req, res, next) => {
   try {
     const data = pixgoPaymentSchema.parse(req.body);
     const user = await getAuthenticatedUser(req);
-    res.status(201).json({ payment: await createPixGoPayment(user, data.planId) });
+    res.status(201).json({
+      payment: await createPixGoPayment(user, data.planId, {
+        document: data.payerDocument,
+        name: data.payerName,
+      }),
+    });
   } catch (e) {
     next(e);
   }

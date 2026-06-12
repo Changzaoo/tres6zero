@@ -133,6 +133,7 @@ const planOriginLabels: Record<string, string> = {
   promotion: 'Promoção',
   support: 'Suporte',
 };
+const planOriginValues = new Set(Object.keys(planOriginLabels));
 
 const planStatusLabels: Record<string, string> = {
   active: 'Ativo',
@@ -143,6 +144,8 @@ const planStatusLabels: Record<string, string> = {
   banned: 'Banido',
   suspended: 'Suspenso',
 };
+
+const DEFAULT_ADMIN_PLAN_REASON = 'Alteracao manual de plano pelo admin';
 
 const planFeatureLabels: Record<string, string> = {
   basic_templates: 'Templates essenciais',
@@ -168,6 +171,10 @@ function safePlanId(value?: string | null): PlanId {
 
 function planName(value?: string | null) {
   return PLANS.find((plan) => plan.id === value)?.name || (value ? value : 'Sem plano');
+}
+
+function safePlanOrigin(value?: string | null): AdminPlanOrigin {
+  return value && planOriginValues.has(value) ? value as AdminPlanOrigin : 'manual_admin';
 }
 
 function parseDate(value?: string | null) {
@@ -238,14 +245,22 @@ function planStatusLabel(user: AdminUserOverview) {
 }
 
 function defaultPlanForm(user?: AdminUserOverview | null): PlanFormState {
+  const currentExpiration = user?.currentPeriodEnd || user?.planExpiresAt || null;
+  const currentExpirationDate = parseDate(currentExpiration);
+  const canKeepCurrentExpiration = Boolean(
+    !user?.planLifetime
+    && currentExpirationDate
+    && currentExpirationDate.getTime() > Date.now()
+  );
+
   return {
     planId: safePlanId(user?.planId),
     startsImmediately: true,
-    expiresAt: formatDateTimeInput(user?.currentPeriodEnd || user?.planExpiresAt || addDaysIso(30)),
-    keepCurrentExpiration: Boolean(user?.currentPeriodEnd || user?.planExpiresAt),
+    expiresAt: formatDateTimeInput(canKeepCurrentExpiration ? currentExpiration : addDaysIso(30)),
+    keepCurrentExpiration: canKeepCurrentExpiration,
     lifetime: Boolean(user?.planLifetime),
     special: Boolean(user?.planSpecial),
-    origin: (user?.planOrigin as AdminPlanOrigin) || 'manual_admin',
+    origin: user?.planId ? safePlanOrigin(user.planOrigin) : 'manual_admin',
     resetLimits: false,
     applyPlanLimits: true,
     reason: '',
@@ -776,11 +791,7 @@ export default function AdminPage() {
 
   async function submitPlanChange(event: FormEvent<HTMLFormElement>, user: AdminUserOverview) {
     event.preventDefault();
-    const reason = planForm.reason.trim();
-    if (reason.length < 3) {
-      toast.error('Informe o motivo da alteração do plano.');
-      return;
-    }
+    const reason = planForm.reason.trim() || DEFAULT_ADMIN_PLAN_REASON;
 
     const expiresAt = planForm.lifetime || planForm.keepCurrentExpiration ? null : dateTimeInputToIso(planForm.expiresAt);
     if (!planForm.lifetime && !planForm.keepCurrentExpiration && !expiresAt) {
@@ -910,11 +921,7 @@ export default function AdminPage() {
   }
 
   async function submitLifetimeGrant(user: AdminUserOverview) {
-    const reason = planForm.reason.trim();
-    if (reason.length < 3) {
-      toast.error('Informe o motivo no formulário de plano antes de tornar vitalício.');
-      return;
-    }
+    const reason = planForm.reason.trim() || DEFAULT_ADMIN_PLAN_REASON;
 
     const confirmed = window.confirm(
       `Tornar o plano de ${user.name || user.email || user.uid} vitalício?\n\n` +
@@ -1873,7 +1880,7 @@ export default function AdminPage() {
                       </label>
                     </div>
                     <label className="block sm:col-span-2">
-                      <span className="text-xs font-semibold uppercase text-white/35">Motivo obrigatório</span>
+                      <span className="text-xs font-semibold uppercase text-white/35">Motivo</span>
                       <textarea
                         value={planForm.reason}
                         onChange={(event) => setPlanForm((current) => ({ ...current, reason: event.target.value }))}

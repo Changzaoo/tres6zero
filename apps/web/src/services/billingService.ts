@@ -18,7 +18,7 @@ export type PixPayment = {
   currentPeriodEnd?: string | null;
 };
 
-export async function createPixPayment(planId: PlanId) {
+export async function createPixPayment(planId: PlanId, payer: { document: string; name?: string }) {
   const token = getAuthToken();
   const response = await fetch(`${API_URL}/api/billing/pixgo/create-payment`, {
     method: 'POST',
@@ -27,7 +27,11 @@ export async function createPixPayment(planId: PlanId) {
       ...deviceHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ planId }),
+    body: JSON.stringify({
+      planId,
+      payerDocument: payer.document,
+      payerName: payer.name || undefined,
+    }),
   });
   const payload = await response.json().catch(() => ({}));
 
