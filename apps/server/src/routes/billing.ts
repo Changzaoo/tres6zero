@@ -32,7 +32,7 @@ const pixgoPaymentSchema = z.object({
 });
 
 function frontendUrl() {
-  return (process.env.FRONTEND_URL || 'https://six3.vercel.app').replace(/\/+$/, '');
+  return (process.env.FRONTEND_URL || 'https://six3.nexusholding.xyz').replace(/\/+$/, '');
 }
 
 async function activateFromCheckoutSession(session: CheckoutSession) {

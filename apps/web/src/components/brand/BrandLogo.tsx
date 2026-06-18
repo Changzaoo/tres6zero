@@ -3,7 +3,7 @@ type BrandLogoProps = {
   wordmarkClassName?: string;
 };
 
-const BRAND_LOGO_SRC = '/brand/six3.png';
+const BRAND_LOGO_SRC = '/brand/six3-logo.png';
 
 export function BrandWordmark({ className = '' }: { className?: string }) {
   return (

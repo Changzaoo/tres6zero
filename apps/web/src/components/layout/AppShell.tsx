@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { MouseAura } from '@/components/landing/MouseAura';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import { OfflineBanner } from '@/components/offline/OfflineBanner';
 import { OfflineConflictWatcher } from '@/components/offline/OfflineConflictWatcher';
 import { OfflineReadyToast } from '@/components/offline/OfflineReadyToast';
@@ -33,7 +34,8 @@ export function AppShell() {
   useNotificationPolling(user);
 
   return (
-    <div className="six3-grid-bg flex h-[100dvh] min-w-0 overflow-hidden bg-surface">
+    <div className="six3-grid-bg flex h-[100dvh] min-w-0 overflow-hidden">
+      <ImmersiveBackground variant="subtle" />
       <MouseAura />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">

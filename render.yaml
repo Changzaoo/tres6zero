@@ -12,9 +12,9 @@ services:
       - key: PUBLIC_BACKEND_URL
         value: https://six3-m0wr.onrender.com
       - key: FRONTEND_URL
-        sync: false
+        value: https://six3.nexusholding.xyz
       - key: CORS_ORIGINS
-        sync: false
+        value: https://six3.nexusholding.xyz,https://www.six3.nexusholding.xyz
       - key: FIREBASE_API_KEY
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON_BASE64

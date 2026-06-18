@@ -74,8 +74,8 @@ Variaveis no Render:
 
 ```text
 PUBLIC_BACKEND_URL=https://six3-m0wr.onrender.com
-FRONTEND_URL=https://six3.vercel.app
-CORS_ORIGINS=https://six3.vercel.app
+FRONTEND_URL=https://six3.nexusholding.xyz
+CORS_ORIGINS=https://six3.nexusholding.xyz
 ALLOW_VERCEL_PREVIEWS=true
 ADMIN_EMAIL=...
 PIXGO_API_KEY=...

@@ -116,6 +116,7 @@ type RecoveryChallengeRecord = {
   uid: string;
   email: string;
   correctOptionIds: Record<string, string>;
+  identifierHash?: string;
   attempts: number;
   expiresAt: string;
   resetTokenHash?: string;
@@ -127,8 +128,11 @@ type RecoveryChallengeRecord = {
 const RECOVERY_TTL_MS = 10 * 60 * 1000;
 const RECOVERY_TOKEN_TTL_MS = 10 * 60 * 1000;
 const RECOVERY_MAX_ATTEMPTS = 3;
+// Apos 3 respostas erradas, o solicitante (IP + identificador) fica bloqueado por esse periodo.
+const RECOVERY_LOCK_MS = Math.max(5, Number(process.env.RECOVERY_LOCK_MINUTES) || 720) * 60 * 1000;
 const recoveryMemoryChallenges = new Map<string, RecoveryChallengeRecord>();
 const recoveryRateLimits = new Map<string, { count: number; resetAt: number }>();
+const recoveryLockouts = new Map<string, { failures: number; lockedUntil: number }>();
 
 function getFirebaseApiKey() {
   const key = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
@@ -310,20 +314,59 @@ function assertRecoveryRateLimit(req: Request, identifier: string) {
   current.count += 1;
 }
 
-function maskMiddle(value: string, minStars = 5) {
+function recoveryIdentifierHash(identifier: string) {
+  return crypto.createHash('sha256').update(identifier).digest('hex').slice(0, 16);
+}
+
+function recoveryLockKey(req: Request, identifierHash: string) {
+  return `${recoveryClientIp(req)}:${identifierHash}`;
+}
+
+// Bloqueio persistente (atravessa reinicios de desafio): se ja estiver bloqueado, recusa.
+function assertRecoveryNotLocked(key: string) {
+  const entry = recoveryLockouts.get(key);
+  if (!entry) return;
+  if (entry.lockedUntil > Date.now()) {
+    const err = new Error('RECOVERY_LOCKED');
+    (err as any).status = 423;
+    throw err;
+  }
+  // Bloqueio expirou: zera o contador para permitir novo ciclo.
+  recoveryLockouts.delete(key);
+}
+
+// Registra uma resposta errada. Retorna true se o solicitante acabou de ser bloqueado.
+function registerRecoveryFailure(key: string) {
+  const now = Date.now();
+  const entry = recoveryLockouts.get(key) || { failures: 0, lockedUntil: 0 };
+  entry.failures += 1;
+  if (entry.failures >= RECOVERY_MAX_ATTEMPTS) {
+    entry.lockedUntil = now + RECOVERY_LOCK_MS;
+  }
+  recoveryLockouts.set(key, entry);
+  return entry.lockedUntil > now;
+}
+
+function clearRecoveryFailures(key: string) {
+  recoveryLockouts.delete(key);
+}
+
+// Mascara leve: mantem mais pistas visiveis (2 primeiros + ultimo, poucas estrelas).
+function maskMiddle(value: string, minStars = 2) {
   const normalized = value.replace(/\s+/g, ' ').trim();
   if (!normalized) return '*'.repeat(minStars);
-  if (normalized.length === 1) return `${normalized}${'*'.repeat(minStars)}`;
+  if (normalized.length <= 2) return `${normalized[0]}*`;
+  if (normalized.length === 3) return `${normalized.slice(0, 2)}*`;
 
-  const first = normalized[0];
+  const lead = normalized.slice(0, 2);
   const last = normalized[normalized.length - 1];
-  const stars = '*'.repeat(Math.max(minStars, Math.min(10, normalized.length - 2)));
-  return `${first}${stars}${last}`;
+  const stars = '*'.repeat(Math.max(minStars, Math.min(4, normalized.length - 3)));
+  return `${lead}${stars}${last}`;
 }
 
 function maskText(value: string) {
   return value
-    .replace(/[A-Za-z0-9]{2,}/g, (part) => maskMiddle(part, 4))
+    .replace(/[A-Za-zÀ-ÿ0-9]{2,}/g, (part) => maskMiddle(part, 2))
     .slice(0, 80);
 }
 
@@ -331,14 +374,17 @@ function monthName(date: Date) {
   return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
 }
 
+// Mostra o dominio real e mais caracteres do inicio do e-mail (menos censurado).
 function maskEmail(email: string) {
   const [localPart, domainPart = ''] = email.trim().toLowerCase().split('@');
-  const domainParts = domainPart.split('.').filter(Boolean);
-  const suffix = domainParts.length > 1 ? `.${domainParts[domainParts.length - 1]}` : '';
-  const domainRoot = domainParts.length > 1 ? domainParts.slice(0, -1).join('.') : domainPart;
-  const maskedDomain = '*'.repeat(Math.max(6, Math.min(12, domainRoot.length || 6)));
+  const local = localPart || 'u';
+  let maskedLocal: string;
+  if (local.length <= 2) maskedLocal = `${local[0]}*`;
+  else if (local.length <= 4) maskedLocal = `${local.slice(0, 2)}${'*'.repeat(local.length - 2)}`;
+  else maskedLocal = `${local.slice(0, 2)}${'*'.repeat(Math.min(5, local.length - 3))}${local.slice(-1)}`;
 
-  return `${maskMiddle(localPart || 'u')}@${maskedDomain}${suffix}`;
+  const domain = domainPart || 'email.com';
+  return `${maskedLocal}@${domain}`;
 }
 
 function shuffle<T>(items: T[]) {
@@ -485,16 +531,18 @@ async function recoveryFactsForUser(user: FirebaseUserRecord) {
 }
 
 function recoveryDecoys(kind: string, realValue: string) {
+  // Decoys gerados a partir de valores plausiveis passando pela MESMA mascara do valor real,
+  // para que a opcao correta nunca se destaque pelo estilo de censura.
   const pools: Record<string, string[]> = {
     email: [
-      'a*****5@******.com',
-      'm*****2@******.com',
-      'c*****9@******.com',
-      'v*****7@******.com',
-      'r*****4@******.com',
-      's*****8@******.com',
-    ],
-    name: ['V******s', 'A****n', 'M*****a', 'C*****s', 'R*****l', 'L*****a'],
+      'mariana.alves@gmail.com',
+      'carlos.souza@hotmail.com',
+      'rafael.lima@outlook.com',
+      'julia.santos@gmail.com',
+      'bruno.costa@yahoo.com.br',
+      'ana.pereira@gmail.com',
+    ].map(maskEmail),
+    name: ['Mariana Alves', 'Carlos Souza', 'Rafael Lima', 'Julia Santos', 'Bruno Costa', 'Ana Pereira'].map(maskText),
     plan: [
       maskText(BILLING_PLANS.starter.name),
       maskText(BILLING_PLANS.pro.name),
@@ -503,22 +551,8 @@ function recoveryDecoys(kind: string, realValue: string) {
       maskText('Assinatura pausada'),
       maskText('Plano em analise'),
     ],
-    device: [
-      'W******s - C****e',
-      'A*****d - C****e',
-      'i****e - S****i',
-      'm***S - S****i',
-      'L***x - F*****x',
-      'W******s - E**e',
-    ],
-    location: [
-      'S** P****, B****l',
-      'R** d* J******, B****l',
-      'B********e, B****l',
-      'C******a, B****l',
-      'S******r, B****l',
-      'F***********s, B****l',
-    ],
+    device: ['Windows - Chrome', 'Android - Chrome', 'iPhone - Safari', 'macOS - Safari', 'Linux - Firefox', 'Windows - Edge'].map(maskText),
+    location: ['Sao Paulo, Brasil', 'Rio de Janeiro, Brasil', 'Belo Horizonte, Brasil', 'Curitiba, Brasil', 'Salvador, Brasil', 'Fortaleza, Brasil'].map(maskText),
     created: [
       maskText('janeiro de 2026'),
       maskText('fevereiro de 2026'),
@@ -536,10 +570,10 @@ function recoveryDecoys(kind: string, realValue: string) {
 
 function fakeRecoveryFacts() {
   return [
-    { kind: 'email', label: 'E-mail cadastrado', value: 'a*****5@******.com' },
-    { kind: 'name', label: 'Nome de usuário', value: 'V******s' },
+    { kind: 'email', label: 'E-mail cadastrado', value: maskEmail('mariana.alves@gmail.com') },
+    { kind: 'name', label: 'Nome de usuário', value: maskText('Mariana Alves') },
     { kind: 'plan', label: 'Plano do último mes', value: maskText(BILLING_PLANS.starter.name) },
-    { kind: 'device', label: 'Dispositivo reconhecido', value: 'W******s - C****e' },
+    { kind: 'device', label: 'Dispositivo reconhecido', value: maskText('Windows - Chrome') },
     { kind: 'created', label: 'Mes de criacao da conta', value: maskText('junho de 2026') },
   ];
 }
@@ -856,6 +890,8 @@ authRouter.post('/recovery/options', async (req, res, next) => {
   try {
     const data = recoveryOptionsSchema.parse(req.body);
     const identifier = normalizeRecoveryIdentifier(data.identifier);
+    const identifierHash = recoveryIdentifierHash(identifier);
+    assertRecoveryNotLocked(recoveryLockKey(req, identifierHash));
     assertRecoveryRateLimit(req, identifier);
 
     const { user } = await findRecoveryUser(identifier);
@@ -866,6 +902,7 @@ authRouter.post('/recovery/options', async (req, res, next) => {
     await saveRecoveryChallenge(challengeId, {
       uid: user?.localId || '',
       email: user?.email || '',
+      identifierHash,
       correctOptionIds,
       attempts: 0,
       expiresAt: new Date(Date.now() + RECOVERY_TTL_MS).toISOString(),
@@ -887,11 +924,8 @@ authRouter.post('/recovery/verify', async (req, res, next) => {
     const challenge = await readRecoveryChallenge(data.challengeId);
     assertRecoveryChallengeActive(challenge);
 
-    if (challenge.attempts >= RECOVERY_MAX_ATTEMPTS) {
-      const err = new Error('TOO_MANY_ATTEMPTS_TRY_LATER');
-      (err as any).status = 429;
-      throw err;
-    }
+    const lockKey = recoveryLockKey(req, challenge.identifierHash || recoveryIdentifierHash(challenge.email));
+    assertRecoveryNotLocked(lockKey);
 
     const expectedSelections = Object.entries(challenge.correctOptionIds || {});
     const selections = data.selections || {};
@@ -900,10 +934,14 @@ authRouter.post('/recovery/verify', async (req, res, next) => {
 
     if (!allSelectionsMatch) {
       await updateRecoveryChallenge(data.challengeId, { attempts: challenge.attempts + 1 });
-      const err = new Error('RECOVERY_OPTION_MISMATCH');
-      (err as any).status = 400;
+      const locked = registerRecoveryFailure(lockKey);
+      const err = new Error(locked ? 'RECOVERY_LOCKED' : 'RECOVERY_OPTION_MISMATCH');
+      (err as any).status = locked ? 423 : 400;
       throw err;
     }
+
+    // Acertou: limpa o contador de falhas desse solicitante.
+    clearRecoveryFailures(lockKey);
 
     const verifiedAt = new Date().toISOString();
 

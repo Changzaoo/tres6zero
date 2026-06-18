@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { Button } from '@/components/ui/Button';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 
 const stack = [
   ['Frontend', 'React, Vite, TypeScript, Tailwind, Vercel'],
@@ -79,7 +80,8 @@ function StatusBadge({ value }: { value: string }) {
 
 export default function BlueprintPage() {
   return (
-    <div className="six3-grid-bg min-h-screen bg-surface text-white">
+    <div className="six3-grid-bg min-h-screen text-white">
+      <ImmersiveBackground />
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
         <Link to="/" className="inline-flex">
           <BrandLogo wordmarkClassName="text-4xl" />
