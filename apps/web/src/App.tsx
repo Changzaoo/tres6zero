@@ -55,6 +55,14 @@ function AuthRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// Public marketing pages: a logged-in user must never see them — send them to the app.
+function PublicOnlyRoute({ children }: { children: ReactNode }) {
+  const { user, initialized } = useAuth();
+  if (!initialized) return <LoadingScreen />;
+  if (user) return <Navigate to={defaultAppPath(user)} replace />;
+  return <>{children}</>;
+}
+
 function PaidRoute({ children }: { children: ReactNode }) {
   const { user, initialized, hasActiveSubscription } = useAuth();
   if (!initialized) return <LoadingScreen />;
@@ -101,20 +109,20 @@ export default function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
-        {/* Public */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/plans" element={<PricingPage />} />
-        <Route path="/planos" element={<PricingPage />} />
-        <Route path="/blueprint" element={<BlueprintPage />} />
-        <Route path="/recursos" element={<PublicInfoPage pageId="recursos" />} />
-        <Route path="/como-funciona" element={<PublicInfoPage pageId="como-funciona" />} />
-        <Route path="/estilos" element={<PublicInfoPage pageId="estilos" />} />
-        <Route path="/mobile" element={<PublicInfoPage pageId="mobile" />} />
-        <Route path="/desktop" element={<PublicInfoPage pageId="desktop" />} />
-        <Route path="/templates" element={<PublicInfoPage pageId="templates" />} />
-        <Route path="/analytics" element={<PublicInfoPage pageId="analytics" />} />
-        <Route path="/pagamento" element={<PublicInfoPage pageId="pagamento" />} />
-        <Route path="/suporte" element={<PublicInfoPage pageId="suporte" />} />
+        {/* Public — marketing pages hidden from logged-in users */}
+        <Route path="/" element={<PublicOnlyRoute><LandingPage /></PublicOnlyRoute>} />
+        <Route path="/plans" element={<PublicOnlyRoute><PricingPage /></PublicOnlyRoute>} />
+        <Route path="/planos" element={<PublicOnlyRoute><PricingPage /></PublicOnlyRoute>} />
+        <Route path="/blueprint" element={<PublicOnlyRoute><BlueprintPage /></PublicOnlyRoute>} />
+        <Route path="/recursos" element={<PublicOnlyRoute><PublicInfoPage pageId="recursos" /></PublicOnlyRoute>} />
+        <Route path="/como-funciona" element={<PublicOnlyRoute><PublicInfoPage pageId="como-funciona" /></PublicOnlyRoute>} />
+        <Route path="/estilos" element={<PublicOnlyRoute><PublicInfoPage pageId="estilos" /></PublicOnlyRoute>} />
+        <Route path="/mobile" element={<PublicOnlyRoute><PublicInfoPage pageId="mobile" /></PublicOnlyRoute>} />
+        <Route path="/desktop" element={<PublicOnlyRoute><PublicInfoPage pageId="desktop" /></PublicOnlyRoute>} />
+        <Route path="/templates" element={<PublicOnlyRoute><PublicInfoPage pageId="templates" /></PublicOnlyRoute>} />
+        <Route path="/analytics" element={<PublicOnlyRoute><PublicInfoPage pageId="analytics" /></PublicOnlyRoute>} />
+        <Route path="/pagamento" element={<PublicOnlyRoute><PublicInfoPage pageId="pagamento" /></PublicOnlyRoute>} />
+        <Route path="/suporte" element={<PublicOnlyRoute><PublicInfoPage pageId="suporte" /></PublicOnlyRoute>} />
         <Route path="/faq" element={<PublicDocsPage pageId="faq" />} />
         <Route path="/ajuda" element={<PublicDocsPage pageId="faq" />} />
         <Route path="/termos" element={<PublicDocsPage pageId="termos" />} />

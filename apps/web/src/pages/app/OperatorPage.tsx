@@ -40,7 +40,7 @@ type EffectSegment = {
 };
 
 const STANDALONE_EVENT_ID = 'standalone';
-const MIN_EFFECT_SEGMENT_SECONDS = 0.5;
+const MIN_EFFECT_SEGMENT_SECONDS = 0.5; // CapCut-style min effect length
 const MIN_TRIM_SECONDS = 0.5;
 
 const DURATION_OPTIONS = [5, 15, 25, 35, 45] as const;
@@ -168,16 +168,170 @@ function readVideoMetadata(url: string) {
   });
 }
 
-function localAiDirection(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']) {
-  if (eventType === 'wedding' || templateCategory === 'wedding') return { effect: 'wedding_soft', musicTheme: 'wedding' };
-  if (eventType === 'corporate' || templateCategory === 'corporate') return { effect: 'corporate_sharp', musicTheme: 'corporate' };
-  if (eventType === 'graduation' || templateCategory === 'graduation') return { effect: 'luxury', musicTheme: 'luxury' };
-  if (eventType === 'store' || templateCategory === 'store') return { effect: 'corporate_sharp', musicTheme: 'corporate' };
-  if (eventType === 'church' || templateCategory === 'church') return { effect: 'wedding_soft', musicTheme: 'ambient' };
-  if (eventType === 'birthday' || templateCategory === 'birthday') return { effect: 'party', musicTheme: 'birthday' };
-  if (eventType === 'club' || templateCategory === 'party') return { effect: 'neon', musicTheme: 'party' };
-  if (templateCategory === 'premium') return { effect: 'luxury', musicTheme: 'luxury' };
-  return { effect: 'cinematic', musicTheme: 'viral' };
+type AiEditPlan = {
+  effect: string;
+  effectName: string;
+  musicTheme: string;
+  musicLabel: string;
+  intensity: 'low' | 'medium' | 'high';
+  intensityLabel: string;
+  suggestedDuration: number;
+  reason: string;
+  confidence: number;
+  alternatives: string[];
+};
+
+type AiMood = 'elegant' | 'premium' | 'corporate' | 'playful' | 'energetic' | 'cinematic';
+
+const AI_MOOD_PROFILE: Record<AiMood, {
+  effects: string[];
+  music: string;
+  baseDuration: number;
+  intensity: 'low' | 'medium' | 'high';
+  label: string;
+}> = {
+  elegant: { effects: ['wedding_soft', 'cinematic', 'luxury'], music: 'wedding', baseDuration: 25, intensity: 'low', label: 'suave e elegante' },
+  premium: { effects: ['luxury', 'cinematic', 'wedding_soft'], music: 'luxury', baseDuration: 25, intensity: 'medium', label: 'sofisticado e premium' },
+  corporate: { effects: ['corporate_sharp', 'cinematic', 'clean'], music: 'corporate', baseDuration: 15, intensity: 'medium', label: 'limpo e profissional' },
+  playful: { effects: ['party', 'glitch_flash', 'neon'], music: 'birthday', baseDuration: 15, intensity: 'high', label: 'divertido e vibrante' },
+  energetic: { effects: ['neon', 'party', 'glitch_flash'], music: 'party', baseDuration: 15, intensity: 'high', label: 'energético e pulsante' },
+  cinematic: { effects: ['cinematic', 'speed_ramp', 'luxury'], music: 'viral', baseDuration: 15, intensity: 'medium', label: 'cinematográfico e moderno' },
+};
+
+function aiMoodFromContext(eventType?: AppEvent['type'], templateCategory?: AppTemplate['category']): { mood: AiMood; signal: string | null } {
+  if (eventType === 'wedding' || templateCategory === 'wedding') return { mood: 'elegant', signal: 'Casamento' };
+  if (eventType === 'church' || templateCategory === 'church') return { mood: 'elegant', signal: 'Cerimônia' };
+  if (eventType === 'corporate' || templateCategory === 'corporate' || eventType === 'store' || templateCategory === 'store') return { mood: 'corporate', signal: 'Corporativo' };
+  if (eventType === 'graduation' || templateCategory === 'graduation') return { mood: 'premium', signal: 'Formatura' };
+  if (templateCategory === 'premium') return { mood: 'premium', signal: 'Premium' };
+  if (eventType === 'birthday' || templateCategory === 'birthday') return { mood: 'playful', signal: 'Aniversário' };
+  if (eventType === 'club' || templateCategory === 'party') return { mood: 'energetic', signal: 'Festa' };
+  return { mood: 'cinematic', signal: null };
+}
+
+function aiSnapDuration(target: number): number {
+  return DURATION_OPTIONS.reduce<number>(
+    (best, opt) => (Math.abs(opt - target) < Math.abs(best - target) ? opt : best),
+    DURATION_OPTIONS[0]
+  );
+}
+
+// Refined single-effect "auto edit" brain: picks the best-fitting effect for the
+// context, plus a coherent music mood, intensity, rationale and ideal duration.
+function computeAiEditPlan(input: {
+  eventType?: AppEvent['type'];
+  templateCategory?: AppTemplate['category'];
+  sourceDuration?: number;
+  variant?: number;
+  overrideEffect?: string | null;
+}): AiEditPlan {
+  const { mood, signal } = aiMoodFromContext(input.eventType, input.templateCategory);
+  const profile = AI_MOOD_PROFILE[mood];
+  const variant = Math.max(0, input.variant ?? 0);
+
+  const ranked = profile.effects;
+  const rotated = ranked[variant % ranked.length];
+  const effectId = input.overrideEffect || rotated;
+  const effectMeta = getVideoEffect(effectId);
+  const effectName = effectMeta?.name || effectLabel(effectId);
+
+  let target = profile.baseDuration;
+  const src = input.sourceDuration ?? 0;
+  if (src > 0) {
+    target = Math.min(target, Math.max(DURATION_OPTIONS[0], src));
+    if (src <= 10) target = Math.min(target, 5);
+  }
+  const suggestedDuration = aiSnapDuration(target);
+
+  let intensity = profile.intensity;
+  if (suggestedDuration <= 5 && intensity !== 'high') intensity = intensity === 'low' ? 'medium' : 'high';
+  const intensityLabel = intensity === 'high' ? 'Alta' : intensity === 'medium' ? 'Média' : 'Suave';
+
+  let confidence = signal ? (input.eventType ? 0.92 : 0.82) : 0.62;
+  if (input.overrideEffect) confidence = Math.min(confidence, 0.74);
+  else if (variant > 0) confidence = Math.max(0.55, confidence - 0.08 * variant);
+
+  const musicTheme = profile.music;
+  const musicLabel = musicOptions.find((m) => m.value === musicTheme)?.label || musicTheme;
+
+  const reason = signal
+    ? `${signal} detectado — direção ${profile.label}, com ${effectName.toLowerCase()} e trilha ${musicLabel.toLowerCase()}.`
+    : `Sem evento definido — direção ${profile.label} para vídeo curto, com ${effectName.toLowerCase()}.`;
+
+  const alternatives = ranked.filter((id) => id !== effectId);
+
+  return {
+    effect: effectId,
+    effectName,
+    musicTheme,
+    musicLabel,
+    intensity,
+    intensityLabel,
+    suggestedDuration,
+    reason,
+    confidence,
+    alternatives,
+  };
+}
+
+function aiMoodAccent(mood: AiMood): string {
+  switch (mood) {
+    case 'elegant': return 'slow_motion';
+    case 'premium': return 'speed_ramp';
+    case 'corporate': return 'cinematic';
+    case 'playful': return 'glitch_flash';
+    case 'energetic': return 'glitch_flash';
+    case 'cinematic': return 'speed_ramp';
+    default: return 'cinematic';
+  }
+}
+
+// Advanced mode: a structured multi-cut edit plan (opening → highlight → outro),
+// output-relative seconds, ready to drop onto the editable timeline.
+function computeAiSegmentPlan(input: {
+  eventType?: AppEvent['type'];
+  templateCategory?: AppTemplate['category'];
+  outputDuration: number;
+  variant?: number;
+}): { effect: string; start: number; end: number }[] {
+  const { mood } = aiMoodFromContext(input.eventType, input.templateCategory);
+  const profile = AI_MOOD_PROFILE[mood];
+  const variant = Math.max(0, input.variant ?? 0);
+  const dur = Math.max(MIN_EFFECT_SEGMENT_SECONDS, input.outputDuration);
+
+  const primary = profile.effects[variant % profile.effects.length];
+  const secondary = profile.effects[(variant + 1) % profile.effects.length];
+  const accent = aiMoodAccent(mood);
+
+  let plan: { effect: string; from: number; to: number }[];
+  if (dur < 2 * MIN_EFFECT_SEGMENT_SECONDS) {
+    plan = [{ effect: primary, from: 0, to: 1 }];
+  } else if (dur <= 8) {
+    plan = [
+      { effect: primary, from: 0, to: 0.72 },
+      { effect: accent, from: 0.72, to: 1 },
+    ];
+  } else if (dur <= 20) {
+    plan = [
+      { effect: secondary, from: 0, to: 0.22 },
+      { effect: primary, from: 0.22, to: 0.8 },
+      { effect: accent, from: 0.8, to: 1 },
+    ];
+  } else {
+    plan = [
+      { effect: secondary, from: 0, to: 0.18 },
+      { effect: primary, from: 0.18, to: 0.52 },
+      { effect: secondary, from: 0.52, to: 0.82 },
+      { effect: accent, from: 0.82, to: 1 },
+    ];
+  }
+
+  const round = (v: number) => Math.round(v * 10) / 10;
+  return plan.map((p) => ({
+    effect: p.effect,
+    start: round(p.from * dur),
+    end: round(p.to * dur),
+  }));
 }
 
 function renderedVideoFile(blob: Blob) {
@@ -591,6 +745,32 @@ function VideoPreviewFrame({
   );
 }
 
+function ClipHandle({ side, onDown }: { side: 'left' | 'right'; onDown: (e: React.PointerEvent) => void }) {
+  return (
+    <div
+      className={`group/handle absolute top-0 bottom-0 z-20 flex cursor-ew-resize touch-none items-center justify-center ${
+        side === 'left' ? '-left-2.5 w-6 sm:-left-1.5 sm:w-5' : '-right-2.5 w-6 sm:-right-1.5 sm:w-5'
+      }`}
+      style={{ touchAction: 'none' }}
+      onPointerDown={onDown}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div
+        className={`flex h-full w-3 items-center justify-center bg-white/85 shadow-md transition-colors group-hover/handle:bg-white ${
+          side === 'left' ? 'rounded-l-xl' : 'rounded-r-xl'
+        }`}
+      >
+        <div className="flex flex-col gap-[3px]">
+          <span className="h-[3px] w-[3px] rounded-full bg-black/45" />
+          <span className="h-[3px] w-[3px] rounded-full bg-black/45" />
+          <span className="h-[3px] w-[3px] rounded-full bg-black/45" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TimelineClip({
   label,
   start,
@@ -600,15 +780,19 @@ function TimelineClip({
   onLeftHandleDown,
   onRightHandleDown,
   onClick,
+  selected,
+  resizing,
 }: {
   label: string;
   start: number;
   end: number;
   duration: number;
   className: string;
-  onLeftHandleDown?: (e: React.MouseEvent | React.TouchEvent) => void;
-  onRightHandleDown?: (e: React.MouseEvent | React.TouchEvent) => void;
+  onLeftHandleDown?: (e: React.PointerEvent) => void;
+  onRightHandleDown?: (e: React.PointerEvent) => void;
   onClick?: () => void;
+  selected?: boolean;
+  resizing?: boolean;
 }) {
   const safeDuration = Math.max(duration, 1);
   const leftPct = clamp(start / safeDuration, 0, 1) * 100;
@@ -618,25 +802,25 @@ function TimelineClip({
 
   return (
     <div
-      className={`absolute top-1/2 flex h-8 -translate-y-1/2 items-center rounded-xl border text-xs font-bold text-white shadow-lg select-none ${
+      className={`group absolute top-1/2 flex h-9 -translate-y-1/2 select-none items-center rounded-xl border text-xs font-bold text-white shadow-lg transition-shadow ${
         isClickable && !isDraggable ? 'cursor-pointer hover:brightness-110' : ''
+      } ${selected ? 'ring-2 ring-white/70 ring-offset-1 ring-offset-black/40' : ''} ${
+        resizing ? 'z-30 brightness-110' : ''
       } ${className}`}
       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
       title={`${label} - ${formatTime(start)} até ${formatTime(end)}`}
       onClick={isClickable && !isDraggable ? onClick : undefined}
     >
-      {isDraggable && onLeftHandleDown && (
-        <div
-          className="absolute -left-3 top-0 bottom-0 w-7 sm:-left-2 sm:w-5 z-10 flex cursor-ew-resize touch-manipulation items-center justify-center"
-          onMouseDown={onLeftHandleDown}
-          onTouchStart={onLeftHandleDown}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="h-5 w-[3px] rounded-full bg-white/60 transition-colors hover:bg-white/90" />
+      {/* Duration tooltip while resizing */}
+      {isDraggable && resizing && (
+        <div className="pointer-events-none absolute -top-7 left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/15 bg-black/85 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
+          {formatPreciseTime(end - start)}
         </div>
       )}
 
-      <span className="min-w-0 flex-1 truncate px-3">{label}</span>
+      {isDraggable && onLeftHandleDown && <ClipHandle side="left" onDown={onLeftHandleDown} />}
+
+      <span className="min-w-0 flex-1 truncate px-3.5">{label}</span>
 
       {isClickable && !isDraggable && (
         <ChevronDown className="mr-2 h-3 w-3 shrink-0 text-white/55" />
@@ -645,24 +829,16 @@ function TimelineClip({
       {isClickable && isDraggable && (
         <button
           type="button"
-          className="mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/30 hover:bg-black/55 z-10"
+          className="z-20 mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/35 hover:bg-black/60"
           onClick={(e) => { e.stopPropagation(); onClick(); }}
+          onPointerDown={(e) => e.stopPropagation()}
           title="Alterar efeito"
         >
-          <ChevronDown className="h-3 w-3 text-white/60" />
+          <ChevronDown className="h-3 w-3 text-white/70" />
         </button>
       )}
 
-      {isDraggable && onRightHandleDown && (
-        <div
-          className="absolute -right-3 top-0 bottom-0 w-7 sm:-right-2 sm:w-5 z-10 flex cursor-ew-resize touch-manipulation items-center justify-center"
-          onMouseDown={onRightHandleDown}
-          onTouchStart={onRightHandleDown}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="h-5 w-[3px] rounded-full bg-white/60 transition-colors hover:bg-white/90" />
-        </div>
-      )}
+      {isDraggable && onRightHandleDown && <ClipHandle side="right" onDown={onRightHandleDown} />}
     </div>
   );
 }
@@ -1328,12 +1504,14 @@ function MediaUploadBar({
 function EditorTimeline({
   sourceDuration,
   outputDuration,
+  thumbnails,
   trimStart,
   trimEnd,
   currentTime,
   templateName,
   musicLabel,
   effect,
+  aiEffectLabel,
   effectSegments,
   selectedEffectSegmentId,
   onSeek,
@@ -1353,12 +1531,14 @@ function EditorTimeline({
 }: {
   sourceDuration: number;
   outputDuration: number;
+  thumbnails?: string[];
   trimStart: number;
   trimEnd: number;
   currentTime: number;
   templateName?: string;
   musicLabel: string;
   effect: string;
+  aiEffectLabel?: string;
   effectSegments: EffectSegment[];
   selectedEffectSegmentId?: string | null;
   onSeek?: (t: number) => void;
@@ -1378,6 +1558,7 @@ function EditorTimeline({
 }) {
   const [editingRow, setEditingRow] = useState<'template' | 'effect' | 'music' | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const videoTrackRef = useRef<HTMLDivElement>(null);
   const effectTrackRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
@@ -1430,45 +1611,75 @@ function EditorTimeline({
     el.scrollLeft = Math.max(0, targetScrollLeft);
   }, [playhead, zoomLevel, timelineDuration]);
 
+  // Snap targets (in timeline-seconds): clip boundaries + playhead, so resizing
+  // "clicks" into place like CapCut.
+  const snapTargets = useMemo(() => {
+    const targets = [0, outputStart, outputEnd, playhead];
+    effectSegments.forEach((segment) => {
+      targets.push(outputStart + segment.start, outputStart + segment.end);
+    });
+    return targets;
+  }, [outputStart, outputEnd, playhead, effectSegments]);
+
   function makeDrag(
     trackRef: React.RefObject<HTMLDivElement>,
     onChange: (t: number) => void,
     min: number,
-    max: number
+    max: number,
+    opts?: { dragId?: string; snap?: boolean }
   ) {
-    return (e: React.MouseEvent | React.TouchEvent) => {
+    return (e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      const track = trackRef.current;
+      if (!track) return;
 
-      function onMove(evt: MouseEvent | TouchEvent) {
-        const track = trackRef.current;
-        if (!track) return;
-        const rect = track.getBoundingClientRect();
-        const clientX = 'touches' in evt
-          ? (evt as TouchEvent).touches[0].clientX
-          : (evt as MouseEvent).clientX;
-        onChange(clamp(((clientX - rect.left) / rect.width) * timelineDuration, min, max));
+      if (opts?.dragId) setDraggingId(opts.dragId);
+      try {
+        (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+      } catch {
+        /* setPointerCapture can throw if the pointer is already released */
+      }
+
+      function apply(clientX: number) {
+        const rect = track!.getBoundingClientRect();
+        const pxPerSecond = rect.width / timelineDuration;
+        let next = clamp(((clientX - rect.left) / rect.width) * timelineDuration, min, max);
+        if (opts?.snap !== false) {
+          for (const target of snapTargets) {
+            if (Math.abs((next - target) * pxPerSecond) <= 7) {
+              next = clamp(target, min, max);
+              break;
+            }
+          }
+        }
+        onChange(next);
+      }
+
+      function onMove(evt: PointerEvent) {
+        evt.preventDefault();
+        apply(evt.clientX);
       }
 
       function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('touchmove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        document.removeEventListener('touchend', onUp);
+        setDraggingId(null);
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
       }
 
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('touchmove', onMove, { passive: false });
-      document.addEventListener('mouseup', onUp);
-      document.addEventListener('touchend', onUp);
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+
+      // Move immediately so a click on the ruler also seeks.
+      apply(e.clientX);
     };
   }
 
-  function handleRulerClick(e: React.MouseEvent) {
-    if (!onSeek || !rulerRef.current) return;
-    const rect = rulerRef.current.getBoundingClientRect();
-    onSeek(clamp(((e.clientX - rect.left) / rect.width) * timelineDuration, 0, timelineDuration));
-  }
+  const onRulerScrub = onSeek
+    ? makeDrag(rulerRef, onSeek, 0, timelineDuration, { dragId: 'playhead', snap: false })
+    : undefined;
 
   useEffect(() => {
     if (!editingRow) return;
@@ -1487,7 +1698,7 @@ function EditorTimeline({
   const playheadTotalH = TRACK_ROWS * ROW_H + (TRACK_ROWS - 1) * ROW_GAP + RULER_H + 8;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#070a0f]">
+    <div className={`overflow-hidden rounded-2xl border border-white/[0.07] bg-[#070a0f] ${draggingId ? 'cursor-ew-resize select-none [&_*]:select-none' : ''}`}>
       {/* Header */}
       <div className="flex flex-col gap-2 border-b border-white/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
@@ -1547,9 +1758,9 @@ function EditorTimeline({
             </div>
             <div
               ref={rulerRef}
-              className={`relative overflow-hidden rounded-lg border border-white/[0.05] bg-white/[0.015] ${onSeek ? 'cursor-pointer' : ''}`}
-              style={{ height: RULER_H }}
-              onClick={handleRulerClick}
+              className={`relative overflow-visible rounded-lg border border-white/[0.05] bg-white/[0.015] ${onSeek ? 'cursor-pointer' : ''}`}
+              style={{ height: RULER_H, touchAction: onSeek ? 'none' : undefined }}
+              onPointerDown={onRulerScrub}
             >
               {/* Minor grid lines */}
               {Array.from({ length: 20 }, (_, i) => (
@@ -1571,14 +1782,38 @@ function EditorTimeline({
               ))}
               {/* Playhead tick on ruler */}
               <div
-                className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-white/70"
+                className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-white/80"
                 style={{ left: playheadPct, transform: 'translateX(-50%)' }}
               />
+              {/* Draggable playhead knob */}
+              {onSeek && (
+                <div
+                  className="absolute top-0 z-20 flex h-full cursor-ew-resize touch-none items-start"
+                  style={{ left: playheadPct, transform: 'translateX(-50%)', touchAction: 'none' }}
+                  onPointerDown={onRulerScrub}
+                >
+                  <div className="-mt-1 h-3 w-3 rounded-full border-2 border-white bg-brand-400 shadow-[0_0_8px_rgba(255,255,255,0.5)]" />
+                </div>
+              )}
             </div>
           </div>
 
           {/* VIDEO ROW */}
           <TimelineRow icon={<Film className="h-3.5 w-3.5" />} label="Vídeo" trackRef={videoTrackRef}>
+            {/* Filmstrip thumbnails (CapCut style) */}
+            {thumbnails && thumbnails.length > 0 && (
+              <div className="pointer-events-none absolute inset-0 flex overflow-hidden rounded-xl">
+                {thumbnails.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt=""
+                    draggable={false}
+                    className="h-full w-0 min-w-0 flex-1 object-cover opacity-90"
+                  />
+                ))}
+              </div>
+            )}
             {/* Outside-output dimmed regions */}
             <div className="pointer-events-none absolute inset-y-0 rounded-xl bg-black/20" style={{ left: 0, width: `${(outputStart / timelineDuration) * 100}%` }} />
             <div className="pointer-events-none absolute inset-y-0 rounded-xl bg-black/20" style={{ left: `${(outputEnd / timelineDuration) * 100}%`, right: 0 }} />
@@ -1587,9 +1822,10 @@ function EditorTimeline({
               start={outputStart}
               end={outputEnd}
               duration={timelineDuration}
+              resizing={draggingId === 'trim-start' || draggingId === 'trim-end'}
               className="border-blue-400/40 bg-gradient-to-r from-blue-600/35 to-blue-400/22"
-              onLeftHandleDown={onTrimStartChange ? makeDrag(videoTrackRef, onTrimStartChange, 0, safeTrimEnd - MIN_TRIM_SECONDS) : undefined}
-              onRightHandleDown={onTrimEndChange ? makeDrag(videoTrackRef, onTrimEndChange, outputStart + MIN_TRIM_SECONDS, timelineDuration) : undefined}
+              onLeftHandleDown={onTrimStartChange ? makeDrag(videoTrackRef, onTrimStartChange, 0, safeTrimEnd - MIN_TRIM_SECONDS, { dragId: 'trim-start' }) : undefined}
+              onRightHandleDown={onTrimEndChange ? makeDrag(videoTrackRef, onTrimEndChange, outputStart + MIN_TRIM_SECONDS, timelineDuration, { dragId: 'trim-end' }) : undefined}
             />
             {safeTrimEnd > outputEnd + 0.05 && (
               <TimelineClip label="Sobrou" start={outputEnd} end={safeTrimEnd} duration={timelineDuration} className="border-white/10 bg-white/[0.04] text-white/35" />
@@ -1633,14 +1869,16 @@ function EditorTimeline({
                       start={outputStart + segment.start}
                       end={outputStart + segment.end}
                       duration={timelineDuration}
+                      selected={selected}
+                      resizing={draggingId === `seg-start-${segment.id}` || draggingId === `seg-end-${segment.id}`}
                       className={selected
                         ? 'border-fuchsia-300/70 bg-gradient-to-r from-fuchsia-600/42 to-violet-400/24 shadow-[0_0_0_1px_rgba(240,171,252,.25)]'
                         : 'border-violet-400/42 bg-gradient-to-r from-violet-600/32 to-violet-400/20'}
                       onLeftHandleDown={onEffectSegmentStartChange
-                        ? makeDrag(effectTrackRef, (t) => onEffectSegmentStartChange(segment.id, t - outputStart), outputStart, outputStart + segment.end - MIN_EFFECT_SEGMENT_SECONDS)
+                        ? makeDrag(effectTrackRef, (t) => onEffectSegmentStartChange(segment.id, t - outputStart), outputStart, outputStart + segment.end - MIN_EFFECT_SEGMENT_SECONDS, { dragId: `seg-start-${segment.id}` })
                         : undefined}
                       onRightHandleDown={onEffectSegmentEndChange
-                        ? makeDrag(effectTrackRef, (t) => onEffectSegmentEndChange(segment.id, t - outputStart), outputStart + segment.start + MIN_EFFECT_SEGMENT_SECONDS, outputStart + outputDuration)
+                        ? makeDrag(effectTrackRef, (t) => onEffectSegmentEndChange(segment.id, t - outputStart), outputStart + segment.start + MIN_EFFECT_SEGMENT_SECONDS, outputStart + outputDuration, { dragId: `seg-end-${segment.id}` })
                         : undefined}
                       onClick={onEffectSegmentSelect ? () => {
                         onEffectSegmentSelect(segment.id);
@@ -1659,7 +1897,7 @@ function EditorTimeline({
                 )}
               </>
             ) : effect === 'ai_auto' ? (
-              <TimelineClip label="Automacao IA" start={outputStart} end={outputEnd} duration={timelineDuration} className="border-brand-300/38 bg-gradient-to-r from-brand-600/28 to-brand-400/18" />
+              <TimelineClip label={aiEffectLabel ? `IA · ${aiEffectLabel}` : 'Automação IA'} start={outputStart} end={outputEnd} duration={timelineDuration} className="border-brand-300/38 bg-gradient-to-r from-brand-600/28 to-brand-400/18" />
             ) : (
               <>
                 {onEffectChange ? (
@@ -1801,6 +2039,9 @@ export default function OperatorPage() {
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [mobileEditorTab, setMobileEditorTab] = useState<'controls' | 'timeline'>('controls');
+  const [videoThumbnails, setVideoThumbnails] = useState<string[]>([]);
+  const [aiVariant, setAiVariant] = useState(0);
+  const [aiEffectOverride, setAiEffectOverride] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -1852,11 +2093,17 @@ export default function OperatorPage() {
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const effectMeta = getVideoEffect(effect);
   const aiAutoSelected = effect === 'ai_auto';
-  const aiPreviewDirection = useMemo(
-    () => localAiDirection(selectedEvent?.type, selectedTemplate?.category),
-    [selectedEvent?.type, selectedTemplate?.category]
+  const aiPlan = useMemo(
+    () => computeAiEditPlan({
+      eventType: selectedEvent?.type,
+      templateCategory: selectedTemplate?.category,
+      sourceDuration,
+      variant: aiVariant,
+      overrideEffect: aiEffectOverride,
+    }),
+    [selectedEvent?.type, selectedTemplate?.category, sourceDuration, aiVariant, aiEffectOverride]
   );
-  const previewEffect = aiAutoSelected ? aiPreviewDirection.effect : effect;
+  const previewEffect = aiAutoSelected ? aiPlan.effect : effect;
   const canUseAiAuto = hasFeature(user?.planId, 'ai_auto_edit', isAdmin);
   const canUsePremiumTemplates = hasFeature(user?.planId, 'premium_templates', isAdmin);
   const canUseSelectedEffect = !effectMeta || hasFeature(user?.planId, effectMeta.requiredFeature, isAdmin);
@@ -2030,6 +2277,85 @@ export default function OperatorPage() {
     setMobileEditorTab('controls');
     setTimelineExpanded(false);
   }, [step]);
+
+  // Generate a CapCut-style filmstrip of thumbnails from the source video.
+  useEffect(() => {
+    if (!videoUrl) {
+      setVideoThumbnails([]);
+      return;
+    }
+
+    let cancelled = false;
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.muted = true;
+    video.crossOrigin = 'anonymous';
+    video.preload = 'auto';
+    (video as HTMLVideoElement & { playsInline?: boolean }).playsInline = true;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const THUMB_COUNT = 14;
+    const THUMB_WIDTH = 96;
+
+    function seekTo(time: number) {
+      return new Promise<void>((resolve) => {
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked);
+          resolve();
+        };
+        video.addEventListener('seeked', onSeeked);
+        try {
+          video.currentTime = time;
+        } catch {
+          resolve();
+        }
+      });
+    }
+
+    async function buildThumbnails() {
+      const total = Number.isFinite(video.duration) && video.duration > 0
+        ? video.duration
+        : sourceDuration;
+      if (!total || !ctx) return;
+
+      const vw = video.videoWidth || 270;
+      const vh = video.videoHeight || 480;
+      const ratio = vh / vw;
+      canvas.width = THUMB_WIDTH;
+      canvas.height = Math.max(1, Math.round(THUMB_WIDTH * ratio));
+
+      const frames: string[] = [];
+      for (let i = 0; i < THUMB_COUNT; i++) {
+        if (cancelled) return;
+        const t = (total * (i + 0.5)) / THUMB_COUNT;
+        await seekTo(Math.min(t, Math.max(0, total - 0.05)));
+        if (cancelled) return;
+        try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL('image/jpeg', 0.5));
+        } catch {
+          /* a tainted frame (CORS) — stop trying */
+          return;
+        }
+      }
+      if (!cancelled) setVideoThumbnails(frames);
+    }
+
+    function onReady() {
+      void buildThumbnails();
+    }
+
+    video.addEventListener('loadeddata', onReady, { once: true });
+
+    return () => {
+      cancelled = true;
+      video.removeEventListener('loadeddata', onReady);
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [videoUrl, sourceDuration]);
 
   useEffect(() => () => {
     if (recordingTimeoutRef.current) {
@@ -2484,11 +2810,58 @@ export default function OperatorPage() {
       return;
     }
 
+    setAiVariant(0);
+    setAiEffectOverride(null);
+    const plan = computeAiEditPlan({
+      eventType: selectedEvent?.type,
+      templateCategory: selectedTemplate?.category,
+      sourceDuration,
+    });
     setEffect('ai_auto');
-    setMusicTheme('none');
     setEffectSegmentsDraft([]);
     setActiveEffectSegmentId(null);
-    toast.success('IA automática ativada. O editor vai escolher efeito e clima sem sobrecarregar o servidor.');
+    if (!selectedMusicUrl) setMusicTheme(plan.musicTheme);
+    setFinalDurationPreset(plan.suggestedDuration);
+    toast.success(`IA: ${plan.effectName} · trilha ${plan.musicLabel} · ${plan.suggestedDuration}s.`);
+  }
+
+  function regenerateAiPlan() {
+    setAiEffectOverride(null);
+    setAiVariant((v) => v + 1);
+  }
+
+  function cycleAiEffect() {
+    const alts = aiPlan.alternatives;
+    if (alts.length === 0) return;
+    const idx = aiEffectOverride ? alts.indexOf(aiEffectOverride) : -1;
+    setAiEffectOverride(alts[(idx + 1) % alts.length]);
+  }
+
+  function applyAiSuggestions() {
+    if (!selectedMusicUrl) setMusicTheme(aiPlan.musicTheme);
+    setFinalDurationPreset(aiPlan.suggestedDuration);
+    toast.success('Sugestões da IA aplicadas.');
+  }
+
+  function convertAiToManual() {
+    applyEffectSelection(aiPlan.effect);
+    toast.success(`${aiPlan.effectName} fixado para ajuste manual.`);
+  }
+
+  function generateAiSegments() {
+    const segs = computeAiSegmentPlan({
+      eventType: selectedEvent?.type,
+      templateCategory: selectedTemplate?.category,
+      outputDuration,
+      variant: aiVariant,
+    });
+    const built: EffectSegment[] = segs.map((s) => ({ id: createEffectSegmentId(), ...s }));
+    setEffect('clean');
+    setEffectSegmentsDraft(built);
+    setActiveEffectSegmentId(built[0]?.id ?? null);
+    if (!selectedMusicUrl) setMusicTheme(aiPlan.musicTheme);
+    setTimelineExpanded(true);
+    toast.success(`IA gerou ${built.length} corte(s) de efeito. Ajuste na timeline.`);
   }
 
   async function generateAiMusicFromContext() {
@@ -2498,13 +2871,13 @@ export default function OperatorPage() {
     }
     if (generatingAiMusic) return;
 
-    const aiDirection = localAiDirection(selectedEvent?.type, selectedTemplate?.category);
     const promptParts = [
       selectedEvent
         ? `Trilha original para evento ${selectedEvent.name}, tipo ${selectedEvent.type}, cliente ${selectedEvent.clientName || 'SIX3'}`
         : 'Trilha original para vídeo avulso de photo booth 360',
       selectedTemplate ? `template visual ${selectedTemplate.name}` : 'sem template definido',
-      `efeito de vídeo ${effect === 'ai_auto' ? aiDirection.effect : effect}`,
+      `efeito de vídeo ${effect === 'ai_auto' ? aiPlan.effect : effect}`,
+      `clima ${aiPlan.intensityLabel.toLowerCase()} ${aiPlan.musicLabel}`,
       `duração final ${outputDuration.toFixed(1)} segundos`,
       'energia moderna, memoravel, pronta para vídeo curto e sem qualquer melodia conhecida',
     ];
@@ -2518,8 +2891,8 @@ export default function OperatorPage() {
         source: 'ai_auto_edit',
         eventType: selectedEvent?.type,
         templateName: selectedTemplate?.name,
-        effect: effect === 'ai_auto' ? aiDirection.effect : effect,
-        mood: musicTheme !== 'none' && !selectedMusicUrl ? musicTheme : aiDirection.musicTheme,
+        effect: effect === 'ai_auto' ? aiPlan.effect : effect,
+        mood: musicTheme !== 'none' && !selectedMusicUrl ? musicTheme : aiPlan.musicTheme,
         durationSeconds: Math.max(5, Math.round(outputDuration)),
         title: selectedEvent ? `${selectedEvent.name} SIX3` : 'SIX3 Auto Track',
         language: 'pt-BR',
@@ -2679,14 +3052,13 @@ export default function OperatorPage() {
         throw new Error('Seu navegador não suporta o editor local. Atualize o navegador e tente novamente.');
       }
 
-      const aiDirection = localAiDirection(selectedEvent?.type, selectedTemplate?.category);
       const browserEffect = processingBaseEffect === 'ai_auto'
-        ? aiDirection.effect
+        ? aiPlan.effect
         : processingBaseEffect;
       const rendererMusicTheme = processingMusicUrl
         ? undefined
         : effect === 'ai_auto'
-          ? aiDirection.musicTheme
+          ? aiPlan.musicTheme
           : musicTheme;
 
       setProcessingLabel(effect === 'ai_auto'
@@ -2748,7 +3120,7 @@ export default function OperatorPage() {
         templateType: selectedTemplate ? (selectedTemplate.templateType || selectedTemplate.type || (selectedTemplate.animationUrl ? 'animated' : 'static')) : undefined,
         templateOpacity: selectedTemplate ? templateOpacity : undefined,
         effect,
-        musicTheme: effect === 'ai_auto' && musicTheme === 'none' ? aiDirection.musicTheme : storedMusicTheme,
+        musicTheme: effect === 'ai_auto' && musicTheme === 'none' ? aiPlan.musicTheme : storedMusicTheme,
         musicUrl: processingMusicUrl,
         duration: outputDuration,
       };
@@ -3467,21 +3839,27 @@ export default function OperatorPage() {
       )}
 
       {step === 'preview' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
-            <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={editorPreviewEffect} label="Editor" className={videoPreviewFrameClass}>
-              <video
-                ref={previewRef}
-                src={videoUrl}
-                controls
-                playsInline
-                preload="metadata"
-                onLoadedMetadata={handlePreviewMetadata}
-                onTimeUpdate={handlePreviewTimeUpdate}
-                onSeeked={handlePreviewTimeUpdate}
-                className="h-full w-full object-contain"
-              />
-            </VideoPreviewFrame>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-4 lg:flex lg:h-[calc(100dvh-140px)] lg:min-h-[520px] lg:flex-col lg:gap-3 lg:space-y-0 lg:overflow-hidden"
+        >
+          <div className="grid items-start gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
+            <div className="lg:flex lg:h-full lg:min-h-0 lg:items-center lg:justify-center">
+              <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={editorPreviewEffect} label="Editor" className={`${videoPreviewFrameClass} lg:h-full lg:max-h-full lg:w-auto`}>
+                <video
+                  ref={previewRef}
+                  src={videoUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  onLoadedMetadata={handlePreviewMetadata}
+                  onTimeUpdate={handlePreviewTimeUpdate}
+                  onSeeked={handlePreviewTimeUpdate}
+                  className="h-full w-full object-contain"
+                />
+              </VideoPreviewFrame>
+            </div>
 
             <div className="grid grid-cols-2 gap-3 lg:hidden">
               <Button variant="secondary" onClick={reset} icon={<RefreshCw className="h-4 w-4" />}>Refazer</Button>
@@ -3519,7 +3897,7 @@ export default function OperatorPage() {
             </div>
 
             {/* Sidebar — sticky, scrollable */}
-            <div className={`${mobileEditorTab === 'controls' ? 'flex' : 'hidden'} flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto`}>
+            <div className={`${mobileEditorTab === 'controls' ? 'flex' : 'hidden'} flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 lg:flex lg:h-full lg:min-h-0 lg:overflow-y-auto`}>
               {/* Header */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm font-bold text-white">
@@ -3605,9 +3983,87 @@ export default function OperatorPage() {
                 </div>
 
                 {effect === 'ai_auto' ? (
-                  <p className="rounded-xl border border-brand-300/18 bg-brand-500/10 px-3 py-2 text-xs text-brand-100/75">
-                    A IA automática controla os efeitos neste modo.
-                  </p>
+                  <>
+                    {/* Mobile fallback */}
+                    <p className="rounded-xl border border-brand-300/18 bg-brand-500/10 px-3 py-2 text-xs text-brand-100/75 lg:hidden">
+                      IA: <b>{aiPlan.effectName}</b> · trilha {aiPlan.musicLabel} · {aiPlan.suggestedDuration}s.
+                    </p>
+
+                    {/* Desktop — refined AI direction panel */}
+                    <div className="hidden flex-col gap-2.5 rounded-xl border border-brand-300/22 bg-brand-500/[0.07] p-3 lg:flex">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-brand-100">
+                          <Sparkles className="h-3.5 w-3.5" /> Direção da IA
+                        </span>
+                        <span className="rounded-full border border-brand-300/30 bg-brand-500/15 px-2 py-0.5 text-[10px] font-bold text-brand-100/80">
+                          {Math.round(aiPlan.confidence * 100)}% confiança
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 truncate text-sm font-black text-white">{aiPlan.effectName}</span>
+                        <span className="shrink-0 rounded-full border border-white/12 bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-white/60">
+                          Intensidade {aiPlan.intensityLabel}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] leading-snug text-white/55">{aiPlan.reason}</p>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-100/80">
+                          <Music2 className="h-3 w-3" /> {aiPlan.musicLabel}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] font-bold text-white/65">
+                          <Clock className="h-3 w-3" /> {aiPlan.suggestedDuration}s
+                          {duration !== aiPlan.suggestedDuration && <span className="text-amber-200/80">· sugerido</span>}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={cycleAiEffect}
+                          className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] text-[11px] font-bold text-white/70 transition hover:border-brand-300/35 hover:text-white"
+                        >
+                          <Wand2 className="h-3.5 w-3.5" /> Trocar efeito
+                        </button>
+                        <button
+                          type="button"
+                          onClick={regenerateAiPlan}
+                          className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] text-[11px] font-bold text-white/70 transition hover:border-brand-300/35 hover:text-white"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" /> Regenerar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={applyAiSuggestions}
+                          className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-500/12 text-[11px] font-bold text-emerald-100 transition hover:bg-emerald-500/20"
+                        >
+                          <Check className="h-3.5 w-3.5" /> Aplicar trilha + duração
+                        </button>
+                        <button
+                          type="button"
+                          onClick={convertAiToManual}
+                          className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-brand-300/30 bg-brand-500/15 text-[11px] font-bold text-brand-100 transition hover:bg-brand-500/25"
+                        >
+                          <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustar manual
+                        </button>
+                      </div>
+
+                      <div className="border-t border-white/[0.06] pt-2">
+                        <button
+                          type="button"
+                          onClick={generateAiSegments}
+                          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-fuchsia-300/30 bg-fuchsia-500/12 text-[11px] font-bold text-fuchsia-100 transition hover:bg-fuchsia-500/22"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" /> Gerar cortes IA (avançado)
+                        </button>
+                        <p className="mt-1.5 text-[10px] leading-snug text-white/40">
+                          Cria uma sequência de efeitos (abertura · ponto alto · fecho) editável na timeline.
+                        </p>
+                      </div>
+                    </div>
+                  </>
                 ) : effectSegments.length === 0 ? (
                   <p className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2 text-xs text-white/38">
                     Selecione um efeito ou toque em adicionar para criar um trecho.
@@ -3767,7 +4223,7 @@ export default function OperatorPage() {
             </div>
           </div>
 
-          <div className={`${mobileEditorTab === 'timeline' ? 'block' : 'hidden'} lg:block`}>
+          <div className={`${mobileEditorTab === 'timeline' ? 'block' : 'hidden'} lg:block lg:shrink-0`}>
             <div className="mb-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-2 lg:hidden">
               <button
                 type="button"
@@ -3789,12 +4245,14 @@ export default function OperatorPage() {
               <EditorTimeline
                 sourceDuration={sourceDuration}
                 outputDuration={outputDuration}
+                thumbnails={videoThumbnails}
                 trimStart={safeTrimStart}
                 trimEnd={safeTrimEnd}
                 currentTime={previewCurrentTime}
                 templateName={selectedTemplate?.name}
                 musicLabel={selectedMusicLabel}
                 effect={effect}
+                aiEffectLabel={aiPlan.effectName}
                 effectSegments={effectSegments}
                 selectedEffectSegmentId={activeEffectSegment?.id}
                 onSeek={seekPreview}

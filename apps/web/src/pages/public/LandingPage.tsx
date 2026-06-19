@@ -25,6 +25,7 @@ import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { HeroMockup, PhoneMockup, DesktopMockup } from '@/components/landing/LandingMockups';
 import { FeatureCard, GlassCard, RevealOnScroll, Section, CheckItem } from '@/components/landing/LandingPrimitives';
 import { MouseAura } from '@/components/landing/MouseAura';
+import { TrialModal } from '@/components/landing/TrialModal';
 import { PLANS } from '@/config/plans';
 
 const navLinks = [
@@ -352,6 +353,7 @@ function PricingPreview() {
 export default function LandingPage() {
   const navigate = useNavigate();
   const compactBenefits = useMemo(() => benefits.slice(0, 6), []);
+  const [trialOpen, setTrialOpen] = useState(false);
 
   function scrollToDemo() {
     document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -360,6 +362,7 @@ export default function LandingPage() {
   return (
     <div className="six3-grid-bg min-h-screen overflow-x-clip bg-surface text-white">
       <MouseAura />
+      <TrialModal open={trialOpen} onClose={() => setTrialOpen(false)} />
       <LandingNav />
 
       <main className="relative z-10">
@@ -372,13 +375,20 @@ export default function LandingPage() {
               SIX3° transforma vídeos brutos em conteúdos prontos para postar, com cortes inteligentes, legendas, efeitos, música, ritmo e formatos otimizados para cada rede social.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="xl" onClick={scrollToPlans} icon={<ArrowRight className="h-5 w-5" />}>
-                Começar agora
+              <Button size="xl" onClick={() => setTrialOpen(true)} icon={<Sparkles className="h-5 w-5" />}>
+                Testar 3 dias grátis
               </Button>
-              <Button variant="secondary" size="xl" onClick={scrollToDemo} icon={<Sparkles className="h-5 w-5" />}>
-                Ver demonstração
+              <Button variant="secondary" size="xl" onClick={scrollToPlans} icon={<ArrowRight className="h-5 w-5" />}>
+                Ver planos
               </Button>
             </div>
+            <button
+              type="button"
+              onClick={scrollToDemo}
+              className="mt-3 text-sm font-semibold text-white/45 transition hover:text-white/80"
+            >
+              Ou veja a demonstração →
+            </button>
             <div className="mt-9 grid max-w-2xl grid-cols-3 gap-4">
               {[
                 ['10x', 'mais rápido'],

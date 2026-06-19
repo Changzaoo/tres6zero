@@ -1008,6 +1008,22 @@ adminRouter.get('/users/:uid/details', requireAdmin, async (req, res, next) => {
   }
 });
 
+adminRouter.get('/trial-requests', requireAdmin, async (_req, res, next) => {
+  try {
+    const db = getDb();
+    const snap = await db.collection('trialRequests').get();
+    const requests = snap.docs
+      .map((doc) => {
+        const { _ts, ...data } = doc.data() as Record<string, unknown>;
+        return { id: doc.id, ...data };
+      })
+      .sort((a, b) => Date.parse(String((b as { createdAt?: string }).createdAt || '')) - Date.parse(String((a as { createdAt?: string }).createdAt || '')));
+    res.json({ requests });
+  } catch (error) {
+    next(error);
+  }
+});
+
 adminRouter.get('/users/:uid/login-events', requireAdmin, async (req, res, next) => {
   try {
     const db = getDb();

@@ -11,8 +11,11 @@ import {
   ExternalLink,
   FileImage,
   FileText,
+  Gift,
   KeyRound,
   LifeBuoy,
+  Mail,
+  Phone,
   MonitorSmartphone,
   RefreshCw,
   Shield,
@@ -46,6 +49,7 @@ import {
 } from '@/services/adminService';
 import { getAdminSession } from '@/services/authService';
 import { getPaidCustomers } from '@/services/billingService';
+import { getTrialRequests } from '@/services/trialService';
 import { useAuthStore } from '@/store/authStore';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { toast } from '@/components/ui/Toast';
@@ -58,6 +62,7 @@ import type {
   AdminUserOverview,
   AppEvent,
   AuthAuditLog,
+  TrialRequest,
   UserAdminDetails,
   UserLoginEvent,
   UserProfile,
@@ -72,7 +77,7 @@ type PaidCustomer = {
   renewalDay: number | null;
 };
 
-type AdminSection = 'users' | 'events' | 'media' | 'logins' | 'customers';
+type AdminSection = 'users' | 'events' | 'media' | 'logins' | 'customers' | 'trials';
 type AdminDrawerTab = 'summary' | 'billing' | 'usage' | 'logins' | 'devices' | 'security' | 'audit' | 'notes';
 type LoginFilter = 'all' | '24h' | '7d' | '30d' | 'suspicious' | 'failed' | 'success';
 type BanDuration = 'permanent' | '1d' | '7d' | '30d' | 'custom';
@@ -455,6 +460,8 @@ export default function AdminPage() {
   const setUser = useAuthStore((state) => state.setUser);
   const [adminUser, setAdminUser] = useState<UserProfile | null>(null);
   const [customers, setCustomers] = useState<PaidCustomer[]>([]);
+  const [trialRequests, setTrialRequests] = useState<TrialRequest[]>([]);
+  const [loadingTrials, setLoadingTrials] = useState(true);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [activeSection, setActiveSection] = useState<AdminSection>('users');
@@ -492,9 +499,10 @@ export default function AdminPage() {
         setAdminUser(user);
         setUser(user);
 
-        const [customersResult, overviewResult] = await Promise.allSettled([
+        const [customersResult, overviewResult, trialsResult] = await Promise.allSettled([
           getPaidCustomers(),
           getAdminOverview(),
+          getTrialRequests(),
         ]);
 
         if (!mounted) return;
@@ -510,6 +518,12 @@ export default function AdminPage() {
         } else {
           toast.error('Não foi possível carregar auditoria administrativa.');
         }
+
+        if (trialsResult.status === 'fulfilled') {
+          setTrialRequests(trialsResult.value);
+        } else {
+          toast.error('Não foi possível carregar as solicitações de teste grátis.');
+        }
       })
       .catch(() => {
         if (!mounted) return;
@@ -517,7 +531,10 @@ export default function AdminPage() {
         navigate('/app/billing', { replace: true });
       })
       .finally(() => {
-        if (mounted) setLoadingOverview(false);
+        if (mounted) {
+          setLoadingOverview(false);
+          setLoadingTrials(false);
+        }
       });
 
     return () => {
@@ -1064,6 +1081,7 @@ export default function AdminPage() {
     { id: 'media', label: 'Mídias', icon: <FileImage className="h-4 w-4" />, count: overview?.summary.totalMedia ?? '-' },
     { id: 'logins', label: 'Logins', icon: <KeyRound className="h-4 w-4" />, count: overview?.loginLogs.length ?? '-' },
     { id: 'customers', label: 'Clientes', icon: <UserCheck className="h-4 w-4" />, count: customers.length },
+    { id: 'trials', label: 'Testes grátis', icon: <Gift className="h-4 w-4" />, count: loadingTrials ? '-' : trialRequests.length },
   ];
 
   const summary = overview?.summary;
@@ -1552,6 +1570,111 @@ export default function AdminPage() {
             </div>
           </div>
         ))}
+      </div>
+    );
+  };
+
+  const renderTrials = () => {
+    if (loadingTrials) return <LoadingState message="Carregando solicitações de teste grátis..." />;
+    if (trialRequests.length === 0) {
+      return <EmptyState>Nenhuma solicitação de teste grátis recebida ainda.</EmptyState>;
+    }
+
+    const trialStatusStyles: Record<string, string> = {
+      approved: 'border-emerald-300/25 bg-emerald-500/12 text-emerald-200',
+      pending: 'border-amber-300/25 bg-amber-500/12 text-amber-200',
+      expired: 'border-red-300/25 bg-red-500/12 text-red-200',
+    };
+    const trialStatusLabels: Record<string, string> = {
+      approved: 'Aprovado',
+      pending: 'Pendente',
+      expired: 'Expirado',
+    };
+
+    return (
+      <div className="space-y-3">
+        {trialRequests.map((request) => {
+          const status = request.status || 'approved';
+          return (
+            <div key={request.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-white">{request.name || 'Sem nome'}</p>
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${trialStatusStyles[status] || trialStatusStyles.approved}`}>
+                      {trialStatusLabels[status] || status}
+                    </span>
+                    {request.businessName ? (
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/55">{request.businessName}</span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-white/40">
+                    Solicitado em {formatDateTime(request.createdAt)}
+                    {request.trialEndsAt ? ` · expira em ${formatDate(request.trialEndsAt)}` : ''}
+                    {request.trialDays ? ` · ${request.trialDays} dia(s)` : ''}
+                  </p>
+                </div>
+                {request.useType ? (
+                  <span className="shrink-0 rounded-full border border-brand-300/20 bg-brand-500/10 px-3 py-1 text-[11px] font-semibold text-brand-100">
+                    {request.useType}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {request.loginEmail ? (
+                  <button
+                    type="button"
+                    onClick={() => void copyText(request.loginEmail, 'Login')}
+                    className="group flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-left text-xs transition hover:bg-white/[0.06]"
+                  >
+                    <UserCheck className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                    <span className="truncate text-white/70">{request.loginEmail}</span>
+                    <Copy className="ml-auto h-3.5 w-3.5 shrink-0 text-white/30 group-hover:text-white/60" />
+                  </button>
+                ) : null}
+                {request.contactEmail ? (
+                  <button
+                    type="button"
+                    onClick={() => void copyText(request.contactEmail, 'Email de contato')}
+                    className="group flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-left text-xs transition hover:bg-white/[0.06]"
+                  >
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                    <span className="truncate text-white/70">{request.contactEmail}</span>
+                    <Copy className="ml-auto h-3.5 w-3.5 shrink-0 text-white/30 group-hover:text-white/60" />
+                  </button>
+                ) : null}
+                {request.phone ? (
+                  <button
+                    type="button"
+                    onClick={() => void copyText(request.phone, 'Telefone')}
+                    className="group flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-left text-xs transition hover:bg-white/[0.06]"
+                  >
+                    <Phone className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                    <span className="truncate text-white/70">{request.phone}</span>
+                    <Copy className="ml-auto h-3.5 w-3.5 shrink-0 text-white/30 group-hover:text-white/60" />
+                  </button>
+                ) : null}
+                {request.uid ? (
+                  <button
+                    type="button"
+                    onClick={() => void openUserDetails(request.uid as string)}
+                    className="flex items-center gap-2 rounded-xl border border-cyan-300/15 bg-cyan-500/[0.08] px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/[0.14]"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                    <span>Ver usuário no painel</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {request.description ? (
+                <p className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-white/55">
+                  {request.description}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -2641,6 +2764,12 @@ export default function AdminPage() {
       {activeSection === 'customers' && (
         <Panel title="Clientes com acesso" icon={<UserCheck className="h-5 w-5" />}>
           {renderCustomers()}
+        </Panel>
+      )}
+
+      {activeSection === 'trials' && (
+        <Panel title="Solicitações de teste grátis" icon={<Gift className="h-5 w-5" />}>
+          {renderTrials()}
         </Panel>
       )}
 

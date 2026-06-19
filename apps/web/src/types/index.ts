@@ -448,6 +448,26 @@ export interface Lead {
   createdAt: string;
 }
 
+export interface TrialRequest {
+  id: string;
+  uid?: string;
+  name: string;
+  username?: string;
+  loginEmail?: string;
+  contactEmail?: string;
+  phone?: string;
+  businessName?: string;
+  useType?: string;
+  description?: string;
+  status: 'approved' | 'pending' | 'expired';
+  planId?: string;
+  trialDays?: number;
+  trialStartedAt?: string | null;
+  trialEndsAt?: string | null;
+  source?: string;
+  createdAt: string;
+}
+
 export type EngagementEventType = 'view' | 'download' | 'share' | 'whatsapp' | 'copy_link' | 'qr_code' | 'feedback';
 
 export interface EngagementEvent {

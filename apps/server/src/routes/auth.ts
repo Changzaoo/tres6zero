@@ -6,7 +6,7 @@ import { BILLING_PLANS, getStripeAccessForUser } from '../services/stripeBilling
 import { getPlanEntitlements, hasPlanFeature, type PlanFeature } from '../services/planEntitlements';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore, toFirebaseUserRecord } from '../services/firebaseAdmin';
 import { auditReasonFromError, recordAuthAuditLog } from '../services/auditLog';
-import { createNotification, getNotificationPreferences } from '../services/notifications';
+import { createAdminNotification, createNotification, getNotificationPreferences } from '../services/notifications';
 import {
   assertTrustedDevice,
   disconnectAllTrustedDevices,
@@ -29,6 +29,24 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+const trialSignupSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  username: z.string().trim().min(3).max(40),
+  password: z.string().min(6).max(200),
+  contactEmail: z.string().email().max(160),
+  phone: z.string().trim().min(6).max(40),
+  businessName: z.string().trim().max(120).optional().default(''),
+  useType: z.string().trim().max(120).optional().default(''),
+  description: z.string().trim().max(1000).optional().default(''),
+});
+
+const TRIAL_DAYS = 3;
+const TRIAL_PLAN_ID = 'starter';
+
+function trialNormalizedUsername(username: string) {
+  return username.trim().toLowerCase().replace(/@six3\.com$/i, '');
+}
 
 const resetSchema = z.object({
   email: z.string().email(),
@@ -781,6 +799,146 @@ authRouter.post('/register', async (req, res, next) => {
       type: 'register',
       uid: auth.localId,
       email: auth.email || data.email,
+      success: true,
+    });
+    res.status(201).json(session);
+  } catch (e) {
+    await recordAuthAuditLog(req, {
+      type: 'register',
+      email: attemptedEmail,
+      success: false,
+      reason: auditReasonFromError(e),
+    });
+    next(e);
+  }
+});
+
+authRouter.post('/trial-signup', async (req, res, next) => {
+  let attemptedEmail = '';
+  try {
+    ensureTrustedDeviceSecurityConfigured();
+    const data = trialSignupSchema.parse(req.body);
+    const username = trialNormalizedUsername(data.username);
+    const loginEmail = `${username}@six3.com`;
+    attemptedEmail = loginEmail;
+
+    const auth = await firebaseAuthRequest<FirebaseAuthResponse>('accounts:signUp', {
+      email: loginEmail,
+      password: data.password,
+      displayName: data.name,
+      returnSecureToken: true,
+    });
+
+    await firebaseAuthRequest('accounts:update', {
+      idToken: auth.idToken,
+      displayName: data.name,
+      returnSecureToken: false,
+    }).catch(() => undefined);
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const trialEndsAt = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const renewalDay = new Date(trialEndsAt).getUTCDate();
+
+    // Grant the trial immediately. Authorization re-reads custom claims on every
+    // request (accounts:lookup), so the trial is active right away — no token refresh needed.
+    const adminAuth = getFirebaseAdminAuth();
+    if (adminAuth) {
+      await adminAuth.setCustomUserClaims(auth.localId, {
+        subscriptionStatus: 'active',
+        planId: TRIAL_PLAN_ID,
+        billingProvider: 'manual',
+        currentPeriodEnd: trialEndsAt,
+        planStartedAt: nowIso,
+        planOrigin: 'trial',
+        planLifetime: false,
+        planSpecial: false,
+        trialStartedAt: nowIso,
+        trialEndsAt,
+        renewalDay,
+        lastPlanChangeAt: nowIso,
+      });
+    }
+
+    const db = getFirebaseAdminFirestore();
+    if (db) {
+      await db.collection('users').doc(auth.localId).set({
+        name: data.name,
+        email: loginEmail,
+        companyName: data.businessName || '',
+        phone: data.phone,
+        contactEmail: data.contactEmail,
+        useType: data.useType || '',
+        trialDescription: data.description || '',
+        subscriptionStatus: 'active',
+        planId: TRIAL_PLAN_ID,
+        billingProvider: 'manual',
+        currentPeriodEnd: trialEndsAt,
+        planExpiresAt: trialEndsAt,
+        planStartedAt: nowIso,
+        planOrigin: 'trial',
+        planLifetime: false,
+        planSpecial: false,
+        trialStartedAt: nowIso,
+        trialEndsAt,
+        renewalDay,
+        lastPlanChangeAt: nowIso,
+        updatedAt: nowIso,
+        createdAt: nowIso,
+        _ts: FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      await db.collection('trialRequests').add({
+        uid: auth.localId,
+        name: data.name,
+        username,
+        loginEmail,
+        contactEmail: data.contactEmail,
+        phone: data.phone,
+        businessName: data.businessName || '',
+        useType: data.useType || '',
+        description: data.description || '',
+        status: 'approved',
+        planId: TRIAL_PLAN_ID,
+        trialDays: TRIAL_DAYS,
+        trialStartedAt: nowIso,
+        trialEndsAt,
+        source: 'landing',
+        createdAt: nowIso,
+        _ts: FieldValue.serverTimestamp(),
+      });
+    }
+
+    await createNotification({
+      recipientUid: auth.localId,
+      category: 'system',
+      title: 'Seu teste grátis começou!',
+      body: `Você tem ${TRIAL_DAYS} dias grátis para usar o SIX3. Aproveite!`,
+      link: '/app/dashboard',
+      priority: 'normal',
+    }).catch((error) => console.warn('[notifications] trial welcome skipped:', error instanceof Error ? error.message : error));
+
+    await createAdminNotification({
+      category: 'admin',
+      title: 'Novo teste grátis solicitado',
+      body: `${data.name} (${data.contactEmail || loginEmail}) ativou ${TRIAL_DAYS} dias grátis.`,
+      link: '/app/admin',
+      priority: 'high',
+      metadata: {
+        source: 'trial_signup',
+        uid: auth.localId,
+        contactEmail: data.contactEmail,
+        phone: data.phone,
+        businessName: data.businessName,
+        useType: data.useType,
+      },
+    }).catch((error) => console.warn('[notifications] trial admin skipped:', error instanceof Error ? error.message : error));
+
+    const session = await sessionFromAuthResponse(auth, req, data.name);
+    await recordAuthAuditLog(req, {
+      type: 'register',
+      uid: auth.localId,
+      email: loginEmail,
       success: true,
     });
     res.status(201).json(session);
