@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { PlanCards } from '@/components/billing/PlanCards';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import type { PlanId } from '@/config/plans';
 
 export default function PricingPage() {
@@ -14,7 +15,8 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="six3-grid-bg min-h-screen bg-surface px-4 py-4 text-white sm:px-6 sm:py-6 lg:px-8">
+    <div className="six3-grid-bg min-h-screen px-4 py-4 text-white sm:px-6 sm:py-6 lg:px-8">
+      <ImmersiveBackground />
       <MouseAura />
       <div className="relative z-10 mx-auto max-w-7xl">
         <nav className="mb-8 flex items-center justify-between gap-3 sm:mb-10">

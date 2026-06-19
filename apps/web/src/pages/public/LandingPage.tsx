@@ -22,10 +22,11 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
-import { HeroMockup, PhoneMockup, DesktopMockup } from '@/components/landing/LandingMockups';
+import { PhoneMockup, DesktopMockup } from '@/components/landing/LandingMockups';
 import { FeatureCard, GlassCard, RevealOnScroll, Section, CheckItem } from '@/components/landing/LandingPrimitives';
 import { MouseAura } from '@/components/landing/MouseAura';
 import { TrialModal } from '@/components/landing/TrialModal';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import { PLANS } from '@/config/plans';
 
 const navLinks = [
@@ -219,7 +220,7 @@ function LandingNav() {
       >
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <button type="button" onClick={() => navigate('/')} aria-label="SIX3°" className="text-left">
-            <BrandWordmark className="text-2xl" />
+            <BrandWordmark className="text-4xl" />
           </button>
 
           <div className="hidden items-center gap-1 md:flex">
@@ -356,54 +357,78 @@ export default function LandingPage() {
   const [trialOpen, setTrialOpen] = useState(false);
 
   function scrollToDemo() {
-    document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const target = document.getElementById('como');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
+    }
   }
 
   return (
-    <div className="six3-grid-bg min-h-screen overflow-x-clip bg-surface text-white">
+    <div className="six3-grid-bg min-h-screen overflow-x-clip text-white">
+      <ImmersiveBackground />
       <MouseAura />
       <TrialModal open={trialOpen} onClose={() => setTrialOpen(false)} />
       <LandingNav />
 
       <main className="relative z-10">
-        <section className="mx-auto grid min-h-screen max-w-7xl items-center gap-10 px-4 pb-12 pt-[calc(var(--nav-h)+2rem)] sm:px-6 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pb-16 lg:pt-[calc(var(--nav-h)+4rem)]">
-          <RevealOnScroll className="max-w-3xl">
-            <h1 className="mt-7 text-[clamp(2.7rem,8vw,5.9rem)] font-black leading-[0.94] tracking-[-0.055em] text-white">
-              Edite vídeos automaticamente em <span className="six3-gradient-text">qualquer lugar</span>
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/60 sm:text-xl">
-              SIX3° transforma vídeos brutos em conteúdos prontos para postar, com cortes inteligentes, legendas, efeitos, música, ritmo e formatos otimizados para cada rede social.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="xl" onClick={() => setTrialOpen(true)} icon={<Sparkles className="h-5 w-5" />}>
-                Testar 3 dias grátis
-              </Button>
-              <Button variant="secondary" size="xl" onClick={scrollToPlans} icon={<ArrowRight className="h-5 w-5" />}>
-                Ver planos
-              </Button>
-            </div>
-            <button
-              type="button"
-              onClick={scrollToDemo}
-              className="mt-3 text-sm font-semibold text-white/45 transition hover:text-white/80"
-            >
-              Ou veja a demonstração →
-            </button>
-            <div className="mt-9 grid max-w-2xl grid-cols-3 gap-4">
-              {[
-                ['10x', 'mais rápido'],
-                ['4 formatos', 'auto export'],
-                ['0', 'experiência exigida'],
-              ].map(([value, label]) => (
-                <div key={value} className="min-w-0">
-                  <p className="text-xl font-black tracking-[-0.02em] text-white sm:text-2xl">{value}</p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-white/35 sm:text-[11px]">{label}</p>
-                </div>
-              ))}
-            </div>
-          </RevealOnScroll>
+        <section className="relative flex min-h-[100svh] items-center">
+          <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-[calc(var(--nav-h)+3.5rem)] sm:px-6 lg:px-8 lg:pb-28 lg:pt-[calc(var(--nav-h)+5rem)]">
+            <RevealOnScroll className="max-w-3xl">
+              <span className="six3-eyebrow">
+                <span className="six3-eyebrow-dot" />
+                A nova era da edição é imersiva
+              </span>
+              <h1 className="mt-7 text-[clamp(2.7rem,8.4vw,6rem)] font-black leading-[0.92] tracking-[-0.055em] text-white [text-shadow:0_8px_60px_rgba(8,9,12,0.55)]">
+                Vídeos editados<br className="hidden sm:block" /> em <span className="six3-gradient-text">qualquer lugar</span>,{' '}
+                <em className="not-italic six3-gradient-text">em 3D</em>
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70 sm:text-xl">
+                SIX3° transforma vídeos brutos em conteúdos prontos para postar — com cortes inteligentes,
+                legendas, efeitos, música e formatos otimizados para cada rede social.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button size="xl" onClick={() => setTrialOpen(true)} icon={<Sparkles className="h-5 w-5" />}>
+                  Testar 3 dias grátis
+                </Button>
+                <Button variant="outline" size="xl" onClick={scrollToPlans} icon={<ArrowRight className="h-5 w-5" />}>
+                  Ver planos
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={scrollToDemo}
+                className="mt-3 text-sm font-semibold text-white/45 transition hover:text-white/80"
+              >
+                Ou veja a demonstração →
+              </button>
+              <div className="mt-10 grid max-w-2xl grid-cols-3 gap-4">
+                {[
+                  ['10x', 'mais rápido'],
+                  ['4 formatos', 'auto export'],
+                  ['0', 'experiência exigida'],
+                ].map(([value, label]) => (
+                  <div key={value} className="min-w-0">
+                    <p className="text-xl font-black tracking-[-0.02em] text-white sm:text-2xl">{value}</p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-white/45 sm:text-[11px]">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </RevealOnScroll>
+          </div>
 
-          <HeroMockup />
+          <button
+            type="button"
+            onClick={scrollToDemo}
+            className="absolute bottom-7 left-1/2 z-10 -translate-x-1/2"
+            aria-label="Rolar para explorar"
+          >
+            <span className="six3-scroll-pill">
+              <span className="six3-scroll-dot" />
+              Role para mergulhar
+            </span>
+          </button>
         </section>
 
         <Section tight>
@@ -558,6 +583,7 @@ export default function LandingPage() {
         <Section tight>
           <RevealOnScroll>
             <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(120%_130%_at_50%_0%,rgba(139,92,246,.22),rgba(11,13,18,.98)_70%)] px-5 py-16 text-center shadow-[0_44px_120px_-60px_rgba(59,109,255,.55)] sm:px-10 lg:py-24">
+              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_120%,rgba(255,122,60,.28),rgba(255,80,130,.12)_38%,transparent_72%)]" />
               <span className="pointer-events-none absolute -right-8 -top-20 text-[18rem] font-black leading-none text-white/[0.035]">°</span>
               <h2 className="relative mx-auto max-w-3xl text-[clamp(2.1rem,6vw,4rem)] font-black leading-[1.02] tracking-[-0.04em] text-white">
                 Seu próximo vídeo pode ficar pronto em <span className="six3-gradient-text">minutos</span>

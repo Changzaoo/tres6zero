@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import {
   ArrowLeft,
   ArrowRight,
@@ -762,7 +763,8 @@ export default function PublicInfoPage({ pageId }: { pageId: PublicInfoPageId })
   const Icon = page.icon;
 
   return (
-    <div className="six3-grid-bg min-h-screen overflow-x-clip bg-surface text-white">
+    <div className="six3-grid-bg min-h-screen overflow-x-clip text-white">
+      <ImmersiveBackground />
       <MouseAura />
       <PublicHeader />
 

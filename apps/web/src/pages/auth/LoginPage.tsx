@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -161,7 +162,8 @@ export default function LoginPage() {
 
   return (
     // pb maior no mobile: folga para o botao flutuante de suporte nao cobrir o formulario
-    <main className="six3-grid-bg flex min-h-screen items-center justify-center overflow-x-hidden bg-surface px-4 pt-6 pb-20 sm:px-6 sm:py-8">
+    <main className="six3-grid-bg flex min-h-screen items-center justify-center overflow-x-hidden px-4 pt-6 pb-20 sm:px-6 sm:py-8">
+      <ImmersiveBackground />
       <motion.section
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
         animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Download, MessageCircle, PlayCircle, QrCode, Send, Share2 } from 'lucide-react';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import { QRCodeSVG } from 'qrcode.react';
 import { getEvent } from '@/services/eventService';
 import { createLead } from '@/services/leadService';
@@ -228,7 +229,9 @@ export default function VideoPage() {
     : `Olha meu vídeo 360: ${shareUrl}`);
 
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-surface pb-20">
+    <div className="relative min-h-screen">
+      <ImmersiveBackground variant="subtle" />
+      <div className="relative z-10 mx-auto min-h-screen max-w-md bg-surface pb-20">
       <div className="relative aspect-[9/16] overflow-hidden bg-black">
         <div className={`pointer-events-none absolute inset-0 grid place-items-center px-6 text-center text-white/35 transition-opacity ${playerReady || hasPoster ? 'opacity-0' : 'opacity-100'}`}>
           <div>
@@ -340,6 +343,7 @@ export default function VideoPage() {
           </Button>
         </div>
       </Modal>
+      </div>
     </div>
   );
 }

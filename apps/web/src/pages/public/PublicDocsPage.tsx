@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { CSSProperties } from 'react';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -538,7 +539,8 @@ export default function PublicDocsPage({ pageId }: { pageId: PublicDocsPageId })
   const Icon = page.icon;
 
   return (
-    <div className="six3-grid-bg min-h-screen overflow-x-clip bg-surface text-white">
+    <div className="six3-grid-bg min-h-screen overflow-x-clip text-white">
+      <ImmersiveBackground />
       <MouseAura />
       <PublicHeader />
 

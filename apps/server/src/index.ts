@@ -35,6 +35,8 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'https://six3.nexusholding.xyz',
+  'https://www.six3.nexusholding.xyz',
   process.env.FRONTEND_URL,
   ...parseOrigins(process.env.CORS_ORIGINS),
 ].filter(Boolean) as string[]);

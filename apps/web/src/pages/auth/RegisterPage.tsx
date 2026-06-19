@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/Toast';
 import { BrandWordmark } from '@/components/brand/BrandLogo';
 import { MouseAura } from '@/components/landing/MouseAura';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import type { PlanId } from '@/config/plans';
 
 const schema = z.object({
@@ -57,7 +58,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
+    <div className="six3-grid-bg flex min-h-screen items-center justify-center p-4">
+      <ImmersiveBackground />
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">

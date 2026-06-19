@@ -28,6 +28,50 @@ function normalizeSelectedPlan(planId?: string | null, isAdmin = false): PlanId 
   return planId === 'starter' || planId === 'pro' || planId === 'unlimited' ? planId : null;
 }
 
+// PixGo exige CPF/CNPJ do pagador a partir de 25/06/2026: o QR Code só pode
+// ser pago pelo documento informado. Validação com dígito verificador.
+function cpfCheckDigit(digits: number[], factor: number) {
+  const sum = digits.reduce((acc, digit, index) => acc + digit * (factor - index), 0);
+  const rest = (sum * 10) % 11;
+  return rest === 10 ? 0 : rest;
+}
+
+function cnpjCheckDigit(digits: number[]) {
+  const weights = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2].slice(13 - digits.length);
+  const sum = digits.reduce((acc, digit, index) => acc + digit * weights[index], 0);
+  const rest = sum % 11;
+  return rest < 2 ? 0 : 11 - rest;
+}
+
+function isValidCpfOrCnpj(digits: string) {
+  if (/^\d{11}$/.test(digits) && !/^(\d)\1{10}$/.test(digits)) {
+    const numbers = digits.split('').map(Number);
+    return cpfCheckDigit(numbers.slice(0, 9), 10) === numbers[9]
+      && cpfCheckDigit(numbers.slice(0, 10), 11) === numbers[10];
+  }
+  if (/^\d{14}$/.test(digits) && !/^(\d)\1{13}$/.test(digits)) {
+    const numbers = digits.split('').map(Number);
+    return cnpjCheckDigit(numbers.slice(0, 12)) === numbers[12]
+      && cnpjCheckDigit(numbers.slice(0, 13)) === numbers[13];
+  }
+  return false;
+}
+
+function formatPayerDocument(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    return digits
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+  }
+  return digits
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4')
+    .replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, '$1.$2.$3/$4-$5');
+}
+
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -55,6 +99,11 @@ export default function BillingPage() {
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [payerOpen, setPayerOpen] = useState(false);
+  const [pendingPlanId, setPendingPlanId] = useState<PlanId | null>(null);
+  const [payerDocument, setPayerDocument] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [payerError, setPayerError] = useState('');
   const [checkingPayment, setCheckingPayment] = useState(false);
   const autoStartedPlan = useRef<PlanId | null>(null);
   const confirmedPaymentRef = useRef<string | null>(null);
@@ -135,10 +184,29 @@ export default function BillingPage() {
     };
   }, [payment?.paymentId, payment?.status, paymentOpen, setUser]);
 
-  async function startPixPayment(planId: PlanId) {
+  function startPixPayment(planId: PlanId) {
+    setPendingPlanId(planId);
+    setPayerError('');
+    if (!payerName) setPayerName(user?.name || '');
+    setPaymentOpen(false);
+    setPayerOpen(true);
+  }
+
+  async function confirmPayerAndGeneratePix() {
+    const digits = payerDocument.replace(/\D/g, '');
+    if (!isValidCpfOrCnpj(digits)) {
+      setPayerError('CPF ou CNPJ inválido. Confira os números digitados.');
+      return;
+    }
+    if (!pendingPlanId) return;
+
+    setPayerOpen(false);
     try {
-      setLoadingPlan(planId);
-      const nextPayment = await createPixPayment(planId);
+      setLoadingPlan(pendingPlanId);
+      const nextPayment = await createPixPayment(pendingPlanId, {
+        document: digits,
+        name: payerName.trim() || undefined,
+      });
       setPayment(nextPayment);
       setPaymentOpen(true);
       toast.info('Pix gerado. Use o QR Code ou o Pix copia e cola nesta tela.');
@@ -146,8 +214,11 @@ export default function BillingPage() {
       const code = error instanceof Error ? error.message : '';
       const message = code === 'PIXGO_NOT_CONFIGURED'
         ? 'PixGo ainda precisa da API Key configurada no backend.'
-        : 'Não foi possível gerar o Pix agora.';
+        : code === 'INVALID_PAYER_DOCUMENT'
+          ? 'CPF/CNPJ recusado. Confira o documento e tente novamente.'
+          : 'Não foi possível gerar o Pix agora.';
       toast.error(message);
+      if (code === 'INVALID_PAYER_DOCUMENT') setPayerOpen(true);
     } finally {
       setLoadingPlan(null);
     }
@@ -211,6 +282,70 @@ export default function BillingPage() {
         selectedDescription={selectedDescription}
         paymentHint="O QR Code Pix abre nesta página. Não armazenamos dados de cartão."
       />
+
+      <Modal
+        open={payerOpen}
+        onClose={() => setPayerOpen(false)}
+        title="Identificação do pagador"
+        size="md"
+        panelClassName="!rounded-2xl !border-white/10 [background:#101218!important] [backdrop-filter:none!important] [-webkit-backdrop-filter:none!important] before:hidden"
+        headerClassName="!p-4"
+        bodyClassName="!p-4"
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void confirmPayerAndGeneratePix();
+          }}
+        >
+          <div className="rounded-xl border border-amber-300/25 bg-amber-400/10 px-3 py-2 text-xs leading-relaxed text-amber-50/80">
+            O Pix será vinculado ao CPF ou CNPJ informado. Use o documento de quem vai pagar pelo banco.
+          </div>
+
+          <label className="block">
+            <span className="text-sm font-semibold text-white">CPF ou CNPJ do pagador</span>
+            <input
+              value={payerDocument}
+              onChange={(event) => {
+                setPayerDocument(formatPayerDocument(event.target.value));
+                setPayerError('');
+              }}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="000.000.000-00"
+              className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#171a22] px-3 text-sm text-white outline-none transition focus:border-brand-300/60 focus:ring-2 focus:ring-brand-500/20"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-semibold text-white">Nome do pagador</span>
+            <input
+              value={payerName}
+              onChange={(event) => setPayerName(event.target.value)}
+              autoComplete="name"
+              placeholder={user?.name || 'Nome opcional'}
+              className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#171a22] px-3 text-sm text-white outline-none transition focus:border-brand-300/60 focus:ring-2 focus:ring-brand-500/20"
+            />
+            <span className="mt-1 block text-xs text-white/45">Opcional, mas ajuda na conciliação do pagamento.</span>
+          </label>
+
+          {payerError && (
+            <p className="rounded-xl border border-red-300/25 bg-red-400/10 px-3 py-2 text-xs font-semibold text-red-100">
+              {payerError}
+            </p>
+          )}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" className="justify-center" onClick={() => setPayerOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" className="justify-center" disabled={!pendingPlanId}>
+              Gerar Pix
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={paymentOpen}

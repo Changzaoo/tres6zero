@@ -32,6 +32,7 @@ const templateCategories = [
   'setas_chamadas', 'emojis_reacoes', 'elementos_festivos', 'cards_faixas',
   'tech_futurista', 'cubos_isometricos', 'flores_decorativos', 'minimal_premium',
   'gamer_neon', 'tropical', 'booth_360',
+  'fogo', 'gelo', 'oceano', 'galaxia',
 ] as const;
 const aspectRatios = ['9:16', '1:1', '16:9', 'auto'] as const;
 

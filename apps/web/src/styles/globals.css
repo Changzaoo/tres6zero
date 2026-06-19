@@ -22,7 +22,7 @@
     --glow: color-mix(in oklab, var(--a1), var(--a2));
     --radius: 22px;
     --radius-lg: 30px;
-    --nav-h: 68px;
+    --nav-h: 80px;
     --font: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
     --ease: cubic-bezier(.22,.61,.36,1);
@@ -477,5 +477,152 @@
   }
   75% {
     stroke: #22c55e;
+  }
+}
+
+/* ===== Hero imersivo 3D ===== */
+.hero3d {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.immersive-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.immersive-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.immersive-gradient-subtle {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(110% 80% at 80% 8%, rgba(139, 92, 246, 0.16), transparent 55%),
+    radial-gradient(110% 80% at 12% 18%, rgba(59, 109, 255, 0.16), transparent 55%);
+}
+html[data-theme='light'] .immersive-gradient-subtle {
+  background:
+    radial-gradient(110% 80% at 80% 8%, rgba(139, 92, 246, 0.1), transparent 55%),
+    radial-gradient(110% 80% at 12% 18%, rgba(59, 109, 255, 0.1), transparent 55%);
+}
+.immersive-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(125% 85% at 50% 32%, transparent 58%, rgba(8, 9, 12, 0.55) 100%);
+}
+html[data-theme='light'] .immersive-vignette {
+  background: radial-gradient(125% 85% at 50% 32%, transparent 62%, rgba(245, 247, 251, 0.45) 100%);
+}
+.hero3d-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 95% at 72% 16%, rgba(139, 92, 246, 0.30), transparent 55%),
+    radial-gradient(120% 85% at 16% 28%, rgba(59, 109, 255, 0.32), transparent 55%),
+    radial-gradient(150% 95% at 50% 118%, rgba(255, 122, 60, 0.34), rgba(255, 80, 130, 0.18) 36%, transparent 72%);
+  animation: hero3d-drift 18s ease-in-out infinite alternate;
+}
+html[data-theme='light'] .hero3d-gradient {
+  background:
+    radial-gradient(120% 95% at 72% 16%, rgba(139, 92, 246, 0.20), transparent 55%),
+    radial-gradient(120% 85% at 16% 28%, rgba(59, 109, 255, 0.22), transparent 55%),
+    radial-gradient(150% 95% at 50% 118%, rgba(255, 122, 60, 0.22), rgba(255, 80, 130, 0.12) 36%, transparent 72%);
+}
+.hero3d-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  mix-blend-mode: soft-light;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 0.5px, transparent 0.5px);
+  background-size: 3px 3px;
+}
+.hero3d-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 38%, transparent 52%, rgba(8, 9, 12, 0.55) 100%),
+    linear-gradient(180deg, rgba(8, 9, 12, 0.35) 0%, transparent 22%, transparent 64%, var(--bg) 99%);
+}
+html[data-theme='light'] .hero3d-vignette {
+  background:
+    radial-gradient(120% 80% at 50% 38%, transparent 56%, rgba(245, 247, 251, 0.5) 100%),
+    linear-gradient(180deg, transparent 64%, var(--bg) 99%);
+}
+
+@keyframes hero3d-drift {
+  from {
+    transform: scale(1) translateY(0);
+  }
+  to {
+    transform: scale(1.06) translateY(-1.4%);
+  }
+}
+
+.six3-scroll-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.55rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  backdrop-filter: blur(14px);
+  animation: six3-pulse-soft 3s var(--ease) infinite;
+}
+.six3-scroll-dot {
+  width: 1rem;
+  height: 1.5rem;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  position: relative;
+  opacity: 0.7;
+}
+.six3-scroll-dot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0.28rem;
+  width: 0.18rem;
+  height: 0.18rem;
+  margin-left: -0.09rem;
+  border-radius: 999px;
+  background: currentColor;
+  animation: six3-scroll-dot 1.8s var(--ease-out) infinite;
+}
+
+@keyframes six3-scroll-dot {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(0.55rem);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+}
+@keyframes six3-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.5;
   }
 }

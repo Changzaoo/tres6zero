@@ -510,7 +510,11 @@ export type TemplateCategory =
   | 'minimal_premium'
   | 'gamer_neon'
   | 'tropical'
-  | 'booth_360';
+  | 'booth_360'
+  | 'fogo'
+  | 'gelo'
+  | 'oceano'
+  | 'galaxia';
 
 export interface AppTemplate {
   id: string;

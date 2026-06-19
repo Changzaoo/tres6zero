@@ -46,6 +46,24 @@ function args(): Args {
   };
 }
 
+const RETRY_DELAYS_MS = [500, 1500, 4000, 8000, 15000];
+
+async function withRetries<T>(label: string, task: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      console.warn(`retry ${label} (${attempt + 1}/${RETRY_DELAYS_MS.length + 1}): ${error instanceof Error ? error.message : error}`);
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`${label.toUpperCase()}_FAILED`);
+}
+
 function assertNoSvgText(svg?: string) {
   if (svg && /<text\b/i.test(svg)) {
     throw new Error('TEXT_FOUND_IN_TEMPLATE_SVG');
@@ -53,10 +71,12 @@ function assertNoSvgText(svg?: string) {
 }
 
 async function ensureBuckets() {
-  await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
-  await ensurePublicBucket(SUPABASE_BUCKETS.projectMusic);
-  await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
-  await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
+  await withRetries('ensure-buckets', async () => {
+    await ensurePublicBucket(SUPABASE_BUCKETS.projectTemplates);
+    await ensurePublicBucket(SUPABASE_BUCKETS.projectMusic);
+    await ensurePublicBucket(SUPABASE_BUCKETS.userTemplates);
+    await ensurePublicBucket(SUPABASE_BUCKETS.userMusic);
+  });
 }
 
 async function mapConcurrent<T>(items: T[], concurrency: number, handler: (item: T, index: number) => Promise<void>) {
@@ -77,16 +97,17 @@ async function seedStatic(offset: number, count: number, concurrency: number) {
 
   await mapConcurrent(templates, concurrency, async (template) => {
     assertNoSvgText(template.svg);
-    await uploadBufferToSupabase({
+    const buffer = await renderTemplatePng(template.svg);
+    await withRetries(`upload ${template.id}`, () => uploadBufferToSupabase({
       bucket: SUPABASE_BUCKETS.projectTemplates,
       prefix: `generated/${template.category}`,
       fileName: `${template.id}.png`,
       fallbackExt: '.png',
-      buffer: await renderTemplatePng(template.svg),
+      buffer,
       contentType: 'image/png',
       objectPath: template.storagePath,
       upsert: true,
-    });
+    }));
     uploaded += 1;
     if (uploaded % 25 === 0 || uploaded === templates.length) {
       console.log(`static ${uploaded}/${templates.length}`);
@@ -104,16 +125,17 @@ async function seedAnimated(offset: number, count: number, animatedTotal: number
 
   await mapConcurrent(templates, 2, async (template) => {
     assertNoSvgText(template.svg);
-    await uploadBufferToSupabase({
+    const buffer = await renderAnimatedTemplateWebm(template);
+    await withRetries(`upload ${template.id}`, () => uploadBufferToSupabase({
       bucket: SUPABASE_BUCKETS.projectTemplates,
       prefix: `animated/${template.category}`,
       fileName: `${template.id}.webm`,
       fallbackExt: '.webm',
-      buffer: await renderAnimatedTemplateWebm(template),
+      buffer,
       contentType: 'video/webm',
       objectPath: template.animationStoragePath,
       upsert: true,
-    });
+    }));
     uploaded += 1;
     console.log(`animated ${uploaded}/${templates.length}`);
   });
@@ -126,7 +148,7 @@ async function seedMusic(count: number) {
   const uploaded = [];
 
   for (const track of buildGeneratedMusic(count)) {
-    const result = await uploadBufferToSupabase({
+    const result = await withRetries(`upload ${track.id}`, () => uploadBufferToSupabase({
       bucket: SUPABASE_BUCKETS.projectMusic,
       prefix: `generated/${track.category}`,
       fileName: `${track.id}.wav`,
@@ -135,7 +157,7 @@ async function seedMusic(count: number) {
       contentType: 'audio/wav',
       objectPath: track.storagePath,
       upsert: true,
-    });
+    }));
     uploaded.push(result.path);
     if (uploaded.length % 12 === 0 || uploaded.length === count) {
       console.log(`music generated ${uploaded.length}/${count}`);

@@ -938,6 +938,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   gamer_neon: 'Gamer',
   tropical: 'Tropical',
   booth_360: '360 Booth',
+  fogo: 'Fogo e Chamas',
+  gelo: 'Gelo',
+  oceano: 'Oceano',
+  galaxia: 'Galáxia',
 };
 
 function TemplatePicker({

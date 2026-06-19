@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import { CalendarDays, Download, Lock, Pencil, MapPin, Play, QrCode, Share2, Sparkles, Video } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { getEventBySlug } from '@/services/eventService';
@@ -93,8 +94,9 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface text-white">
-      <div className="mx-auto max-w-5xl border-x border-white/[0.06] min-h-screen bg-surface">
+    <div className="relative min-h-screen text-white">
+      <ImmersiveBackground variant="subtle" />
+      <div className="relative z-10 mx-auto max-w-5xl border-x border-white/[0.06] min-h-screen bg-surface">
         <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-white/[0.08] bg-surface/85 px-4 py-3 backdrop-blur-xl">
           <div className="relative h-11 w-32 shrink-0 overflow-hidden sm:h-14 sm:w-44" aria-label="SIX3">
             <img

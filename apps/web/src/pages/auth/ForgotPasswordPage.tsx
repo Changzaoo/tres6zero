@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ImmersiveBackground } from '@/components/landing/ImmersiveBackground';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle2, KeyRound, LifeBuoy, ShieldCheck, UserSearch } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, KeyRound, LifeBuoy, ShieldAlert, ShieldCheck, UserSearch } from 'lucide-react';
 import {
   getPasswordRecoveryOptions,
   setRecoveredPassword,
@@ -31,7 +32,9 @@ const passwordSchema = z.object({
 
 type IdentifyData = z.infer<typeof identifySchema>;
 type PasswordData = z.infer<typeof passwordSchema>;
-type RecoveryStep = 'identify' | 'challenge' | 'password' | 'support';
+type RecoveryStep = 'identify' | 'challenge' | 'password' | 'support' | 'locked';
+
+const MAX_RECOVERY_ATTEMPTS = 3;
 
 function normalizeIdentifier(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -41,6 +44,7 @@ function normalizeIdentifier(value: string) {
 function recoveryErrorMessage(code?: string) {
   if (code === 'RECOVERY_OPTION_MISMATCH') return 'Essa informacao não confere. Confira com calma e tente novamente.';
   if (code === 'RECOVERY_EXPIRED') return 'Essa verificacao expirou. Comece novamente para proteger sua conta.';
+  if (code === 'RECOVERY_LOCKED') return 'Recuperação bloqueada por segurança após 3 respostas erradas.';
   if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') return 'Muitas tentativas. Aguarde alguns minutos antes de tentar de novo.';
   return 'Não foi possível concluir a recuperação agora.';
 }
@@ -52,6 +56,7 @@ export default function ForgotPasswordPage() {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [resetToken, setResetToken] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [attemptsLeft, setAttemptsLeft] = useState(MAX_RECOVERY_ATTEMPTS);
 
   const identifyForm = useForm<IdentifyData>({ resolver: zodResolver(identifySchema) });
   const passwordForm = useForm<PasswordData>({ resolver: zodResolver(passwordSchema) });
@@ -62,8 +67,13 @@ export default function ForgotPasswordPage() {
       setChallenge(response);
       setSelectedOptions({});
       setResetToken('');
+      setAttemptsLeft(MAX_RECOVERY_ATTEMPTS);
       setStep('challenge');
     } catch (error: any) {
+      if (error.code === 'RECOVERY_LOCKED') {
+        setStep('locked');
+        return;
+      }
       toast.error(recoveryErrorMessage(error.code));
     }
   }
@@ -88,6 +98,14 @@ export default function ForgotPasswordPage() {
       setStep('support');
       toast.success('Verificacao concluida.');
     } catch (error: any) {
+      if (error.code === 'RECOVERY_LOCKED' || error.code === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+        setAttemptsLeft(0);
+        setStep('locked');
+        return;
+      }
+      if (error.code === 'RECOVERY_OPTION_MISMATCH') {
+        setAttemptsLeft((current) => Math.max(0, current - 1));
+      }
       toast.error(recoveryErrorMessage(error.code));
     } finally {
       setVerifying(false);
@@ -111,12 +129,14 @@ export default function ForgotPasswordPage() {
     setChallenge(null);
     setSelectedOptions({});
     setResetToken('');
+    setAttemptsLeft(MAX_RECOVERY_ATTEMPTS);
     identifyForm.reset();
     passwordForm.reset();
   }
 
   return (
-    <div className="six3-grid-bg flex min-h-screen items-center justify-center bg-surface p-4">
+    <div className="six3-grid-bg flex min-h-screen items-center justify-center p-4">
+      <ImmersiveBackground />
       <MouseAura />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -155,9 +175,24 @@ export default function ForgotPasswordPage() {
                 <div>
                   <h2 className="text-sm font-bold text-white">Confirme as informações reconhecidas</h2>
                   <p className="mt-1 text-xs leading-relaxed text-white/45">
-                    Escolha uma opção em cada verificacao. Os dados reais continuam censurados.
+                    Escolha a opção correta em cada verificacao. Mostramos pistas parciais para você reconhecer seus dados.
                   </p>
                 </div>
+              </div>
+
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
+                  attemptsLeft <= 1
+                    ? 'border-red-400/30 bg-red-500/10 text-red-100'
+                    : 'border-amber-400/25 bg-amber-500/10 text-amber-100'
+                }`}
+              >
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>
+                  {attemptsLeft > 0
+                    ? `Você tem ${attemptsLeft} ${attemptsLeft === 1 ? 'tentativa' : 'tentativas'} antes do bloqueio por segurança.`
+                    : 'Sem tentativas restantes.'}
+                </span>
               </div>
 
               <div className="space-y-3">
@@ -246,6 +281,27 @@ export default function ForgotPasswordPage() {
                 </p>
               </div>
               <Button type="button" onClick={() => navigate('/login')} className="w-full justify-center" size="lg">
+                Voltar ao login
+              </Button>
+            </div>
+          )}
+
+          {step === 'locked' && (
+            <div className="space-y-4 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-red-400/30 bg-red-500/15">
+                <ShieldAlert className="h-6 w-6 text-red-300" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Recuperação bloqueada</h2>
+                <p className="mt-2 text-sm leading-relaxed text-white/55">
+                  Você errou as verificações 3 vezes. Por segurança, tratamos isso como uma tentativa de invasão e
+                  bloqueamos novas tentativas de recuperação por enquanto.
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-white/40">
+                  Se essa conta é sua, fale com o suporte para confirmar sua identidade e liberar o acesso.
+                </p>
+              </div>
+              <Button type="button" onClick={() => navigate('/login')} className="w-full justify-center" size="lg" icon={<LifeBuoy className="h-4 w-4" />}>
                 Voltar ao login
               </Button>
             </div>
