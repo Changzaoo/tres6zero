@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronDown, Lock, Sparkles, Wand2, Zap } from 'lucide-react';
+import { Check, ChevronDown, Flame, Lock, Sparkles, Wand2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { EffectPreviewCard } from './EffectPreviewCard';
 import { getVideoEffect, videoEffects } from './effects.config';
@@ -24,12 +24,32 @@ const categoryIcon = {
   party: Zap,
   corporate: Sparkles,
   ai: Wand2,
+  aura: Flame,
+  fx_motion: Zap,
+  scene: Wand2,
+  ambient: Sparkles,
 };
 
 function formatParameterValue(value: VideoEffectConfig['parameters'][string]) {
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'boolean') return value ? 'ativo' : 'desativado';
   return String(value);
+}
+
+const EFFECT_GROUPS: { label: string; categories: VideoEffectConfig['category'][] }[] = [
+  { label: 'Clássicos & cor', categories: ['basic', 'motion', 'premium', 'party', 'corporate'] },
+  { label: '✦ Aura & energia (IA)', categories: ['aura'] },
+  { label: '✦ Movimento & clones (IA)', categories: ['fx_motion'] },
+  { label: '✦ Fundo & cenário (IA)', categories: ['scene'] },
+  { label: '✦ Ambiente & câmera', categories: ['ambient'] },
+  { label: 'IA automática', categories: ['ai'] },
+];
+
+function groupEffects(effects: readonly VideoEffectConfig[]) {
+  return EFFECT_GROUPS.map((group) => ({
+    label: group.label,
+    effects: effects.filter((effect) => group.categories.includes(effect.category)),
+  })).filter((group) => group.effects.length > 0);
 }
 
 export function EffectSelector({
@@ -46,6 +66,7 @@ export function EffectSelector({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedEffect = useMemo(() => getVideoEffect(value) || videoEffects[0], [value]);
+  const groupedEffects = useMemo(() => groupEffects(videoEffects), []);
   const hoveredEffect = hoveredId ? getVideoEffect(hoveredId) : null;
   const previewEffect = hoveredEffect || selectedEffect;
   const showPreviewPanel = !compact && !minimal;
@@ -142,63 +163,70 @@ export function EffectSelector({
                   className="min-w-0 flex-1 overflow-y-auto py-1.5"
                   style={{ maxHeight: compact || minimal ? '320px' : '360px' }}
                 >
-                  {videoEffects.map((effect) => {
-                    const Icon = categoryIcon[effect.category];
-                    const isSelected = selectedEffect.id === effect.id;
-                    const isHovered = hoveredId === effect.id;
-                    const isLocked = isEffectLocked?.(effect);
+                  {groupedEffects.map((group) => (
+                    <div key={group.label}>
+                      <p className="px-3 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/30">
+                        {group.label}
+                      </p>
+                      {group.effects.map((effect) => {
+                        const Icon = categoryIcon[effect.category];
+                        const isSelected = selectedEffect.id === effect.id;
+                        const isHovered = hoveredId === effect.id;
+                        const isLocked = isEffectLocked?.(effect);
 
-                    return (
-                      <button
-                        key={effect.id}
-                        type="button"
-                        onClick={() => handleSelect(effect)}
-                        onMouseEnter={() => setHoveredId(effect.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                        onFocus={() => setHoveredId(effect.id)}
-                        className={`flex min-h-[52px] w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
-                          isHovered
-                            ? 'bg-white/[0.09]'
-                            : isSelected
-                            ? 'bg-brand-500/[0.14]'
-                            : ''
-                        } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                      >
-                        <span
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/25"
-                          style={{ color: effect.previewStyle.accent }}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </span>
-
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-sm font-semibold leading-tight ${
-                              isSelected ? 'text-brand-200' : 'text-white'
-                            }`}
+                        return (
+                          <button
+                            key={effect.id}
+                            type="button"
+                            onClick={() => handleSelect(effect)}
+                            onMouseEnter={() => setHoveredId(effect.id)}
+                            onMouseLeave={() => setHoveredId(null)}
+                            onFocus={() => setHoveredId(effect.id)}
+                            className={`flex min-h-[52px] w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
+                              isHovered
+                                ? 'bg-white/[0.09]'
+                                : isSelected
+                                ? 'bg-brand-500/[0.14]'
+                                : ''
+                            } ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                           >
-                            {effect.name}
-                          </p>
-                          <p className="mt-0.5 truncate text-[11px] text-white/58">
-                            {effect.shortDescription}
-                          </p>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          {effect.badge && (
-                            <span className="hidden rounded-full border border-white/[0.08] bg-white/[0.05] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white/40 sm:inline">
-                              {effect.badge}
+                            <span
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/25"
+                              style={{ color: effect.previewStyle.accent }}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
                             </span>
-                          )}
-                          {isLocked ? (
-                            <Lock className="h-3.5 w-3.5 text-white/30" />
-                          ) : isSelected ? (
-                            <Check className="h-3.5 w-3.5 text-brand-300" />
-                          ) : null}
-                        </div>
-                      </button>
-                    );
-                  })}
+
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className={`text-sm font-semibold leading-tight ${
+                                  isSelected ? 'text-brand-200' : 'text-white'
+                                }`}
+                              >
+                                {effect.name}
+                              </p>
+                              <p className="mt-0.5 truncate text-[11px] text-white/58">
+                                {effect.shortDescription}
+                              </p>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {effect.badge && (
+                                <span className="hidden rounded-full border border-white/[0.08] bg-white/[0.05] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white/40 sm:inline">
+                                  {effect.badge}
+                                </span>
+                              )}
+                              {isLocked ? (
+                                <Lock className="h-3.5 w-3.5 text-white/30" />
+                              ) : isSelected ? (
+                                <Check className="h-3.5 w-3.5 text-brand-300" />
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Hover preview panel — desktop only */}

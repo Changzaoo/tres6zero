@@ -15,4 +15,8 @@ coverage
 tmp/
 uploads/
 
+# Assets do MediaPipe (motor de efeitos) — baixados via scripts/fetch-mediapipe-assets.mjs.
+# Em produção, o app cai para a CDN automaticamente; não versionamos os binários.
+apps/web/public/mediapipe/
+
 .vercel

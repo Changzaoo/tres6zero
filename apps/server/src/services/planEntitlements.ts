@@ -61,8 +61,8 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanFeature[]> = {
 };
 
 export const BASIC_EFFECTS = ['clean', 'slow_motion', 'boomerang'];
-export const POPULAR_EFFECTS = ['speed_ramp', 'cinematic', 'neon', 'party', 'luxury', 'glitch_flash', 'wedding_soft', 'corporate_sharp'];
-export const AI_EFFECTS = ['ai_auto'];
+export const POPULAR_EFFECTS = ['speed_ramp', 'cinematic', 'neon', 'party', 'luxury', 'glitch_flash', 'wedding_soft', 'corporate_sharp', 'ambient_particles', 'light_leaks', 'god_rays', 'glitch_vhs', 'beat_pulse'];
+export const AI_EFFECTS = ['ai_auto', 'aura_energy', 'rim_neon', 'speed_clones', 'ghost_echo', 'light_trails', 'freeze_background', 'background_focus', 'background_replace', 'particle_dissolve', 'portal'];
 
 export function normalizePlanId(planId?: string | null): PlanId {
   return planId === 'pro' || planId === 'unlimited' ? planId : 'starter';

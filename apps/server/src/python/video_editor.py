@@ -48,6 +48,23 @@ def effect_filters(effect):
         "glitch_flash": ["tblend=all_mode=lighten:all_opacity=0.16", "eq=contrast=1.25:saturation=1.35"],
         "wedding_soft": ["eq=contrast=0.98:saturation=1.05:brightness=0.03", "gblur=sigma=0.25"],
         "corporate_sharp": ["eq=contrast=1.08:saturation=0.92", "unsharp=5:5:0.9"],
+        # Novos efeitos com IA (aproximação color-grade, sem segmentação ML).
+        "aura_energy": ["eq=contrast=1.16:saturation=1.5:brightness=0.03", "gblur=sigma=0.4"],
+        "rim_neon": ["eq=contrast=1.16:saturation=1.5:brightness=0.03", "gblur=sigma=0.4"],
+        "speed_clones": ["tblend=all_mode=average:all_opacity=0.5", "eq=contrast=1.1:saturation=1.2"],
+        "ghost_echo": ["tblend=all_mode=average:all_opacity=0.5", "eq=contrast=1.1:saturation=1.2"],
+        "light_trails": ["tblend=all_mode=average:all_opacity=0.5", "eq=contrast=1.1:saturation=1.2"],
+        "freeze_background": ["eq=contrast=1.06:saturation=1.05"],
+        "background_focus": ["eq=contrast=1.08:saturation=1.05", "vignette=PI/4"],
+        "background_replace": ["eq=contrast=1.14:saturation=1.4:brightness=-0.02"],
+        "particle_dissolve": ["eq=contrast=1.1:saturation=0.85:brightness=0.02"],
+        "portal": ["eq=contrast=1.14:saturation=1.4:brightness=-0.02"],
+        # Novos efeitos sem ML (ambiente/câmera).
+        "ambient_particles": ["eq=contrast=1.06:saturation=1.15"],
+        "light_leaks": ["eq=contrast=1.05:saturation=1.18:brightness=0.04"],
+        "god_rays": ["eq=contrast=1.08:saturation=1.12:brightness=0.05"],
+        "glitch_vhs": ["eq=contrast=1.22:saturation=1.3", "hue=s=1.1"],
+        "beat_pulse": ["eq=contrast=1.16:saturation=1.3"],
     }
     return filters.get(effect, filters["clean"])
 
@@ -66,6 +83,23 @@ def timeline_effect_filters(effect):
         "glitch_flash": ["eq=contrast=1.25:saturation=1.35"],
         "wedding_soft": ["eq=contrast=0.98:saturation=1.05:brightness=0.03", "gblur=sigma=0.25"],
         "corporate_sharp": ["eq=contrast=1.08:saturation=0.92", "unsharp=5:5:0.9"],
+        # Novos efeitos com IA (aproximação color-grade; sem tblend, compatível com enable).
+        "aura_energy": ["eq=contrast=1.16:saturation=1.5:brightness=0.03", "gblur=sigma=0.4"],
+        "rim_neon": ["eq=contrast=1.16:saturation=1.5:brightness=0.03", "gblur=sigma=0.4"],
+        "speed_clones": ["eq=contrast=1.1:saturation=1.2"],
+        "ghost_echo": ["eq=contrast=1.1:saturation=1.2"],
+        "light_trails": ["eq=contrast=1.1:saturation=1.2"],
+        "freeze_background": ["eq=contrast=1.06:saturation=1.05"],
+        "background_focus": ["eq=contrast=1.08:saturation=1.05", "vignette=PI/4"],
+        "background_replace": ["eq=contrast=1.14:saturation=1.4:brightness=-0.02"],
+        "particle_dissolve": ["eq=contrast=1.1:saturation=0.85:brightness=0.02"],
+        "portal": ["eq=contrast=1.14:saturation=1.4:brightness=-0.02"],
+        # Novos efeitos sem ML (ambiente/câmera).
+        "ambient_particles": ["eq=contrast=1.06:saturation=1.15"],
+        "light_leaks": ["eq=contrast=1.05:saturation=1.18:brightness=0.04"],
+        "god_rays": ["eq=contrast=1.08:saturation=1.12:brightness=0.05"],
+        "glitch_vhs": ["eq=contrast=1.22:saturation=1.3", "hue=s=1.1"],
+        "beat_pulse": ["eq=contrast=1.16:saturation=1.3"],
     }
     return filters.get(effect, filters["clean"])
 

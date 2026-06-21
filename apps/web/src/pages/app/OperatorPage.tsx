@@ -20,6 +20,8 @@ import { canRenderVideoInBrowser, canUseTransparentMotionOverlay, renderVideoInB
 import { getOperatorPreferences } from '@/services/appPreferences';
 import { VIDEO_EFFECTS, hasFeature } from '@/config/plans';
 import { EffectSelector } from '@/features/effects/EffectSelector';
+import { EffectControls } from '@/features/effects/EffectControls';
+import { EffectLivePreview } from '@/features/effects/EffectLivePreview';
 import { useAudioMixSettings, MusicVolumeControls } from '@/features/music';
 import { getVideoEffect, videoEffects } from '@/features/effects/effects.config';
 import { API_URL } from '@/config/api';
@@ -37,6 +39,10 @@ type EffectSegment = {
   effect: string;
   start: number;
   end: number;
+  /** Parâmetros do efeito do motor (cor, estilo, densidade…). */
+  params?: Record<string, number | string | boolean>;
+  /** Intensidade 0..2 do efeito (controle mestre). */
+  intensity?: number;
 };
 
 const STANDALONE_EVENT_ID = 'standalone';
@@ -706,6 +712,7 @@ function VideoPreviewFrame({
   effect,
   label,
   className = '',
+  liveOverlay,
 }: {
   children?: ReactNode;
   template?: AppTemplate;
@@ -713,6 +720,8 @@ function VideoPreviewFrame({
   effect: string;
   label: string;
   className?: string;
+  /** Canvas de preview ao vivo do motor de efeitos, sobreposto sem filtro CSS. */
+  liveOverlay?: ReactNode;
 }) {
   const hasTemplate = Boolean(template);
   const content = children ? (
@@ -736,6 +745,7 @@ function VideoPreviewFrame({
           <EffectPreviewLayer effect={effect} />
         </>
       )}
+      {liveOverlay}
       <TemplateOverlayPreview template={template} opacity={templateOpacity} />
       <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-md">
         <Eye className="h-3.5 w-3.5" />
@@ -2698,7 +2708,7 @@ export default function OperatorPage() {
     const cursorStart = currentTimeInsideCut();
     const start = clamp(cursorStart, 0, Math.max(0, outputDuration - segmentSize));
     const end = Math.min(outputDuration, start + segmentSize);
-    const segment: EffectSegment = { id, effect: effectId, start, end };
+    const segment: EffectSegment = { id, effect: effectId, start, end, params: engineParamDefaults(effectId), intensity: 1 };
     setEffect(effectId);
     setEffectSegmentsDraft((current) => [...current, segment].sort((a, b) => a.start - b.start));
     setActiveEffectSegmentId(id);
@@ -2718,8 +2728,34 @@ export default function OperatorPage() {
       return;
     }
     setEffect(nextEffect);
-    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id ? { ...segment, effect: nextEffect } : segment));
+    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id
+      ? { ...segment, effect: nextEffect, params: engineParamDefaults(nextEffect), intensity: 1 }
+      : segment));
     setActiveEffectSegmentId(id);
+  }
+
+  function updateEffectSegmentParams(id: string, key: string, value: number | string | boolean) {
+    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id
+      ? { ...segment, params: { ...(segment.params || {}), [key]: value } }
+      : segment));
+  }
+
+  function updateEffectSegmentIntensity(id: string, value: number) {
+    setEffectSegmentsDraft((current) => current.map((segment) => segment.id === id
+      ? { ...segment, intensity: value }
+      : segment));
+  }
+
+  function engineParamDefaults(effectId: string): Record<string, number | string | boolean> {
+    const meta = getVideoEffect(effectId);
+    if (!meta?.engine) return {};
+    const out: Record<string, number | string | boolean> = {};
+    for (const [key, value] of Object.entries(meta.parameters)) {
+      if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+        out[key] = value;
+      }
+    }
+    return out;
   }
 
   function applyEffectSelection(nextEffect: string) {
@@ -2748,6 +2784,8 @@ export default function OperatorPage() {
       effect: nextEffect,
       start: 0,
       end: outputDuration,
+      params: engineParamDefaults(nextEffect),
+      intensity: 1,
     }]);
     setActiveEffectSegmentId(id);
     setTimelineExpanded(true);
@@ -3081,10 +3119,12 @@ export default function OperatorPage() {
         overlayOpacity: selectedTemplate ? templateOpacity : undefined,
         outputOrientation: videoOrientation || recordingOrientation,
         effect: browserEffect,
-        effectSegments: effectSegments.length > 0 ? effectSegments.map(({ effect: segmentEffect, start, end }) => ({
+        effectSegments: effectSegments.length > 0 ? effectSegments.map(({ effect: segmentEffect, start, end, params, intensity }) => ({
           effect: segmentEffect,
           start,
           end,
+          params,
+          intensity,
         })) : undefined,
         musicUrl: processingMusicUrl,
         musicTheme: rendererMusicTheme,
@@ -3850,7 +3890,26 @@ export default function OperatorPage() {
         >
           <div className="grid items-start gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
             <div className="lg:flex lg:h-full lg:min-h-0 lg:items-center lg:justify-center">
-              <VideoPreviewFrame template={selectedTemplate} templateOpacity={templateOpacity} effect={editorPreviewEffect} label="Editor" className={`${videoPreviewFrameClass} lg:h-full lg:max-h-full lg:w-auto`}>
+              <VideoPreviewFrame
+                template={selectedTemplate}
+                templateOpacity={templateOpacity}
+                effect={editorPreviewEffect}
+                label="Editor"
+                className={`${videoPreviewFrameClass} lg:h-full lg:max-h-full lg:w-auto`}
+                liveOverlay={(() => {
+                  const seg = activeEffectSegment;
+                  const meta = seg ? getVideoEffect(seg.effect) : null;
+                  if (!seg || !meta?.engine || effect === 'ai_auto') return null;
+                  return (
+                    <EffectLivePreview
+                      videoRef={previewRef}
+                      effectId={seg.effect}
+                      params={{ ...engineParamDefaults(seg.effect), ...(seg.params || {}) }}
+                      intensity={seg.intensity ?? 1}
+                    />
+                  );
+                })()}
+              >
                 <video
                   ref={previewRef}
                   src={videoUrl}
@@ -4149,6 +4208,21 @@ export default function OperatorPage() {
                   </div>
                 )}
               </div>
+
+              {/* Controles finos do efeito do motor selecionado */}
+              {activeEffectSegment && effect !== 'ai_auto' && (() => {
+                const meta = getVideoEffect(activeEffectSegment.effect);
+                if (!meta?.engine) return null;
+                return (
+                  <EffectControls
+                    effect={meta}
+                    params={{ ...engineParamDefaults(activeEffectSegment.effect), ...(activeEffectSegment.params || {}) }}
+                    intensity={activeEffectSegment.intensity ?? 1}
+                    onParamChange={(key, value) => updateEffectSegmentParams(activeEffectSegment.id, key, value)}
+                    onIntensityChange={(value) => updateEffectSegmentIntensity(activeEffectSegment.id, value)}
+                  />
+                );
+              })()}
 
               {/* Music */}
               <div className="space-y-2">

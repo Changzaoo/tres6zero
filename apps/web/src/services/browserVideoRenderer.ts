@@ -1,9 +1,16 @@
 import { normalizationFactor, type AudioMixSettings } from '@/features/music';
+import { FxEngineRunner, isEngineEffect } from '@/features/effects/engine';
+
+type RenderEffectParams = Record<string, number | string | boolean>;
 
 type RenderEffectSegment = {
   effect: string;
   start: number;
   end: number;
+  /** Parâmetros do efeito do motor (cor da aura, estilo de fundo, densidade…). */
+  params?: RenderEffectParams;
+  /** Intensidade 0..1 do efeito (controles finos). */
+  intensity?: number;
 };
 
 type LoadedAsset<T extends HTMLImageElement | HTMLVideoElement> = {
@@ -26,6 +33,10 @@ export type BrowserVideoRenderOptions = {
   trimEndSeconds?: number;
   effect?: string;
   effectSegments?: RenderEffectSegment[];
+  /** Parâmetros do efeito base (quando não há segmento ativo). */
+  effectParams?: RenderEffectParams;
+  /** Intensidade 0..1 do efeito base. */
+  effectIntensity?: number;
   overlayUrl?: string;
   animationUrl?: string;
   fallbackOverlayUrl?: string;
@@ -330,11 +341,20 @@ function normalizeEffectSegments(segments: RenderEffectSegment[] | undefined, ta
     .filter((segment) => segment.end - segment.start >= 0.05);
 }
 
-function activeEffectState(baseEffect: string, segments: RenderEffectSegment[] | undefined, elapsed: number, targetDuration: number) {
+function activeEffectState(
+  baseEffect: string,
+  baseParams: RenderEffectParams | undefined,
+  baseIntensity: number | undefined,
+  segments: RenderEffectSegment[] | undefined,
+  elapsed: number,
+  targetDuration: number,
+) {
   const segment = segments?.find((item) => elapsed >= item.start && elapsed <= item.end);
   if (segment) {
     return {
       effect: segment.effect,
+      params: segment.params || {},
+      intensity: typeof segment.intensity === 'number' ? segment.intensity : 1,
       localElapsed: Math.max(0, elapsed - segment.start),
       duration: Math.max(0.1, segment.end - segment.start),
       start: segment.start,
@@ -345,12 +365,42 @@ function activeEffectState(baseEffect: string, segments: RenderEffectSegment[] |
 
   return {
     effect: baseEffect || 'clean',
+    params: baseParams || {},
+    intensity: typeof baseIntensity === 'number' ? baseIntensity : 1,
     localElapsed: elapsed,
     duration: targetDuration,
     start: 0,
     end: targetDuration,
     segmented: false,
   };
+}
+
+/** Envelope de energia do áudio (0..1) amostrado por tempo, para efeitos beat-reactive. */
+function computeEnergyEnvelope(buffer: AudioBuffer, fps = 30) {
+  const channel = buffer.getChannelData(0);
+  const total = Math.max(1, Math.ceil(buffer.duration * fps));
+  const samplesPerBucket = Math.max(1, Math.floor(channel.length / total));
+  const env = new Float32Array(total);
+  let max = 0.0001;
+  for (let i = 0; i < total; i += 1) {
+    let sum = 0;
+    const startIdx = i * samplesPerBucket;
+    const endIdx = Math.min(channel.length, startIdx + samplesPerBucket);
+    for (let j = startIdx; j < endIdx; j += 1) {
+      sum += channel[j] * channel[j];
+    }
+    const rms = Math.sqrt(sum / Math.max(1, endIdx - startIdx));
+    env[i] = rms;
+    if (rms > max) max = rms;
+  }
+  for (let i = 0; i < total; i += 1) env[i] /= max;
+  return { env, fps };
+}
+
+function sampleEnergy(envelope: { env: Float32Array; fps: number } | null, time: number) {
+  if (!envelope) return 0;
+  const idx = Math.min(envelope.env.length - 1, Math.max(0, Math.round(time * envelope.fps)));
+  return envelope.env[idx] || 0;
 }
 
 function isTemporalEffect(effect: string) {
@@ -777,6 +827,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
   let overlayImage: LoadedAsset<HTMLImageElement> | undefined;
   let overlayVideo: LoadedAsset<HTMLVideoElement> | undefined;
   let boomerangCache: BoomerangFrameCache | undefined;
+  let fxRunner: FxEngineRunner | undefined;
   const needsAudio = Boolean(
     options.musicUrl
     || (options.musicTheme && options.musicTheme !== 'none')
@@ -840,6 +891,24 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
       sourceVideo,
     });
 
+    // Motor de efeitos criativos: ativa só quando o efeito base ou algum
+    // segmento é um efeito do motor. Carrega os modelos de ML (se preciso)
+    // antes de iniciar a gravação.
+    const engineEffectIdsUsed = [options.effect || 'clean', ...normalizedSegments.map((segment) => segment.effect)].filter(
+      (id) => isEngineEffect(id),
+    );
+    let sourceFrameCtx: CanvasRenderingContext2D | null = null;
+    let energyEnvelope: { env: Float32Array; fps: number } | null = null;
+    if (engineEffectIdsUsed.length) {
+      fxRunner = new FxEngineRunner(Array.from(new Set(engineEffectIdsUsed)));
+      const sourceFrameCanvas = document.createElement('canvas');
+      sourceFrameCanvas.width = width;
+      sourceFrameCanvas.height = height;
+      sourceFrameCtx = sourceFrameCanvas.getContext('2d');
+      energyEnvelope = loadedMusicBuffer ? computeEnergyEnvelope(loadedMusicBuffer) : null;
+      await fxRunner.prepare(width, height);
+    }
+
     const rendered = new Promise<Blob>((resolve, reject) => {
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
@@ -862,12 +931,26 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
 
     const start = performance.now();
     let previousEffect = options.effect || 'clean';
+    let lastFrameTime = start;
     recorder.start(1000);
 
     const drawFrame = () => {
-      const elapsed = (performance.now() - start) / 1000;
-      const effectState = activeEffectState(options.effect || 'clean', normalizedSegments, elapsed, targetDuration);
+      const now = performance.now();
+      const elapsed = (now - start) / 1000;
+      const dt = Math.min(0.1, Math.max(0.001, (now - lastFrameTime) / 1000));
+      lastFrameTime = now;
+      const effectState = activeEffectState(
+        options.effect || 'clean',
+        options.effectParams,
+        options.effectIntensity,
+        normalizedSegments,
+        elapsed,
+        targetDuration,
+      );
       const currentEffect = effectState.effect;
+      const engineMode = fxRunner && sourceFrameCtx && isEngineEffect(currentEffect)
+        ? fxRunner.compositeMode(currentEffect)
+        : null;
       const sourceEffectStart = trimStart + effectState.start;
       const sourceEffectEnd = Math.min(trimEnd, trimStart + effectState.end);
       options.onProgress?.(Math.min(99, Math.round((elapsed / targetDuration) * 100)));
@@ -908,19 +991,49 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
       }
 
       ctx.clearRect(0, 0, width, height);
-      ctx.filter = canvasFilter(currentEffect);
-      const cachedBoomerangFrame = currentEffect === 'boomerang' && boomerangCache
-        ? boomerangCache.frames[boomerangFrameIndex(boomerangCache, effectState.localElapsed)]
-        : undefined;
 
-      if (cachedBoomerangFrame) {
-        drawBitmapCover(ctx, cachedBoomerangFrame, width, height);
+      if (engineMode && fxRunner && sourceFrameCtx) {
+        // Efeito do motor criativo: desenha o frame cru num canvas auxiliar e
+        // deixa o módulo compor (aura, troca de fundo, partículas, etc.).
+        const sourceFrameCanvas = sourceFrameCtx.canvas;
+        sourceFrameCtx.clearRect(0, 0, width, height);
+        drawCover(sourceFrameCtx, sourceVideo, width, height);
+        if (engineMode === 'overlay') {
+          ctx.drawImage(sourceFrameCanvas, 0, 0, width, height);
+        }
+        fxRunner.renderFrame(currentEffect, {
+          ctx,
+          sourceCanvas: sourceFrameCanvas,
+          segSource: sourceFrameCanvas,
+          segWidth: width,
+          segHeight: height,
+          width,
+          height,
+          time: effectState.localElapsed,
+          globalTime: elapsed,
+          dt,
+          intensity: effectState.intensity,
+          params: effectState.params,
+          audioEnergy: sampleEnergy(energyEnvelope, elapsed),
+        });
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.filter = 'none';
       } else {
-        // No fallback ao vivo o reverso já vem do seek para trás em
-        // mapManualSourceTime; basta desenhar o frame normalmente (sem espelhar).
-        drawCover(ctx, sourceVideo, width, height);
+        ctx.filter = canvasFilter(currentEffect);
+        const cachedBoomerangFrame = currentEffect === 'boomerang' && boomerangCache
+          ? boomerangCache.frames[boomerangFrameIndex(boomerangCache, effectState.localElapsed)]
+          : undefined;
+
+        if (cachedBoomerangFrame) {
+          drawBitmapCover(ctx, cachedBoomerangFrame, width, height);
+        } else {
+          // No fallback ao vivo o reverso já vem do seek para trás em
+          // mapManualSourceTime; basta desenhar o frame normalmente (sem espelhar).
+          drawCover(ctx, sourceVideo, width, height);
+        }
+        ctx.filter = 'none';
       }
-      ctx.filter = 'none';
 
       if (overlayImage) {
         ctx.globalAlpha = Math.min(1, Math.max(0.2, options.overlayOpacity ?? 1));
@@ -934,7 +1047,9 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
         ctx.globalAlpha = 1;
       }
 
-      drawEffectOverlay(ctx, currentEffect, effectState.localElapsed, width, height);
+      if (!engineMode) {
+        drawEffectOverlay(ctx, currentEffect, effectState.localElapsed, width, height);
+      }
 
       if (elapsed >= targetDuration) {
         if (recorder.state !== 'inactive') recorder.stop();
@@ -954,6 +1069,7 @@ export async function renderVideoInBrowser(options: BrowserVideoRenderOptions) {
     sourceVideo.pause();
     overlayVideo?.element.pause();
     boomerangCache?.frames.forEach((frame) => frame.close());
+    fxRunner?.dispose();
     cleanupAudio?.();
     audioContext?.close().catch(() => undefined);
     revokeAssets([overlayImage, overlayVideo], inputUrl);

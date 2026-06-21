@@ -1,13 +1,17 @@
-import { Sparkles, Wand2, Zap } from 'lucide-react';
-import type { VideoEffectConfig } from './effects.types';
+import { Flame, Sparkles, Wand2, Zap } from 'lucide-react';
+import type { VideoEffectCategory, VideoEffectConfig } from './effects.types';
 
-const categoryIcon = {
+const categoryIcon: Record<VideoEffectCategory, typeof Sparkles> = {
   basic: Sparkles,
   motion: Zap,
   premium: Wand2,
   party: Zap,
   corporate: Sparkles,
   ai: Wand2,
+  aura: Flame,
+  fx_motion: Zap,
+  scene: Wand2,
+  ambient: Sparkles,
 };
 
 function formatParam(value: VideoEffectConfig['parameters'][string]): string {

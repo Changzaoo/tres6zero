@@ -114,6 +114,27 @@ O SIX3 integra YouTube Audio Library, Pixabay Music, Free Music Archive, Artlist
 - O backend bloqueia URLs locais/privadas e limita o tamanho do arquivo para reduzir risco de SSRF e consumo de memoria.
 - Em ambiente de teste, `MUSIC_LICENSE_TEST_MODE=true` permite importar trilhas sem comprovante/licenca formal, mas elas ficam marcadas como `Somente teste`.
 
+## Motor de efeitos criativos (IA na cena)
+
+O editor tem um motor de efeitos modular que roda no render do navegador (canvas, frame a frame). Além dos efeitos de color-grade já existentes, há uma biblioteca de efeitos criativos que **reconhecem a pessoa e o ambiente** na cena:
+
+- **Aura & energia (IA):** `Aura de energia` (estilo Dragon Ball Z, com Super Saiyajin/Kamehameha/Divino/Ultra) e `Contorno neon`.
+- **Movimento & clones (IA):** `Clones de velocidade`, `Eco fantasma`, `Rastros de luz`, `Congelar fundo`.
+- **Fundo & cenário (IA):** `Foco no sujeito`, `Trocar fundo` (espaço/fogo/neon/pôr do sol/aurora/matrix), `Dissolução em partículas` (Thanos), `Portal`.
+- **Ambiente & câmera:** `Partículas ambientais` (faíscas/neve/brasas/vaga-lumes/confete/pétalas/poeira), `Light leaks`, `God rays`, `Glitch/VHS`, `Beat pulse` (reativo à batida).
+
+Os efeitos aparecem no mesmo seletor de efeitos (agrupados por família) e têm controles finos (intensidade, cor, estilo, densidade) na barra lateral, com **preview ao vivo** sobre o vídeo do editor.
+
+A segmentação de pessoa/pose usa **MediaPipe Tasks Vision**, carregado sob demanda (só quando um efeito de IA é usado) — o bundle principal não cresce. Para deixar os modelos offline-first, rode uma vez:
+
+```bash
+npm run assets:mediapipe --workspace=@six3/web
+```
+
+Isso copia o WASM e baixa os modelos para `apps/web/public/mediapipe/` (ignorado pelo git). Em produção, se os arquivos locais não existirem, o app cai automaticamente para a CDN jsDelivr. Efeitos de IA são gateados no plano Ilimitado (`ai_auto_edit`); os de ambiente/câmera, no plano Pro (`popular_effects`). No processamento server-side (mobile/fallback), cada efeito tem uma aproximação de color-grade no FFmpeg, já que o backend não roda ML.
+
+Arquitetura: `apps/web/src/features/effects/engine/` (núcleo + `fx/` com um módulo por efeito), presets em `effectPresets/`, integração em `services/browserVideoRenderer.ts`.
+
 ## URLs uteis
 
 - Frontend local: `http://localhost:5173`
