@@ -40,7 +40,7 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   const crypto = require('crypto');
   const deviceId = crypto.randomBytes(32).toString('hex');
   // Call /api/auth/me to see server's view of the user
-  const meResp = await fetch('https://six3-m0wr.onrender.com/api/auth/me', {
+  const meResp = await fetch('https://six3-api.nexusholding.xyz/api/auth/me', {
     method: 'GET',
     headers: { Authorization: `Bearer ${idToken}`, 'X-SIX3-Device-ID': deviceId, 'X-SIX3-Device-Name': 'script' },
   });
@@ -48,7 +48,7 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   console.log('meStatus', meResp.status);
   console.log(JSON.stringify(meBody, null, 2));
 
-  const adminResp = await fetch('https://six3-m0wr.onrender.com/api/auth/admin/session', {
+  const adminResp = await fetch('https://six3-api.nexusholding.xyz/api/auth/admin/session', {
     method: 'GET',
     headers: { Authorization: `Bearer ${idToken}`, 'X-SIX3-Device-ID': deviceId, 'X-SIX3-Device-Name': 'script' },
   });

@@ -1,6 +1,6 @@
 const DEFAULT_SUNO_API_BASE_URL = 'https://api.sunoapi.org';
 const DEFAULT_SUNO_MODEL = 'V4_5ALL';
-const DEFAULT_CALLBACK_BASE_URL = 'https://six3-m0wr.onrender.com';
+const DEFAULT_CALLBACK_BASE_URL = 'https://six3-api.nexusholding.xyz';
 const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
 
 export type SunoPromptInput = {
