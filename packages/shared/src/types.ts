@@ -1,3 +1,7 @@
+// ============================================================================
+// TIPOS EXISTENTES - Mantidos para compatibilidade
+// ============================================================================
+
 export type UserRole = 'admin' | 'operator' | 'viewer';
 
 export interface UserProfile {
@@ -71,6 +75,9 @@ export interface Video {
   shares: number;
   createdAt: string;
   updatedAt: string;
+  // Hyperframes reference (new field - optional, backwards compatible)
+  hyperframesId?: string;
+  hyperframesCachePath?: string;
 }
 
 export interface Lead {
@@ -144,3 +151,14 @@ export interface DashboardStats {
   activeEvents: number;
   shareRate: number;
 }
+
+// ============================================================================
+// RE-EXPORT DOS NOVOS MÓDULOS
+// ============================================================================
+
+export * from './hyperframes.types';
+export * from './hyperframes-tracks.types';
+export * from './videouse.types';
+export * from './ai.types';
+export * from './effects.types';
+export * from './project.types';
