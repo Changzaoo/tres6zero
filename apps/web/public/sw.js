@@ -28,7 +28,7 @@ function isSameOriginAsset(url) {
 
 function isApiRequest(url) {
   return url.pathname.startsWith('/api/') || (
-    url.hostname === 'six3-m0wr.onrender.com' && url.pathname.startsWith('/api/')
+    url.hostname === 'six3-api.nexusholding.xyz' && url.pathname.startsWith('/api/')
   );
 }
 

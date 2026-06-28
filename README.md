@@ -12,7 +12,7 @@ Sistema para operacao de experiencias 360: cadastro, assinatura, acesso por plan
 - Storage de midia: Supabase Storage (`videos` e `templates`)
 - Pagamento: PixGo com QR Code Pix, copia e cola e webhook
 - Deploy frontend: Vercel
-- Deploy backend: Render (`https://six3-m0wr.onrender.com`)
+- Deploy backend: Render (`https://six3-api.nexusholding.xyz`)
 
 ## Desenvolvimento
 
@@ -47,7 +47,7 @@ Configuracao esperada:
 Variaveis na Vercel:
 
 ```text
-VITE_API_URL=https://six3-m0wr.onrender.com
+VITE_API_URL=https://six3-api.nexusholding.xyz
 VITE_FIREBASE_API_KEY=...
 VITE_FIREBASE_AUTH_DOMAIN=...
 VITE_FIREBASE_DATABASE_URL=...
@@ -73,7 +73,7 @@ npm run start --workspace=@six3/server
 Variaveis no Render:
 
 ```text
-PUBLIC_BACKEND_URL=https://six3-m0wr.onrender.com
+PUBLIC_BACKEND_URL=https://six3-api.nexusholding.xyz
 FRONTEND_URL=https://six3.nexusholding.xyz
 CORS_ORIGINS=https://six3.nexusholding.xyz
 ALLOW_VERCEL_PREVIEWS=true
@@ -91,7 +91,7 @@ OPENAI_MODEL=chat-latest
 SUNO_API_KEY=...
 SUNO_API_BASE_URL=https://api.sunoapi.org
 SUNO_MODEL=V4_5ALL
-SUNO_CALLBACK_URL=https://six3-m0wr.onrender.com/api/music/suno/callback
+SUNO_CALLBACK_URL=https://six3-api.nexusholding.xyz/api/music/suno/callback
 SIX3_SEED_SECRET=...
 PYTHON_BIN=python3
 MUSIC_REMOTE_IMPORT_MAX_MB=50
@@ -140,4 +140,4 @@ Arquitetura: `apps/web/src/features/effects/engine/` (núcleo + `fx/` com um mó
 - Frontend local: `http://localhost:5173`
 - Backend local: `http://localhost:3333`
 - Health backend: `http://localhost:3333/health`
-- Backend Render: `https://six3-m0wr.onrender.com`
+- Backend Render: `https://six3-api.nexusholding.xyz`
