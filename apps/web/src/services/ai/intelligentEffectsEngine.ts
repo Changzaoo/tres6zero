@@ -1,4 +1,4 @@
-// Intelligent Effects Engine
+﻿// Intelligent Effects Engine
 import type { IntelligentEffect, EffectTarget, AuraType, EffectPhysics, EffectCategory } from '@six3/shared/src/types';
 
 export interface AuraPreset {
@@ -29,7 +29,7 @@ export const AURA_PRESETS: Record<AuraType, AuraPreset> = {
   rainbow: { type: 'rainbow', primaryColor: { r: 255, g: 0, b: 0 }, secondaryColor: { r: 255, g: 255, b: 0 }, particleDensity: 1.0, animationSpeed: 1.4, glowIntensity: 1.7, physics: { turbulence: 0.35 } },
   custom: { type: 'custom', primaryColor: { r: 128, g: 128, b: 128 }, secondaryColor: { r: 200, g: 200, b: 200 }, particleDensity: 0.7, animationSpeed: 1.0, glowIntensity: 1.0, physics: { turbulence: 0.2 } },
 };
-}
+
 export function createEffect(params: { id: string; name: string; category: EffectCategory; target: EffectTarget; auraType?: AuraType; startFrame?: number; endFrame?: number; intensity?: number }): IntelligentEffect {
   const preset = params.auraType ? AURA_PRESETS[params.auraType] : null;
   return { id: params.id, name: params.name, description: params.auraType ? `Aura ${params.auraType}` : params.name, category: params.category, target: params.target, auraType: params.auraType, parameters: { primaryColor: preset?.primaryColor || { r: 128, g: 128, b: 128 }, secondaryColor: preset?.secondaryColor || { r: 200, g: 200, b: 200 }, density: preset?.particleDensity || 0.7, speed: preset?.animationSpeed || 1.0, glowIntensity: preset?.glowIntensity || 1.0 }, physics: { gravity: { x: 0, y: 0, z: 0 }, wind: { x: 0, y: 0, z: 0 }, turbulence: preset?.physics?.turbulence || 0.2, resistance: 0.1, collision: true, occlusion: true }, intensity: params.intensity || 1.0, startFrame: params.startFrame || 0, endFrame: params.endFrame || -1, enabled: true, visible: true, layer: 1, blendMode: 'screen', opacity: 1.0 };
@@ -40,7 +40,7 @@ export const EFFECT_PRESETS = {
   angelWings: () => createEffect({ id: 'wings', name: 'Asas de Anjo', category: 'environment', target: { type: 'person', id: '', position: { x: 0.5, y: 0.5 }, depth: 0, rotation: 0, scale: 1 }, auraType: 'angelic' }),
   cyberAura: () => createEffect({ id: 'cyber', name: 'Aura Cyberpunk', category: 'aura', target: { type: 'person', id: '', position: { x: 0.5, y: 0.5 }, depth: 0, rotation: 0, scale: 1 }, auraType: 'neon' }),
   divineGlow: () => createEffect({ id: 'divine', name: 'Brilho Divino', category: 'aura', target: { type: 'person', id: '', position: { x: 0.5, y: 0.5 }, depth: 0, rotation: 0, scale: 1 }, auraType: 'divine' }),
-  cosmicEnergy: () => createEffect({ id: 'cosmic', name: 'Energia Cósmica', category: 'aura', target: { type: 'person', id: '', position: { x: 0.5, y: 0.5 }, depth: 0, rotation: 0, scale: 1 }, auraType: 'cosmic' }),
+  cosmicEnergy: () => createEffect({ id: 'cosmic', name: 'Energia CÃ³smica', category: 'aura', target: { type: 'person', id: '', position: { x: 0.5, y: 0.5 }, depth: 0, rotation: 0, scale: 1 }, auraType: 'cosmic' }),
 };
 
 export const intelligentEffectsEngine = { auraPresets: AURA_PRESETS, presets: EFFECT_PRESETS, createEffect };
